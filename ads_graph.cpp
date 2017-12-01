@@ -77,6 +77,7 @@ int main(int argc, char **argv) {
   
   double truesq = 0.0;
   truesq = Minv_phi(phi, phi0, b, NodeList, p);
+  cout<<"Tolerance = "<<p.tol<<" True Residual = "<<truesq<<endl;
   
   DataDump(NodeList, phi, p);
   
@@ -88,8 +89,8 @@ int main(int argc, char **argv) {
 
 void DataDump(vector<Vertex> NodeList, vector<double> phi, Param p) {
 
-  int TotNumber = (endNode(p.Levels,p) + 1) * p.t;
-  int j = p.src_pos;
+  long unsigned int TotNumber = (endNode(p.Levels,p) + 1) * p.t;
+  long unsigned int j = p.src_pos;
   
   //Data file for lattice/analytical propagator data,
   //Complex positions (Poincare, UHP), etc.
@@ -104,9 +105,9 @@ void DataDump(vector<Vertex> NodeList, vector<double> phi, Param p) {
   fp1=fopen(p.fname, "w");  
   
   double norm = 0.0;
-  for(int i = 0;i < TotNumber; i++) norm += phi[i]*phi[i];
-  for(int i = 0;i < TotNumber; i++) phi[i] /= sqrt(norm);  
-  for(int i = endNode(0,p)+1; i < endNode(p.Levels,p)+1; i++) {    
+  for(long unsigned int i = 0;i < TotNumber; i++) norm += phi[i]*phi[i];
+  for(long unsigned int i = 0;i < TotNumber; i++) phi[i] /= sqrt(norm);  
+  for(long unsigned int i = endNode(0,p)+1; i < endNode(p.Levels,p)+1; i++) {    
     if(i != j && (i > endNode(p.Levels-1,p) &&  i < endNode(p.Levels,p) ) ) {
       fprintf(fp1, "%e %e %e %e %e %e %e %e %e %e %e %e %s", 
 	      atan( ( NodeList[i].z / NodeList[j].z).real() / (NodeList[i].z / NodeList[j].z).imag() ), //1 source/sink angle

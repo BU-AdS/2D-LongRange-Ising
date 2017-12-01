@@ -1,26 +1,27 @@
 .SUFFIXES:
 .SUFFIXES: .o .cpp
 #============================================================
-TARGET	=  adsrun
 
-C_SOURCES =  ads_graph.cpp 
-C_OBJS     =  ads_graph.o  
+#Your path to Eigen
+EIGEN=/usr/include/eigen3
+
+TARGET	    = adsrun
+C_SOURCES   = ads_graph.cpp 
+C_OBJS      = ads_graph.o  
 MY_INCLUDES = graph.h eigen.h
 
 CCX = g++
-CXXFLAGS = -O2 -g -Wall -std=c++11 -I./Eigen/ -I. -Wall
-
+CXXFLAGS = -O2 -g -Wall -std=c++11 -I${EIGEN} -I. -Wall -Wno-sign-compare
 
 #============================================================
 all: $(TARGET)
 
-
-ads_graph_temporal.o: $(MY_INCLUDES)
+ads_graph.o: $(MY_INCLUDES)
 
 .o:.cpp	$(MY_INCLUDES)
-	$(CCX)  -c  $(CXXFLAGS) $<  
+	$(CCX) -c $(CXXFLAGS) $<
 
-$(TARGET) :   $(C_OBJS)
+$(TARGET) : $(C_OBJS)
 	$(CCX) $(CXXFLAGS)  $^ $(LIBDIRS)  -o $@
 
 # Implicit rules: $@ = target name, $< = first prerequisite name, $^ = name of all prerequisites

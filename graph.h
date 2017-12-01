@@ -33,10 +33,6 @@ class Param{
     cout<<"TimeSlices = "<<t<<endl;
     cout<<"mass squared = "<<msqr<<endl;
   }
-
-  Param(){
-    sprintf(fname, "");
-  }
 };
 
 
@@ -66,7 +62,6 @@ struct Param{
 */
 
 struct Vertex{
-  int Number;
   int nn[Nlinks+2];
   int fwdLinks;
   complex<double> z;
@@ -374,7 +369,7 @@ void BuildGraph(Graph &NodeList, Param P){
     }
     
     //Populate temporal links on t=0 disk
-    for(int n=0; n<endNode(Levels,P)+1; n++) {
+    for(long unsigned int n=0; n<endNode(Levels,P)+1; n++) {
       //Fwd link
       NodeList[n].nn[q  ] = n + offset;
       //Bkd link
@@ -383,7 +378,7 @@ void BuildGraph(Graph &NodeList, Param P){
     
     //Construct disks and t links for 0 < t < T
     for(int t=1; t<T; t++)
-      for(int n=0; n<endNode(Levels,P)+1; n++) {
+      for(long unsigned int n=0; n<endNode(Levels,P)+1; n++) {
 	for(int i=0; i<q; i++) {
 	  NodeList[(t-1)*offset + n].nn[i] == -1 ?
 	    NodeList[t*offset + n].nn[i] = -1 : 
@@ -398,7 +393,7 @@ void BuildGraph(Graph &NodeList, Param P){
     
     //Correct forward t links for t = T-1
     int t=T-1;
-    for(int n=0; n<endNode(Levels,P)+1; n++) {
+    for(long unsigned int n=0; n<endNode(Levels,P)+1; n++) {
       NodeList[t*offset + n].nn[q] = n;
     }
   }
@@ -524,7 +519,7 @@ void BuildGraph(Graph &NodeList, Param P){
     }
     
     //Populate temporal links on t=0 disk
-    for(int n=0; n<endNode(Levels,P)+1; n++) {
+    for(long unsigned int n=0; n<endNode(Levels,P)+1; n++) {
       //Fwd link
       NodeList[n].nn[q  ] = n + offset;
       //Bkd link
@@ -533,7 +528,7 @@ void BuildGraph(Graph &NodeList, Param P){
     
     //Construct disks and t links for 0 < t < T
     for(int t=1; t<T; t++)
-      for(int n=0; n<endNode(Levels,P)+1; n++) {
+      for(long unsigned int n=0; n<endNode(Levels,P)+1; n++) {
 	for(int i=0; i<q; i++) {
 	  NodeList[(t-1)*offset + n].nn[i] == -1 ?
 	    NodeList[t*offset + n].nn[i] = -1 : 
@@ -548,7 +543,7 @@ void BuildGraph(Graph &NodeList, Param P){
     
     //Correct forward t links for t = T-1
     int t=T-1;
-    for(int n=0; n<endNode(Levels,P)+1; n++) {
+    for(long unsigned int n=0; n<endNode(Levels,P)+1; n++) {
       NodeList[t*offset + n].nn[q] = n;
     }
   }
@@ -693,12 +688,11 @@ void BooleanCheck(Graph &NodeList, Graph &AuxNodeList, Param P){
   int Levels = P.Levels;
   int T = P.t;
   
-  for(int n=0; n< T*(endNode(Levels,P)+1); n++) {
+  for(long unsigned int n=0; n< T*(endNode(Levels,P)+1); n++) {
     for(int m=0; m<q+2; m++) {
       //Check that the link is valid
       if(NodeList[n].nn[m] != -1) {
 	for(int p=0; p<q+2; p++) {
-	  //cout<<"Node: "<<n<<"Link: "<<m<<"     Node:"<<NodeList[n].nn[m]<<" Link:"<<p<<endl;
 	  //Loop over all links on the linked node,
 	  //check if original node exists. 
 	  if( n == NodeList[ NodeList[n].nn[m] ].nn[p] ) {
@@ -727,14 +721,14 @@ void PrintNodeTables(const vector<Vertex> NodeList, Param P) {
       for(int i = 0; i < q+2; i++) cout << NodeList[offset + 0].nn[i] << "  ";
     }      
     else {
-      for(int n = 0; n < endNode(0,P)+1; n++) {
+      for(long unsigned int n = 0; n < endNode(0,P)+1; n++) {
 	cout << endl<< " Node number = " << n + offset << " FL="<<NodeList[n].fwdLinks<<" : ";
 	for(int i = 0; i < q+2; i++) cout << NodeList[offset + n].nn[i] << "  ";
       } 
     }
     for(int lev = 1; lev < Levels+1; lev++)  {
       cout << endl << "lev = " << lev << "  T = " << t << endl;
-      for(int n = endNode(lev-1,P)+1; n < endNode(lev,P)+1; n++) {
+      for(long unsigned int n = endNode(lev-1,P)+1; n < endNode(lev,P)+1; n++) {
 	cout << endl<< " Node number = " << n + offset << " FL="<<NodeList[n].fwdLinks<<" : ";
 	for(int i = 0; i < q+2; i++) cout << NodeList[offset + n].nn[i] << "  ";
       }
@@ -748,7 +742,7 @@ void PrintComplexPositions(const vector<Vertex> NodeList, Param P) {
   int Levels = P.Levels;
   
   if(P.verbose) cout<<endl<<"#Printing for Level 0"<<endl;
-  for(int n=0; n<endNode(0,P)+1; n++) {
+  for(long unsigned int n=0; n<endNode(0,P)+1; n++) {
     if(P.verbose) {
       cout<<"n="<<n<<" z="<<NodeList[n].z.real()<<","<<NodeList[n].z.imag();
       cout<<" |z|="<<abs(NodeList[n].z)<<" phi="<<arg(NodeList[n].z);
@@ -756,7 +750,7 @@ void PrintComplexPositions(const vector<Vertex> NodeList, Param P) {
   }
   for(int l=1; l<Levels+1; l++) {
     if(P.verbose) cout<<endl<<"Printing for Level "<<l<<endl;
-    for(int n=endNode(l-1,P)+1; n<endNode(l,P)+1; n++) {
+    for(long unsigned int n=endNode(l-1,P)+1; n<endNode(l,P)+1; n++) {
       if(P.verbose) {
 	cout<<"n="<<n<<" z="<<NodeList[n].z.real()<<","<<NodeList[n].z.imag();
 	cout<<" |z|="<<abs(NodeList[n].z)<<" phi="<<arg(NodeList[n].z);
@@ -848,7 +842,7 @@ void CheckEdgeLength(const vector<Vertex> NodeList, Param P) {
   
   for(int lev = 1; lev < Levels+1; lev++)  {
     if(P.verbose) cout<<endl<<endl<<" lev = "<<lev<<endl;      
-    for(int n = endNode(lev-1,P) + 1;n < endNode(lev,P) + 1 ;n++) {
+    for(long unsigned int n = endNode(lev-1,P) + 1;n < endNode(lev,P) + 1 ;n++) {
       if(P.verbose) cout<<endl<<" Node number = "<<n<<":"<<endl;
       sig += pow( length_0 - d12(NodeList[n].z, NodeList[NodeList[n].nn[q-1]].z), 2);
       

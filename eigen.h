@@ -121,15 +121,13 @@ int Mphi_ev(vector<Vertex> NodeList, Param p )
   dMatrix evals = eigsolve_real.eigenvalues();
   std::cout << "The eigenvalues are:\n";
   
-  /*
   FILE *fp;
   fp=fopen("test.dat", "w");
   for(int i=0; i<length; i++) {
     std::cout << i << " " << evals(i) << std::endl;
-    fprintf(fp, "%d %f\n", i, evals(i) );
+    //fprintf(fp, "%d %f\n", i, evals(i) );
   }
   fclose(fp);
-  */
   
   // Print the eigenvectors if the matrix is small enough.
   // As a remark, this also shows you how to access the eigenvectors. 
