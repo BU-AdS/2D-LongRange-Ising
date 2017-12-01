@@ -1,14 +1,14 @@
 .SUFFIXES:
 .SUFFIXES: .o .cpp
 #============================================================
-TARGET	=  adsrun_temporal
+TARGET	=  adsrun
 
-C_SOURCES =  ads_graph_temporal.cpp 
-C_OBJS     =  ads_graph_temporal.o  
+C_SOURCES =  ads_graph.cpp 
+C_OBJS     =  ads_graph.o  
 MY_INCLUDES = graph.h eigen.h
 
 CCX = g++
-CXXFLAGS = -O2 -g -Wall -std=c++11 -I./Eigen/ -I.
+CXXFLAGS = -O2 -g -Wall -std=c++11 -I./Eigen/ -I. -Wall
 
 
 #============================================================
@@ -35,9 +35,7 @@ clean:
 	rm -f $(TARGET) $(C_OBJS) core *.~*~
 
 tar: $(ALL_SOURCES) $(NOTES)
-	tar cvf $(TARGET).tar $(ALL_SOURCES) test.p $(NOTES)
+	tar cvf $(TARGET).tar $(ALL_SOURCES) $(NOTES)
 
 $(TARGET).ps: $(ALL SOURCES)
 	enscript -pcode.ps $(ALL_SOURCES)
-
-
