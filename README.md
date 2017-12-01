@@ -6,7 +6,7 @@ the following functionalities for the Laplace operator:
 1. Lattice action
 2. CG inverter (propagator)
 3. Eigensolver
-4. Various hypergeometric utilities
+4. Various hypergeometric and debug utilities
 
 Stay tuned for the addition of a cluster algorithm for simulations.
 
