@@ -1,6 +1,7 @@
 #ifndef ALG_H
 #define ALG_H
 #include <complex>
+#include <cstring>
 
 using namespace std;
 
@@ -9,13 +10,16 @@ using namespace std;
 #define I complex<double>(0.0,1.0)
 
 class Param{
- public:  
+
+ public:
+
+  int q = Nlinks;
+  
   bool bc = false;       //if true, use Dirichlet. If false, use Neumann
   bool Vcentre = true;  //if true, place vertex at centre. If false, use circumcentre.
-  bool verbose = false;  //if true, print all data. If false, print summary.
+  bool verbosity = false;  //if true, print all data. If false, print summary.
   int MaxIter = 100000;
   double tol = pow(10,-6);
-  int q = Nlinks;
   int t = 1;
   double msqr = 0.1;
   int Levels = 3;
@@ -24,15 +28,57 @@ class Param{
   
   void print(){
     cout<<"Parameter status:"<<endl;
+    cout<<"Triangulation = "<<q<<endl;
     cout<<"B.C. = "<< (bc ? ("Dirichlet") : ("Neumann") ) << endl;
     cout<<"Centre = "<< (Vcentre ? ("Vertex") : ("Circum") ) << endl;
-    cout<<"Levels = "<<Levels<<endl;
     cout<<"MaxIter = "<<MaxIter<<endl;
     cout<<"Tol = "<<tol<<endl;
-    cout<<"Triangulation = "<<q<<endl;
-    cout<<"TimeSlices = "<<t<<endl;
-    cout<<"mass squared = "<<msqr<<endl;
+    cout<<"TimeSlices = "<<t<<endl;   
+    cout<<"Mass squared = "<<msqr<<endl;
+    cout<<"Levels = "<<Levels<<endl;
+    cout<<"Source Position = "<<src_pos<<endl;
   }
+  
+  void init(int argc, char **argv) {
+    
+    std::string BC(argv[1]);
+    if (BC == "D" || BC == "d") {
+      bc = true;
+    } else if (BC == "N" || BC == "n") {
+      bc = false;
+    } else {
+      cout<<"Invalid boundary condition given. Use D/d for Dirichlet or N/n for Neumann."<<endl;
+      exit(0);
+    }
+    
+    std::string Centre(argv[2]);
+    if (Centre == "V" || Centre == "v") {
+      Vcentre = true;
+    } else if (Centre == "C" || Centre == "c") {
+      Vcentre = false;
+    } else {
+      cout<<"Invalid centre condition given. Use V/v for Vertexcentred or C/c for Circumcentred."<<endl;
+      exit(0);
+    }
+
+    std::string verbose(argv[3]);
+    if (verbose == "verbose") {
+      verbosity = true;
+    } else if(verbose ==  "quiet") {
+      verbosity = false;
+    } else {
+      cout<<"Invalid Verbosity conditions given. Use verbose/quiet"<<endl;
+      exit(0);
+    }
+
+    MaxIter = atoi(argv[4]);
+    tol     = atof(argv[5]);
+    t       = atoi(argv[6]);    
+    msqr    = atof(argv[7]);
+    Levels  = atoi(argv[8]);
+    src_pos = atoi(argv[9]);
+    
+  }    
 };
 
 
@@ -253,12 +299,12 @@ void GetComplexPositions(Graph &NodeList, Param& P){
       if(abs(NodeList[n].z) > (1-fac)*lower + i*width && abs(NodeList[n].z) < (1-fac)*lower + (i+1)*width ) {
 	arr[i]++;
 	count++;
-	if(P.verbose) cout<<abs(NodeList[n].z)<<endl;
+	if(P.verbosity) cout<<abs(NodeList[n].z)<<endl;
       }
   }
   cout<<endl;
   for(int i=0; i<N; i++) {
-    if(P.verbose) cout<<arr[i]<<" ";
+    if(P.verbosity) cout<<arr[i]<<" ";
     if(arr[i] != 0) distinct++;
   }
   cout<<endl<<"Count = "<<count<<endl;
@@ -631,7 +677,7 @@ double Minv_phi(vector<double> &phi, const vector<double> phi0,
   bsqrt = sqrt(bsqrt);
   
   int maxIter = P.MaxIter;
-  double resEpsilon = 0.000001;
+  double resEpsilon = P.tol;
   // iterate till convergence
   rsqNew = 100.0;
   int k = 0;
@@ -741,17 +787,17 @@ void PrintComplexPositions(const vector<Vertex> NodeList, Param P) {
 
   int Levels = P.Levels;
   
-  if(P.verbose) cout<<endl<<"#Printing for Level 0"<<endl;
+  if(P.verbosity) cout<<endl<<"#Printing for Level 0"<<endl;
   for(long unsigned int n=0; n<endNode(0,P)+1; n++) {
-    if(P.verbose) {
+    if(P.verbosity) {
       cout<<"n="<<n<<" z="<<NodeList[n].z.real()<<","<<NodeList[n].z.imag();
       cout<<" |z|="<<abs(NodeList[n].z)<<" phi="<<arg(NodeList[n].z);
     }
   }
   for(int l=1; l<Levels+1; l++) {
-    if(P.verbose) cout<<endl<<"Printing for Level "<<l<<endl;
+    if(P.verbosity) cout<<endl<<"Printing for Level "<<l<<endl;
     for(long unsigned int n=endNode(l-1,P)+1; n<endNode(l,P)+1; n++) {
-      if(P.verbose) {
+      if(P.verbosity) {
 	cout<<"n="<<n<<" z="<<NodeList[n].z.real()<<","<<NodeList[n].z.imag();
 	cout<<" |z|="<<abs(NodeList[n].z)<<" phi="<<arg(NodeList[n].z);
 	cout<<endl;
@@ -772,7 +818,7 @@ void CheckArea(const vector<Vertex> NodeList, Param P) {
   double sig2 = 0.0;
   int count = 0;
 
-  if(P.verbose) cout<<endl<<"Checking boundary areas"<<endl;
+  if(P.verbosity) cout<<endl<<"Checking boundary areas"<<endl;
   for(long unsigned int n=endNode(P.Levels-2,P) + 1; n<endNode(P.Levels-1,P)+1; n++) {
     for(int k=0; k<NodeList[n].fwdLinks; k++) {
       length_01 = d12(NodeList[n].z, NodeList[NodeList[n].nn[k+1]].z);
@@ -790,7 +836,7 @@ void CheckArea(const vector<Vertex> NodeList, Param P) {
       length_01 = d12(NodeList[n].z, NodeList[NodeList[n].nn[k+1]].z);
       length_02 = d12(NodeList[n].z, NodeList[NodeList[n].nn[k+2]].z);
       length_12 = d12(NodeList[NodeList[n].nn[k+1]].z, NodeList[NodeList[n].nn[k+2]].z);      
-      if(P.verbose) cout<<"n="<<n<<" area "<<k+1<<" = "<<areaGeneral(P, length_01, length_02, length_12)<<endl;
+      if(P.verbosity) cout<<"n="<<n<<" area "<<k+1<<" = "<<areaGeneral(P, length_01, length_02, length_12)<<endl;
       sig1 += pow(equi_area - areaGeneral(P, length_01, length_02, length_12),2);
       sig2 += pow(ave       - areaGeneral(P, length_01, length_02, length_12),2);
     }
@@ -822,35 +868,35 @@ void CheckEdgeLength(const vector<Vertex> NodeList, Param P) {
 
   //Level 0 is specific to how the graph is centred.
   if(Vcentre) {
-    if(P.verbose) cout<<" lev =  " << 0 << endl;
-    if(P.verbose) cout<<endl<<" Node number = "<<0<<" : "<<endl;
+    if(P.verbosity) cout<<" lev =  " << 0 << endl;
+    if(P.verbosity) cout<<endl<<" Node number = "<<0<<" : "<<endl;
     for(int i = 0; i < q; i++){
       nn_node = NodeList[0].nn[i];
       length = d12(NodeList[0].z, NodeList[nn_node].z);
-      if(P.verbose) cout<<" "<<NodeList[0].nn[i]<<" > "<<length<<"  ";
+      if(P.verbosity) cout<<" "<<NodeList[0].nn[i]<<" > "<<length<<"  ";
     }
   }
   else {
-    if(P.verbose) cout<<" lev = "<<0<<endl;
-    if(P.verbose) cout<<endl<<" Node number = "<<0<<" : "<<endl;
+    if(P.verbosity) cout<<" lev = "<<0<<endl;
+    if(P.verbosity) cout<<endl<<" Node number = "<<0<<" : "<<endl;
     for(int i = 0; i < 2; i++){
       nn_node = NodeList[0].nn[i];
       length = d12(NodeList[0].z, NodeList[nn_node].z);
-      if(P.verbose) cout << NodeList[0].nn[i] << " >  " << length<< "  ";
+      if(P.verbosity) cout << NodeList[0].nn[i] << " >  " << length<< "  ";
     }
   }
   
   for(int lev = 1; lev < Levels+1; lev++)  {
-    if(P.verbose) cout<<endl<<endl<<" lev = "<<lev<<endl;      
+    if(P.verbosity) cout<<endl<<endl<<" lev = "<<lev<<endl;      
     for(long unsigned int n = endNode(lev-1,P) + 1;n < endNode(lev,P) + 1 ;n++) {
-      if(P.verbose) cout<<endl<<" Node number = "<<n<<":"<<endl;
+      if(P.verbosity) cout<<endl<<" Node number = "<<n<<":"<<endl;
       sig += pow( length_0 - d12(NodeList[n].z, NodeList[NodeList[n].nn[q-1]].z), 2);
       
       for(int i = 0; i <q; i++){
 	nn_node = NodeList[n].nn[i];
 	if(NodeList[n].nn[i] != -1 ) {
 	  length = d12(NodeList[n].z, NodeList[nn_node].z);
-	  if(P.verbose) {
+	  if(P.verbosity) {
 	    cout<<" to "<<NodeList[n].nn[i]<<" = "<<length<<" ";
 	    if(abs(length - length_0)/length_0 > tol) cout<<"<-! "<<endl;
 	    else cout<<"    "<<endl;

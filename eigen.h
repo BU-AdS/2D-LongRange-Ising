@@ -33,21 +33,12 @@ int Mphi_ev(vector<Vertex> NodeList, Param p )
   double *in_real;
   double *out_real;
   int Levels = p.Levels;
-  int q = p.q;
   int length = p.t*(endNode(Levels,p)+1);
   vector<double> phi(length,0.0);
   vector<double> phi0(length,0.0); 
   // Set output precision to be long.
   cout << setprecision(10);
 
-  // Basic information about the lattice.
-  //const int length = 8;
-  //const double m_sq = 0.001;
-
-  // Print the basic info.
-  // std::cout << "1D Laplace operator, length " << length << ", mass squared " << m_sq << ", zero boundary conditions.\n";
-  //  std::cout << "Change the length and mass by modifying the source.\n";
-  
   // Allocate.
   in_real = new double[length];
   out_real = new double[length];
@@ -64,11 +55,8 @@ int Mphi_ev(vector<Vertex> NodeList, Param p )
 
   std::cout << "Real, Symmetric case.\n";
   std::cout << "NeV Requested = " << length << "\n";
-  std::cout << "Triangulation = " << q << "\n";
-  std::cout << "Levels = " << Levels << "\n";
-  std::cout << "Timeslices = " << p.t << "\n\n";
-
-   
+  p.print();
+  
   // Allocate a sufficiently gigantic matrix.
   dMatrix mat_real = dMatrix::Zero(length, length);
 
@@ -117,15 +105,23 @@ int Mphi_ev(vector<Vertex> NodeList, Param p )
   // Print the eigenvalues.
   //std::cout << "The " << length <<" eigenvalues are:\n" << eigsolve_real.eigenvalues() << "\n\n";
   
-  // Print the eigenvalues.
+
   dMatrix evals = eigsolve_real.eigenvalues();
-  std::cout << "The eigenvalues are:\n";
   
   FILE *fp;
-  fp=fopen("test.dat", "w");
+  char efname[256];
+  sprintf(efname, "%d_EV_q%d_Lev%d_T%d_msqr%.3f_src%d_%s_%s.dat",
+	  length, 
+	  p.q,
+	  p.Levels, 
+	  p.t, 
+	  p.msqr,
+	  p.src_pos,
+	  p.bc == true ? "Dirichlet" : "Neumann",
+	  p.Vcentre == true ? "Vertex" : "Circum");
+  fp=fopen(efname, "w");
   for(int i=0; i<length; i++) {
-    std::cout << i << " " << evals(i) << std::endl;
-    //fprintf(fp, "%d %f\n", i, evals(i) );
+    fprintf(fp, "%d %f\n", i, evals(i) );
   }
   fclose(fp);
   

@@ -3,7 +3,7 @@
 #include <complex>
 #include <cmath>
 #include <vector>
-#include <string>
+#include <cstring>
 #include "graph.h"
 #include "eigen.h"
 using namespace std;
@@ -11,33 +11,11 @@ using namespace std;
 void DataDump(vector<Vertex> NodeList, vector<double> phi, Param p);
 
 int main(int argc, char **argv) {
-  
+
   Param p;
-  if(argc > 1) {
-    p.Levels = atoi(argv[1]);
-    p.t      = atoi(argv[2]);
-    p.msqr   = atof(argv[3]);
-    std::string BC(argv[4]);
-    if (BC == "D" || BC == "d") {
-      p.bc = true;
-    } else if (BC == "N" || BC == "n") {
-      p.bc = false;
-    } else {
-      cout<<"Invalid boundary conditions given. Use D/d for Dirichlet or N/n for Neumann."<<endl;
-      return 0;
-    }
-    std::string Centre(argv[5]);
-    if (Centre == "V" || Centre == "v") {
-      p.Vcentre = true;
-    } else if (Centre == "C" || Centre == "c") {
-      p.Vcentre = false;
-    } else {
-      cout<<"Invalid Centre conditions given. Use V/v for Vertex-centred or C/c for Circumcentred."<<endl;
-      return 0;
-    }
-  }
+  if(argc > 1) p.init(argc, argv);
   p.print();
-  
+   
   int TotNumber = (endNode(p.Levels,p) + 1) * p.t;  
   vector<Vertex> NodeList(TotNumber);
   vector<Vertex> AuxNodeList(TotNumber);
@@ -71,18 +49,19 @@ int main(int argc, char **argv) {
   vector<double> phi(TotNumber,0.0);
   vector<double> phi0(TotNumber,0.0);  
   
-  //Create point source.
-  p.src_pos = endNode(p.Levels-1,p) + 1;
+  if(p.src_pos < 0 || p.src_pos > TotNumber) {
+    cout<<"ERROR: Source Position must be g.e. 0 and l.e. "<<TotNumber-1<<endl;
+    exit(0);
+  }
+  
   b[p.src_pos] = 1.0;
   
   double truesq = 0.0;
   truesq = Minv_phi(phi, phi0, b, NodeList, p);
-  cout<<"Tolerance = "<<p.tol<<" True Residual = "<<truesq<<endl;
-  
+  cout<<"Tolerance = "<<p.tol<<" True Residual = "<<sqrt(truesq)<<endl;  
   DataDump(NodeList, phi, p);
   
-  Mphi_ev(NodeList, p);
-  //eigenLaplace();
+  //Mphi_ev(NodeList, p);
   
   return 0;
 }
@@ -95,10 +74,12 @@ void DataDump(vector<Vertex> NodeList, vector<double> phi, Param p) {
   //Data file for lattice/analytical propagator data,
   //Complex positions (Poincare, UHP), etc.
   if(strncmp(p.fname, "", 1) == 0) 
-    sprintf(p.fname, "Lev%d_T%d_msqr%.3f_%s_%s.dat", 
+    sprintf(p.fname, "q%d_Lev%d_T%d_msqr%.3f_src%d_%s_%s.dat",
+	    p.q,
 	    p.Levels, 
 	    p.t, 
-	    p.msqr, 
+	    p.msqr,
+	    p.src_pos,
 	    p.bc == true ? "Dirichlet" : "Neumann",
 	    p.Vcentre == true ? "Vertex" : "Circum");
   FILE *fp1;
