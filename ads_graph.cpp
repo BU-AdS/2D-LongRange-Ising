@@ -4,8 +4,11 @@
 #include <cmath>
 #include <vector>
 #include <cstring>
-#include "graph.h"
-#include "eigen.h"
+#include <util.h>
+#include <graph.h>
+#include <cg.h>
+#include <eigen.h>
+
 using namespace std;
 
 void DataDump(vector<Vertex> NodeList, vector<double> phi, Param p);

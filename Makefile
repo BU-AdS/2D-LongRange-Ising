@@ -8,7 +8,7 @@ EIGEN=/usr/include/eigen3
 TARGET	    = adsrun
 C_SOURCES   = ads_graph.cpp 
 C_OBJS      = ads_graph.o  
-MY_INCLUDES = graph.h eigen.h
+MY_INCLUDES = graph.h util.h cg.h eigen.h
 
 CCX = g++
 CXXFLAGS = -O2 -g -Wall -std=c++11 -I${EIGEN} -I. -Wall -Wno-sign-compare
