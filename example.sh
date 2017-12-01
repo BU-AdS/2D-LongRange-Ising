@@ -9,14 +9,14 @@ BC='d'
 #v=vertex centred, c=circumcentred.
 CENTRE='v'
 
-#verbose,quiet
-VERBOSITY='verbose'
+#v=verbose,q=quiet
+VERBOSITY='q'
 
 MAX_ITER=100000
 TOL=1e-10
 TIMESLICES=1
 MASS_SQUARED=0.0
-LEVELS=9
+LEVELS=7
 SRC_POS=20
 
 ./adsrun ${BC} ${CENTRE} ${VERBOSITY} \
