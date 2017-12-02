@@ -16,8 +16,9 @@ int main(int argc, char **argv) {
 
   Param p;
   if(argc > 1) p.init(argc, argv);
+  if(p.src_pos < 0) p.src_pos = endNode(p.Levels-1,p) + (endNode(p.Levels,p) - endNode(p.Levels-1,p) )/2;
   p.print();
-   
+  
   int TotNumber = (endNode(p.Levels,p) + 1) * p.t;
 
   //Object to hold index positions of vertices
@@ -66,7 +67,7 @@ int main(int argc, char **argv) {
   cout<<"Tolerance = "<<p.tol<<" True Residual = "<<sqrt(truesq)<<endl;  
   DataDump(NodeList, phi, p);
   
-  //Mphi_ev(NodeList, p);
+  Mphi_ev(NodeList, p);
   
   return 0;
 }

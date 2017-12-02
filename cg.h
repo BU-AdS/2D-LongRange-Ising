@@ -17,16 +17,18 @@ int Mphi(vector<double> &phi, const vector<double> phi0,
   int InternalNodes = endNode(Levels-1,P)+1;
   int TotNumber = endNode(Levels,P)+1;
   int offset = TotNumber;
+  int T_offset = 0;
+  T == 1 ? T_offset = 0 : T_offset = 2;
   
   for(int t = 0; t<T; t++) {
 
-    //loop over Interior nodes on all disks    
+    //loop over interior nodes on all disks    
     for(int i = t*offset; i < t*offset + InternalNodes; i++) {
-      //cout<<"interior i="<<i<<" t="<<t<<endl;
+      
       //mass term
       phi[i] = msqr * phi0[i];    
       
-      for(int mu = 0; mu < q+2; mu++) {
+      for(int mu = 0; mu < q+T_offset; mu++) {
 	phi[i] += (phi0[i] - phi0[NodeList[i].nn[mu]]);
       }
     }
@@ -37,21 +39,31 @@ int Mphi(vector<double> &phi, const vector<double> phi0,
       //cout<<"Exterior i="<<i<<" t="<<t<<endl;
       //mass term
       phi[i] = msqr * phi0[i];
-      if(bc == true) phi[i] += q * phi0[i];
+      //if(bc == true) phi[i] += q * phi0[i];
       
-      //the zeroth link is always on the same level
-      if(bc == true) phi[i] +=  - phi0[NodeList[i].nn[0]];
-      else           phi[i] += phi0[i]- phi0[NodeList[i].nn[0]];
+      //the zeroth link is always on the same level.
+      phi[i] += phi0[i] - phi0[NodeList[i].nn[0]];
       
-      //The q-1 (and q-2) link(s) go back one level. 
-      //The q-3 (or q-2) link is on the same level.
-      //We use the member data fwdLinks to sum only links on
-      //the same level, or gong back one level. 
+      //The q-1 (and q-2) link(s) go back one level,
+      //the q-3 (or q-2) link is on the same level. These
+      //links are always computed in the same way.
       for(int mu = q-1; mu > (NodeList[i].fwdLinks); mu--) {
-	if(bc == true) phi[i] +=  - phi0[NodeList[i].nn[mu]];
-	else           phi[i] += phi0[i] - phi0[NodeList[i].nn[mu]];
-      }
+	phi[i] += phi0[i] - phi0[NodeList[i].nn[mu]];
+      }      
 
+      //We use the member data fwdLinks to apply the boundary
+      //condition. For Dirichlet, the field value is 0. For
+      //Neumann, the derivative is zero.
+      for(int mu = NodeList[i].fwdLinks; mu > 0; mu--) {
+	if(bc == true) {
+	  //Apply Dirchlet BC.
+	  phi[i] += phi0[i];
+	} else {
+	  //Apply Neumann
+	  phi[i] += 0.0;
+	}
+      }
+      
       //Temporal links at exterior
       if(T>1) {
 	for(int mu = q; mu < q+2; mu++) {

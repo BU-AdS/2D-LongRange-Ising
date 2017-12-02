@@ -110,7 +110,7 @@ int Mphi_ev(vector<Vertex> NodeList, Param p )
   
   FILE *fp;
   char efname[256];
-  sprintf(efname, "%d_EV_q%d_Lev%d_T%d_msqr%.3f_src%d_%s_%s.dat",
+  sprintf(efname, "EV%d_q%d_Lev%d_T%d_msqr%.3e_src%d_%s_%s.dat",
 	  length, 
 	  p.q,
 	  p.Levels, 
@@ -121,7 +121,7 @@ int Mphi_ev(vector<Vertex> NodeList, Param p )
 	  p.Vcentre == true ? "Vertex" : "Circum");
   fp=fopen(efname, "w");
   for(int i=0; i<length; i++) {
-    fprintf(fp, "%d %f\n", i, evals(i) );
+    fprintf(fp, "%d %.16e\n", i, evals(i) );
   }
   fclose(fp);
   

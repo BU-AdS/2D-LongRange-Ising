@@ -1,4 +1,4 @@
-#ifndef UTILH
+#ifndef UTIL_H
 #define UTIL_H
 #include <complex>
 #include <cstring>
@@ -77,7 +77,6 @@ class Param{
     msqr    = atof(argv[7]);
     Levels  = atoi(argv[8]);
     src_pos = atoi(argv[9]);
-    
   }    
 };
 
@@ -492,12 +491,16 @@ void CheckEdgeLength(const vector<Vertex> NodeList, Param P) {
 void DataDump(vector<Vertex> NodeList, vector<double> phi, Param p) {
 
   long unsigned int TotNumber = (endNode(p.Levels,p) + 1) * p.t;
+  double norm = 0.0;
+  for(long unsigned int i = 0;i < TotNumber; i++) norm += phi[i]*phi[i];
+  for(long unsigned int i = 0;i < TotNumber; i++) phi[i] /= sqrt(norm); 
+  
   long unsigned int j = p.src_pos;
   
   //Data file for lattice/analytical propagator data,
   //Complex positions (Poincare, UHP), etc.
   if(strncmp(p.fname, "", 1) == 0) 
-    sprintf(p.fname, "q%d_Lev%d_T%d_msqr%.3f_src%d_%s_%s.dat",
+    sprintf(p.fname, "q%d_Lev%d_T%d_msqr%.3e_src%d_%s_%s.dat",
 	    p.q,
 	    p.Levels, 
 	    p.t, 
@@ -508,13 +511,14 @@ void DataDump(vector<Vertex> NodeList, vector<double> phi, Param p) {
   FILE *fp1;
   fp1=fopen(p.fname, "w");  
   
-  double norm = 0.0;
-  for(long unsigned int i = 0;i < TotNumber; i++) norm += phi[i]*phi[i];
-  for(long unsigned int i = 0;i < TotNumber; i++) phi[i] /= sqrt(norm);  
-  for(long unsigned int i = endNode(0,p)+1; i < endNode(p.Levels,p)+1; i++) {    
-    if(i != j && (i > endNode(p.Levels-1,p) &&  i < endNode(p.Levels,p) ) ) {
+  double theta_0 = atan( NodeList[j].z.imag() / NodeList[j].z.real() );
+  double theta   = 0.0;
+  for(long unsigned int i = endNode(0,p)+1; i < endNode(p.Levels,p)+1; i++) {
+    theta = atan( NodeList[i].z.imag() / NodeList[i].z.real() );
+    
+    if(i != j && (i > endNode(p.Levels-1,p) && abs(i-j) < 100 )) {
       fprintf(fp1, "%e %e %e %e %e %e %e %e %e %e %e %e %s", 
-	      atan( ( NodeList[i].z / NodeList[j].z).real() / (NodeList[i].z / NodeList[j].z).imag() ), //1 source/sink angle
+	      theta - theta_0, //1 source/sink angle
 	      phi[i], //2 lattice prop
 	      greens2D(NodeList[j].z, NodeList[i].z), //3 real prop
 	      (greens2D(NodeList[j].z, NodeList[i].z) - phi[i])/greens2D(NodeList[j].z, NodeList[i].z), //4 rel error
