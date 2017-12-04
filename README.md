@@ -27,11 +27,12 @@ included options to `make clean` to clean the ojects created by
 ## Using the executable
 
 Once the code is sucessfully compiled, a single executabe will be produced.
-One can run the execuatble with the default values defined in `graph.h` by
-passing no command line arguments. Note that if you change the default
-values you must recompile the code. If you use the command line to pass
-arguments, we suggest you make use of a shell script to run the executable,
-as we have shown in the example file `example.sh`
+One can run the execuatble with the default values defined in the Param 
+class ( found in `util.h`) by passing no command line arguments. Note that 
+if you change the default values you must recompile the code. If you use 
+the command line to pass arguments, we suggest you make use of a shell 
+script to run the executable, as we have shown in the example file 
+`example.sh`
 
 ## Contributing
 
@@ -39,3 +40,4 @@ The `main` function is very lightweight and the majority of the code is
 in the header files. We recommend that additions to this code are written
 in the same manner, using the header files rather than separate `.cpp`
 files.
+
