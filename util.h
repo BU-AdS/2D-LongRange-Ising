@@ -5,7 +5,7 @@
 
 using namespace std;
 
-#define Nlinks 7
+#define Nlinks 8
 #define I complex<double>(0.0,1.0)
 
 class Param{
@@ -14,7 +14,7 @@ class Param{
 
   int q = Nlinks;
   
-  bool bc = false;       //if true, use Dirichlet. If false, use Neumann
+  bool bc = true;       //if true, use Dirichlet. If false, use Neumann
   bool Vcentre = true;  //if true, place vertex at centre. If false, use circumcentre.
   bool verbosity = false;  //if true, print all data. If false, print summary.
   int MaxIter = 100000;
@@ -22,7 +22,7 @@ class Param{
   int t = 1;
   double msqr = 0.1;
   int Levels = 3;
-  int src_pos = 0;
+  int src_pos = -1;
   char fname[256];
 
   
@@ -103,7 +103,11 @@ complex<double> DisktoUHP(complex<double> z);
 complex<double> UHPtoDisk(complex<double> u);
 complex<double> inversion(complex<double> z0, double r);
 complex<double> squareInversion(complex<double>z0,double r1,double r2 );
-double greens2D(complex<double> z, complex<double> w);
+
+template <class T>
+T greens2D(complex<T> z, complex<T> w);
+
+double greensM2D(complex<double> z, complex<double> w, Param p);
 complex<double> newVertex(complex<double> z,complex<double> z0,int k, int q);
 
 void PrintNodeTables(const vector<Vertex> NodeList, Param P);
@@ -499,43 +503,46 @@ void DataDump(vector<Vertex> NodeList, vector<double> phi, Param p) {
   
   //Data file for lattice/analytical propagator data,
   //Complex positions (Poincare, UHP), etc.
-  if(strncmp(p.fname, "", 1) == 0) 
-    sprintf(p.fname, "q%d_Lev%d_T%d_msqr%.3e_src%d_%s_%s.dat",
+  
+  //double theta_0 = atan( NodeList[j].z.imag() / NodeList[j].z.real() );
+  double theta   = 0.0;
+  complex<double> ratio;
+  
+  for(int lev=0; lev<p.Levels; lev++) {
+    
+    //if(strncmp(p.fname, "", 1) == 0) 
+    sprintf(p.fname, "q%d_Lev%d_T%d_msqr%.3e_src%d_sinkLev%d_%s_%s.dat",
 	    p.q,
 	    p.Levels, 
 	    p.t, 
 	    p.msqr,
 	    p.src_pos,
+	    lev+1,
 	    p.bc == true ? "Dirichlet" : "Neumann",
 	    p.Vcentre == true ? "Vertex" : "Circum");
-  FILE *fp1;
-  fp1=fopen(p.fname, "w");  
-  
-  double theta_0 = atan( NodeList[j].z.imag() / NodeList[j].z.real() );
-  double theta   = 0.0;
-  for(long unsigned int i = endNode(0,p)+1; i < endNode(p.Levels,p)+1; i++) {
-    theta = atan( NodeList[i].z.imag() / NodeList[i].z.real() );
+    FILE *fp1;
+    fp1=fopen(p.fname, "w");
     
-    if(i != j && (i > endNode(p.Levels-1,p) && abs(i-j) < 100 )) {
-      fprintf(fp1, "%e %e %e %e %e %e %e %e %e %e %e %e %s", 
-	      theta - theta_0, //1 source/sink angle
-	      phi[i], //2 lattice prop
-	      greens2D(NodeList[j].z, NodeList[i].z), //3 real prop
-	      (greens2D(NodeList[j].z, NodeList[i].z) - phi[i])/greens2D(NodeList[j].z, NodeList[i].z), //4 rel error
-	      phi[i]/greens2D(NodeList[j].z, NodeList[i].z), //5 ratio
-	      abs(NodeList[i].z) - abs(NodeList[j].z), //6 delta r (euclidean)
-	      d12( (abs(NodeList[i].z) / abs(NodeList[j].z))*NodeList[j].z , NodeList[j].z), //7 delta r (hyperbolic)
-	      d12(NodeList[i].z , NodeList[j].z), //8 delta s (hyperbolic)
-	      DisktoUHP(NodeList[i].z).real(), //9 real UHP position
-	      DisktoUHP(NodeList[i].z).imag(), //10 imag UHP position
-	      abs(DisktoUHP(NodeList[i].z)), //11 abs UHP position
-	      atan( DisktoUHP(NodeList[i].z).imag() / DisktoUHP(NodeList[i].z).real() ), //12 angle UHP position
-	      //
-	      abs((greens2D(NodeList[j].z, NodeList[i].z) - phi[i])/greens2D(NodeList[j].z, NodeList[i].z)) < 0.01 ? "<---\n" : "\n");
+    for(long unsigned int i = endNode(lev,p)+1; i < endNode(lev+1,p)+1; i++) {
+      ratio = NodeList[i].z/NodeList[j].z;
+      theta = atan2( ratio.imag() , ratio.real() );
+      
+      if(i !=j )  {
+	fprintf(fp1, "%e %e %e %e %e %e %e %e %e %e\n", 
+		theta, //1 source/sink angle
+		phi[i], //2 lattice prop
+		greens2D(NodeList[i].z, NodeList[j].z), //3 analytical prop massless
+		greensM2D(NodeList[i].z, NodeList[j].z, p),//4 analytic prop massive
+		(greens2D(NodeList[i].z, NodeList[j].z) - phi[i])/greens2D(NodeList[j].z, NodeList[i].z), //5 rel error
+		(greensM2D(NodeList[i].z, NodeList[j].z, p) - phi[i])/greensM2D(NodeList[j].z, NodeList[i].z, p), //6 rel error
+		abs(NodeList[i].z - NodeList[j].z)/abs(1.0 - conj(NodeList[i].z)*NodeList[j].z), //7 Rich's x
+		abs(NodeList[i].z - NodeList[j].z), //8 delta z (euclidean)		
+		d12(NodeList[i].z , NodeList[j].z), //9 delta s (hyperbolic)
+		abs(DisktoUHP(NodeList[i].z) - DisktoUHP(NodeList[j].z)));  //10 delta s UHP
+	  }
     }
+    fclose(fp1);
   }
-  
-  fclose(fp1);
 }
 
 
@@ -602,7 +609,7 @@ double r(double s)
 }
 
 //Geodesic distandce from z1 to z2
-double d12(complex<double> z1, complex<double> z2) {
+double d12(complex<double> z, complex<double> w) {
 
   //2asinh( |z1 - z2| / sqrt( (1-|z1|)
 
@@ -611,9 +618,11 @@ double d12(complex<double> z1, complex<double> z2) {
   //cout<<" numer="<<abs(z1 - z2);
   //cout<<" denom="<<sqrt( (1.0 - norm(z1)) * (1.0 - norm(z2)))<<endl;
 
-  double length =  2.0 * asinhl(abs(z1 - z2) / sqrt( (1.0 - norm(z1)) * (1.0 - norm(z2)) ) ) ;
+  return log ( (abs(1.0-conj(z)*w) + abs(z-w))/(abs(1.0-conj(z)*w) - abs(z-w)));
+	       
+  //double length =  2.0 * asinhl(abs(z1 - z2) / sqrt( (1.0 - norm(z1)) * (1.0 - norm(z2)) ) ) ;
   //double length =  2.0 * asinhl( abs(z1 - z2)/denom ) ;
-  return length;
+  //return length;
 }
 
 // length of arc q fold triangle to origin.
@@ -687,11 +696,47 @@ complex<double> squareInversion(complex<double>z0,double r1,double r2 )
   return inversion(inversion(z0, r1),r2);
 }
 
-double greens2D(complex<double> z, complex<double> w)
+template <class T>
+T greens2D(complex<T> z, complex<T> w)
 {
-  // cout <<" z="<< z.real()<<","<< z.imag()<<" "<<" w="<< w.real()<<","<< w.imag() <<endl;
-  return (-1.0/M_PI)*log(abs(z - w)/abs(1.0 - z * conj(w)));
+  return -log( tanh ( log ( (abs(1.0-conj(z)*w) + abs(z-w))/(abs(1.0-conj(z)*w) - abs(z-w)) )/2 ) );    
 }
+
+double greensM2D(complex<double> z, complex<double> w, Param p)
+{
+
+  //First compute 2F1  
+
+  double delta = 0.5 + sqrt(0.25 + p.msqr);
+  double h = 1;
+  double result = 0.0;
+  double result_0 = 0.0;
+  double geo = exp(-2*d12(z,w));
+  double a,b,c;
+  double tol = 1e-10;
+  int n=0;
+  bool conv = false;
+
+  while( !conv ) {    
+    result_0 = result;
+    a = tgamma(delta + n)/tgamma(delta);
+    b = tgamma(h + n)/tgamma(h);
+    c = tgamma(delta+1-h + n)/tgamma(delta+1-h);
+    result += ( (a*b) / (c*tgamma(n+1)) ) * pow(geo,n);
+    if( abs(result_0 - result)/result_0 < tol ) conv = true;
+    n++;
+    //if(n%1000 == 0) cout<<n<<" 2F1 iters"<<endl; 
+  }
+  
+  //Then compute coefficient. 
+  result *= pow(geo,delta/2) * tgamma(delta) / (2*pow(M_PI,h)*tgamma(delta+1-h));
+
+  return result;
+}
+
+
+
+
 
 /* (3,p)  packing lenght side = 2 ch^{-1} (1/2\sin (\pi/p)) 
 

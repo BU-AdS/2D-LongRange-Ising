@@ -18,7 +18,8 @@ int main(int argc, char **argv) {
   if(argc > 1) p.init(argc, argv);
   if(p.src_pos < 0) p.src_pos = endNode(p.Levels-1,p) + (endNode(p.Levels,p) - endNode(p.Levels-1,p) )/2;
   p.print();
-  
+  for(int i=1; i<20; i++) cout<<"Endnode("<<i<<") = "<<endNode(i,p)<<endl;
+
   int TotNumber = (endNode(p.Levels,p) + 1) * p.t;
 
   //Object to hold index positions of vertices

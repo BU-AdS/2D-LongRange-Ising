@@ -7,7 +7,7 @@
 BC='d'
 
 #v=vertex centred, c=circumcentred.
-CENTRE='v'
+CENTRE='c'
 
 #v=verbose,q=quiet
 VERBOSITY='q'
@@ -15,9 +15,9 @@ VERBOSITY='q'
 MAX_ITER=1000
 TOL=1e-10
 TIMESLICES=1
-MASS_SQUARED=0.0e-0
-LEVELS=5
-SRC_POS=0
+MASS_SQUARED=$1
+LEVELS=4
+SRC_POS=$2
 
 ./adsrun ${BC} ${CENTRE} ${VERBOSITY} \
 	 ${MAX_ITER} ${TOL} ${TIMESLICES} ${MASS_SQUARED} ${LEVELS} \

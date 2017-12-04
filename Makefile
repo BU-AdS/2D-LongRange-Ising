@@ -3,7 +3,7 @@
 #============================================================
 
 #Your path to Eigen
-EIGEN=/usr/include/eigen3
+EIGEN=../Eigen
 
 TARGET	    = adsrun
 C_SOURCES   = ads_graph.cpp 
