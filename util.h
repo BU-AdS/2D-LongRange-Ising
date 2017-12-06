@@ -5,14 +5,14 @@
 
 using namespace std;
 
-#define Nlinks 8
+//#define Nlinks 7
 #define I complex<double>(0.0,1.0)
 
 class Param{
 
  public:
 
-  int q = Nlinks;
+  int q = 7;
   
   bool bc = true;       //if true, use Dirichlet. If false, use Neumann
   bool Vcentre = true;  //if true, place vertex at centre. If false, use circumcentre.
@@ -21,6 +21,9 @@ class Param{
   double tol = pow(10,-6);
   int t = 1;
   double msqr = 0.1;
+  double lambda = 1.0;
+  double C_msqr = 1.0;
+  double N_latt = 1.0;
   int Levels = 3;
   int src_pos = -1;
   char fname[256];
@@ -35,8 +38,11 @@ class Param{
     cout<<"Tol = "<<tol<<endl;
     cout<<"TimeSlices = "<<t<<endl;   
     cout<<"Mass squared = "<<msqr<<endl;
+    cout<<"lambda = "<<lambda<<endl;
     cout<<"Levels = "<<Levels<<endl;
     cout<<"Source Position = "<<src_pos<<endl;
+    cout<<"Mass squared Correction = "<<C_msqr<<endl;
+    cout<<"Lattice normalisation = "<<N_latt<<endl;
   }
   
   void init(int argc, char **argv) {
@@ -75,19 +81,37 @@ class Param{
     tol     = atof(argv[5]);
     t       = atoi(argv[6]);    
     msqr    = atof(argv[7]);
-    Levels  = atoi(argv[8]);
-    src_pos = atoi(argv[9]);
-  }    
+    lambda  = atof(argv[8]);
+    Levels  = atoi(argv[9]);
+    src_pos = atoi(argv[10]);
+    
+    if(atof(argv[11]) == 0) C_msqr = -0.0346991/msqr + 0.605827*msqr + 4.29681;
+    else C_msqr = atof(argv[11]);
+    
+    if(atof(argv[12]) == 0) N_latt = 0.0477515/(msqr + 0.310365) + 0.14219;
+    else N_latt = atof(argv[12]);
+    
+    q = atoi(argv[13]);
+  }
 };
 
-struct Vertex{
-  int nn[Nlinks+2];
+class Vertex{
+ public:
+  int nn[11] = {0,0,0,0,0,0,0,0,0,0,0};
   int fwdLinks;
   complex<double> z;
 };
 
-typedef vector<Vertex> Graph;
 
+/* struct Vertex{ */
+/*   int nn[Nlinks+2]; */
+/*   int fwdLinks; */
+/*   complex<double> z; */
+/* }; */
+
+
+
+typedef vector<Vertex> Graph;
 
 complex<double> T(complex<double> z,  complex<double> w);
 complex<double> R(complex<double> z, complex<double> omega);
@@ -102,11 +126,8 @@ double centralRad(double s);
 complex<double> DisktoUHP(complex<double> z);
 complex<double> UHPtoDisk(complex<double> u);
 complex<double> inversion(complex<double> z0, double r);
-complex<double> squareInversion(complex<double>z0,double r1,double r2 );
-
-template <class T>
-T greens2D(complex<T> z, complex<T> w);
-
+complex<double> squareInversion(complex<double>z0, double r1, double r2 );
+double greens2D(complex<double> z, complex<double> w);
 double greensM2D(complex<double> z, complex<double> w, Param p);
 complex<double> newVertex(complex<double> z,complex<double> z0,int k, int q);
 
@@ -317,7 +338,8 @@ void ConnectivityCheck(Graph &NodeList, Param P){
       if(NodeList[n].nn[m] != -1) {
 	for(int p=0; p<q+2; p++) {
 	  //Loop over all links on the linked node,
-	  //check if original node exists. 
+	  //check if original node exists in neighbour
+	  //table.
 	  if( n == NodeList[ NodeList[n].nn[m] ].nn[p] ) {
 	    AuxNodeList[n].nn[m] = 1;
 	  }
@@ -325,6 +347,7 @@ void ConnectivityCheck(Graph &NodeList, Param P){
       }
     }
   }
+
   if(P.verbosity) PrintNodeTables(AuxNodeList, P);
 }
 
@@ -504,13 +527,12 @@ void DataDump(vector<Vertex> NodeList, vector<double> phi, Param p) {
   //Data file for lattice/analytical propagator data,
   //Complex positions (Poincare, UHP), etc.
   
-  //double theta_0 = atan( NodeList[j].z.imag() / NodeList[j].z.real() );
   double theta   = 0.0;
   complex<double> ratio;
-  
+  complex<double> src = NodeList[j].z;
+    
   for(int lev=0; lev<p.Levels; lev++) {
     
-    //if(strncmp(p.fname, "", 1) == 0) 
     sprintf(p.fname, "q%d_Lev%d_T%d_msqr%.3e_src%d_sinkLev%d_%s_%s.dat",
 	    p.q,
 	    p.Levels, 
@@ -526,20 +548,23 @@ void DataDump(vector<Vertex> NodeList, vector<double> phi, Param p) {
     for(long unsigned int i = endNode(lev,p)+1; i < endNode(lev+1,p)+1; i++) {
       ratio = NodeList[i].z/NodeList[j].z;
       theta = atan2( ratio.imag() , ratio.real() );
+      complex<double> snk = NodeList[i].z;
       
       if(i !=j )  {
 	fprintf(fp1, "%e %e %e %e %e %e %e %e %e %e\n", 
-		theta, //1 source/sink angle
-		phi[i], //2 lattice prop
-		greens2D(NodeList[i].z, NodeList[j].z), //3 analytical prop massless
-		greensM2D(NodeList[i].z, NodeList[j].z, p),//4 analytic prop massive
-		(greens2D(NodeList[i].z, NodeList[j].z) - phi[i])/greens2D(NodeList[j].z, NodeList[i].z), //5 rel error
-		(greensM2D(NodeList[i].z, NodeList[j].z, p) - phi[i])/greensM2D(NodeList[j].z, NodeList[i].z, p), //6 rel error
-		abs(NodeList[i].z - NodeList[j].z)/abs(1.0 - conj(NodeList[i].z)*NodeList[j].z), //7 Rich's x
-		abs(NodeList[i].z - NodeList[j].z), //8 delta z (euclidean)		
-		d12(NodeList[i].z , NodeList[j].z), //9 delta s (hyperbolic)
-		abs(DisktoUHP(NodeList[i].z) - DisktoUHP(NodeList[j].z)));  //10 delta s UHP
-	  }
+		theta,                          //1 source/sink angle
+		p.N_latt*phi[i],                //2 lattice prop
+		greens2D(snk, src),             //3 analytical prop massless
+		greensM2D(snk, src, p),         //4 analytic prop massive
+		(greens2D(snk, src) - p.N_latt*phi[i])/greens2D(src, snk),         //5 rel error		
+		(greensM2D(snk, src, p) - p.N_latt*phi[i])/greensM2D(src, snk, p), //6 rel error
+		abs(snk - src)/abs(1.0 - conj(snk)*src),                           //7 Rich's x
+		(2*(1-abs(snk))*(1-abs(src)) /( pow((1-abs(snk)),2) +
+						pow((1-abs(src)),2) +
+						pow(abs(snk - src),2)) ),
+		d12(snk , src),                         //8 delta s (hyperbolic)
+		abs(DisktoUHP(snk) - DisktoUHP(src)));  //9 delta s UHP
+      }
     }
     fclose(fp1);
   }
@@ -696,8 +721,7 @@ complex<double> squareInversion(complex<double>z0,double r1,double r2 )
   return inversion(inversion(z0, r1),r2);
 }
 
-template <class T>
-T greens2D(complex<T> z, complex<T> w)
+double greens2D(complex<double> z, complex<double> w)
 {
   return -log( tanh ( log ( (abs(1.0-conj(z)*w) + abs(z-w))/(abs(1.0-conj(z)*w) - abs(z-w)) )/2 ) );    
 }

@@ -13,6 +13,8 @@ int Mphi(vector<double> &phi, const vector<double> phi0,
   int q = P.q;
   int T = P.t;
   double msqr = P.msqr;
+  double C_msqr = P.C_msqr;
+  double lambda = P.lambda;  
   bool bc = P.bc;
   int InternalNodes = endNode(Levels-1,P)+1;
   int TotNumber = endNode(Levels,P)+1;
@@ -26,7 +28,10 @@ int Mphi(vector<double> &phi, const vector<double> phi0,
     for(int i = t*offset; i < t*offset + InternalNodes; i++) {
       
       //mass term
-      phi[i] = msqr * phi0[i];    
+      phi[i] = C_msqr*msqr * phi0[i];    
+
+      //interaction term
+      phi[i] += lambda * pow(phi0[i],3);
       
       for(int mu = 0; mu < q+T_offset; mu++) {
 	phi[i] += (phi0[i] - phi0[NodeList[i].nn[mu]]);
@@ -38,8 +43,9 @@ int Mphi(vector<double> &phi, const vector<double> phi0,
       
       //cout<<"Exterior i="<<i<<" t="<<t<<endl;
       //mass term
-      phi[i] = msqr * phi0[i];
-      //if(bc == true) phi[i] += q * phi0[i];
+      phi[i] = C_msqr*msqr * phi0[i];
+      //interaction term
+      phi[i] += lambda * pow(phi0[i],3);
       
       //the zeroth link is always on the same level.
       phi[i] += phi0[i] - phi0[NodeList[i].nn[0]];

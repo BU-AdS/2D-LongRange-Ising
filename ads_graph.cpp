@@ -16,10 +16,18 @@ int main(int argc, char **argv) {
 
   Param p;
   if(argc > 1) p.init(argc, argv);
-  if(p.src_pos < 0) p.src_pos = endNode(p.Levels-1,p) + (endNode(p.Levels,p) - endNode(p.Levels-1,p) )/2;
+
+  //If the specified source position is < 0, place the point source
+  //on the outer circumference.
+  if(p.src_pos < 0) p.src_pos = endNode(p.Levels-1,p) + (endNode(p.Levels,p) - endNode(p.Levels-1,p) )/2;  
+
+  //Print paramters
   p.print();
+
+  //Print graph endnode info
   for(int i=1; i<20; i++) cout<<"Endnode("<<i<<") = "<<endNode(i,p)<<endl;
 
+  //Total number of nodes in the graph.
   int TotNumber = (endNode(p.Levels,p) + 1) * p.t;
 
   //Object to hold index positions of vertices
@@ -66,9 +74,9 @@ int main(int argc, char **argv) {
   double truesq = 0.0;
   truesq = Minv_phi(phi, phi0, b, NodeList, p);
   cout<<"Tolerance = "<<p.tol<<" True Residual = "<<sqrt(truesq)<<endl;  
-  DataDump(NodeList, phi, p);
-  
-  Mphi_ev(NodeList, p);
+
+  DataDump(NodeList, phi, p);  
+  //Mphi_ev(NodeList, p);
   
   return 0;
 }
