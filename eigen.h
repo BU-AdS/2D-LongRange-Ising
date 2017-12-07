@@ -13,7 +13,7 @@
 #include <iomanip>
 #include <cmath>
 #include <cstring>
-#include "graph.h"
+//#include <graph.h>
 
 // Borrow dense matrix eigenvalue routines.
 #include <Eigen/Dense>
@@ -25,23 +25,23 @@ using namespace Eigen;
 // in Eigen are column major. You can replace "Dynamic"
 // with a specific number to template just one size.
 // You can also ust use "MatrixXd".
-typedef Matrix<double, Dynamic, Dynamic, ColMajor> dMatrix;
+typedef Matrix<Float, Dynamic, Dynamic, ColMajor> dMatrix;
 
 // Reference 1-D Laplace function.
 int Mphi_ev(vector<Vertex> NodeList, Param p )
 {
-  double *in_real;
-  double *out_real;
+  Float *in_real;
+  Float *out_real;
   int Levels = p.Levels;
   int length = p.t*(endNode(Levels,p)+1);
-  vector<double> phi(length,0.0);
-  vector<double> phi0(length,0.0); 
+  vector<Float> phi(length,0.0);
+  vector<Float> phi0(length,0.0); 
   // Set output precision to be long.
   cout << setprecision(10);
 
   // Allocate.
-  in_real = new double[length];
-  out_real = new double[length];
+  in_real = new Float[length];
+  out_real = new Float[length];
 
   // Zero out.
   for (int i = 0; i < length; i++)
@@ -82,7 +82,7 @@ int Mphi_ev(vector<Vertex> NodeList, Param p )
     // If your data layout supports it, you can also pass
     // "mptr" directly as your "output vector" when you call
     // your mat-vec.
-    double* mptr = &(mat_real(i*length));
+    Float* mptr = &(mat_real(i*length));
     
     for (int j = 0; j < length; j++) mptr[j] = out_real[j];
     
@@ -115,13 +115,13 @@ int Mphi_ev(vector<Vertex> NodeList, Param p )
 	  p.q,
 	  p.Levels, 
 	  p.t, 
-	  p.msqr,
+	  (double)p.msqr,
 	  p.src_pos,
 	  p.bc == true ? "Dirichlet" : "Neumann",
 	  p.Vcentre == true ? "Vertex" : "Circum");
   fp=fopen(efname, "w");
   for(int i=0; i<length; i++) {
-    fprintf(fp, "%d %.16e\n", i, evals(i) );
+    fprintf(fp, "%d %.16e\n", i, (double)evals(i) );
   }
   fclose(fp);
   
@@ -156,7 +156,7 @@ int Mphi_ev(vector<Vertex> NodeList, Param p )
 
 
 // Reference 1-D Laplace function.
-void laplace_1d(double* out, double* in, const int L, const double m2)
+void laplace_1d(Float* out, Float* in, const int L, const Float m2)
 {
   // Zero boundary conditions. Set first and last element explicitly.
   out[0] = (2+m2)*in[0] - in[1];
@@ -174,23 +174,23 @@ void laplace_1d(double* out, double* in, const int L, const double m2)
 
 int eigenLaplace()
 {  
-  double *in_real;
-  double *out_real;
+  Float *in_real;
+  Float *out_real;
 
   // Set output precision to be long.
   cout << setprecision(10);
 
   // Basic information about the lattice.
   const int length = 8;
-  const double m_sq = 0.001;
+  const Float m_sq = 0.001;
 
   // Print the basic info.
   std::cout << "1D Laplace operator, length " << length << ", mass squared " << m_sq << ", zero boundary conditions.\n";
   std::cout << "Change the length and mass by modifying the source.\n";
   
   // Allocate.
-  in_real = new double[length];
-  out_real = new double[length];
+  in_real = new Float[length];
+  out_real = new Float[length];
 
   // Zero out.
   for (int i = 0; i < length; i++)
@@ -231,7 +231,7 @@ int eigenLaplace()
     // If your data layout supports it, you can also pass
     // "mptr" directly as your "output vector" when you call
     // your mat-vec.
-    double* mptr = &(mat_real(i*length));
+    Float* mptr = &(mat_real(i*length));
     
     for (int j = 0; j < length; j++)
     {

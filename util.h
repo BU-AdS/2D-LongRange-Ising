@@ -5,8 +5,7 @@
 
 using namespace std;
 
-//#define Nlinks 7
-#define I complex<double>(0.0,1.0)
+#define I complex<Float>(0.0,1.0)
 
 class Param{
 
@@ -18,14 +17,15 @@ class Param{
   bool Vcentre = true;  //if true, place vertex at centre. If false, use circumcentre.
   bool verbosity = false;  //if true, print all data. If false, print summary.
   int MaxIter = 100000;
-  double tol = pow(10,-6);
+  Float tol = pow(10,-6);
   int t = 1;
-  double msqr = 0.1;
-  double lambda = 1.0;
-  double C_msqr = 1.0;
-  double N_latt = 1.0;
+  Float msqr = 0.1;
+  Float lambda = 1.0;
+  Float C_msqr = 1.0;
+  Float N_latt = 1.0;
   int Levels = 3;
   int src_pos = -1;
+  Float DiskScale = 1.0;
   char fname[256];
 
   
@@ -43,6 +43,7 @@ class Param{
     cout<<"Source Position = "<<src_pos<<endl;
     cout<<"Mass squared Correction = "<<C_msqr<<endl;
     cout<<"Lattice normalisation = "<<N_latt<<endl;
+    cout<<"DiskScale = "<<DiskScale<<endl;
   }
   
   void init(int argc, char **argv) {
@@ -92,6 +93,7 @@ class Param{
     else N_latt = atof(argv[12]);
     
     q = atoi(argv[13]);
+    DiskScale = atoi(argv[14]);
   }
 };
 
@@ -99,43 +101,43 @@ class Vertex{
  public:
   int nn[11] = {0,0,0,0,0,0,0,0,0,0,0};
   int fwdLinks;
-  complex<double> z;
+  complex<Float> z;
 };
 
 
 /* struct Vertex{ */
 /*   int nn[Nlinks+2]; */
 /*   int fwdLinks; */
-/*   complex<double> z; */
+/*   complex<Float> z; */
 /* }; */
 
 
 
 typedef vector<Vertex> Graph;
 
-complex<double> T(complex<double> z,  complex<double> w);
-complex<double> R(complex<double> z, complex<double> omega);
-complex<double> flip(complex<double> z, complex<double> z1, complex<double> z2);
-double s(complex<double> z);
-double r(double s );
-double d12(complex<double> z1, complex<double> z2);
-double s3p(int q);
-double area3q(int q);
-double areaGeneral(Param P, double A, double B, double C);
-double centralRad(double s);
-complex<double> DisktoUHP(complex<double> z);
-complex<double> UHPtoDisk(complex<double> u);
-complex<double> inversion(complex<double> z0, double r);
-complex<double> squareInversion(complex<double>z0, double r1, double r2 );
-double greens2D(complex<double> z, complex<double> w);
-double greensM2D(complex<double> z, complex<double> w, Param p);
-complex<double> newVertex(complex<double> z,complex<double> z0,int k, int q);
+complex<Float> T(complex<Float> z,  complex<Float> w);
+complex<Float> R(complex<Float> z, complex<Float> omega);
+complex<Float> flip(complex<Float> z, complex<Float> z1, complex<Float> z2);
+Float s(complex<Float> z);
+Float r(Float s );
+Float d12(complex<Float> z1, complex<Float> z2);
+Float s3p(int q);
+Float area3q(int q);
+Float areaGeneral(Param P, Float A, Float B, Float C);
+Float centralRad(Float s);
+complex<Float> DisktoUHP(complex<Float> z);
+complex<Float> UHPtoDisk(complex<Float> u);
+complex<Float> inversion(complex<Float> z0, Float r);
+complex<Float> squareInversion(complex<Float>z0, Float r1, Float r2 );
+Float greens2D(complex<Float> z, complex<Float> w);
+Float greensM2D(complex<Float> z, complex<Float> w, Param p);
+complex<Float> newVertex(complex<Float> z,complex<Float> z0,int k, int q);
 
 void PrintNodeTables(const vector<Vertex> NodeList, Param P);
 
 //- Edge length from center z = 0
-double edgeLength(int q) {
-  return sqrt( 1 - 4*sinl(M_PI/q)*sinl(M_PI/q) );
+Float edgeLength(int q) {
+  return sqrt( 1 - 4*sin(M_PI/q)*sin(M_PI/q) );
 }
 
 //Using the formula c(n) = (q-4)*c(n-1) - c(n-2) where c is the
@@ -210,14 +212,14 @@ void GetComplexPositions(Graph &NodeList, Param& P){
 
   int q = P.q;
   int Levels = P.Levels;
-  double lower = 1.0;
-  double upper = 0.0;  
+  Float lower = 1.0;
+  Float upper = 0.0;  
 
   if(P.Vcentre == true) {
     //Assume for now that the origin (level 0) is a vertex
     NodeList[0].z = 0.0;
     //Assert that node 1 is on the real axis
-    complex<double> init(edgeLength(q),0.0);
+    complex<Float> init(edgeLength(q),0.0);
     NodeList[1].z = init;
     //Rotate to create level level 1
     for(int k=1; k<q+1; k++) {
@@ -242,17 +244,17 @@ void GetComplexPositions(Graph &NodeList, Param& P){
   }
   else {
     
-    double numer = sqrt(cosl(M_PI*(q+6)/(6*q)) - sinl(M_PI/q));
-    double denom = sqrt(sinl(M_PI/q) + sinl(M_PI*(q+3)/(3*q)));    
-    double init_mod = sqrt(norm(numer/denom));
+    Float numer = sqrt(cos(M_PI*(q+6)/(6*q)) - sin(M_PI/q));
+    Float denom = sqrt(sin(M_PI/q) + sin(M_PI*(q+3)/(3*q)));    
+    Float init_mod = sqrt(norm(numer/denom));
     
     //Assume that node 0 lies on +ve real axis
-    complex<double> init_0(init_mod,0.0);
+    complex<Float> init_0(init_mod,0.0);
     NodeList[0].z = init_0;
     
     //Assert that node 1 is node 0 rotated by 2*PI/3
-    complex<double>init_1(init_mod*cosl(2.0*M_PI/3.0),
-			  init_mod*sinl(2.0*M_PI/3.0));
+    complex<Float>init_1(init_mod*cos(2.0*M_PI/3.0),
+			  init_mod*sin(2.0*M_PI/3.0));
     
     NodeList[1].z = init_1;
     //Rotate node 1 about node 0 to create level 0 (the equilateral triangle)
@@ -287,9 +289,9 @@ void GetComplexPositions(Graph &NodeList, Param& P){
   /*
   //Histogram
   int N = 5000;
-  double arr[N];
-  double fac = 0.0001;
-  double width = ((1+fac)*upper - (1-fac)*lower)/N;
+  Float arr[N];
+  Float fac = 0.0001;
+  Float width = ((1+fac)*upper - (1-fac)*lower)/N;
   int count = 0;
   int distinct = 0;
   cout<<endl<<"Upper = "<<upper<<" Lower = "<<lower<<" circum = "<<endNode(Levels,P) - endNode(Levels-1,P)<<endl;
@@ -323,20 +325,22 @@ void ConnectivityCheck(Graph &NodeList, Param P){
   int Levels = P.Levels;
   int T = P.t;
   int TotNumber = T*(endNode(Levels,P)+1);
+  int t_offset  = 0;
+  T == 1 ? t_offset = 0 : t_offset = 2;
   
   //Object to hold boolean values of graph connectivity.
   vector<Vertex> AuxNodeList(TotNumber);
   //Initialise to 0.
   for(int n = 0; n <TotNumber;n++)
-    for(int mu = 0; mu < q+2; mu++) {
+    for(int mu = 0; mu < q+t_offset; mu++) {
       AuxNodeList[n].nn[mu] = 0;
     }
   
   for(long unsigned int n=0; n<TotNumber; n++) {
-    for(int m=0; m<q+2; m++) {
+    for(int m=0; m<q+t_offset; m++) {
       //Check that the link is valid
       if(NodeList[n].nn[m] != -1) {
-	for(int p=0; p<q+2; p++) {
+	for(int p=0; p<q+t_offset; p++) {
 	  //Loop over all links on the linked node,
 	  //check if original node exists in neighbour
 	  //table.
@@ -356,6 +360,8 @@ void PrintNodeTables(const vector<Vertex> NodeList, Param P) {
   int q = P.q;
   int Levels = P.Levels;  
   int T = P.t;
+  int t_offset  = 0;
+  T == 1 ? t_offset = 0 : t_offset = 2;
   
   for(int t=0; t<T; t++) {
 
@@ -365,19 +371,19 @@ void PrintNodeTables(const vector<Vertex> NodeList, Param P) {
     
     if(P.Vcentre) {
       cout << endl<< " Node number = " << 0 + offset << " : ";
-      for(int i = 0; i < q+2; i++) cout << NodeList[offset + 0].nn[i] << "  ";
+      for(int i = 0; i < q+t_offset; i++) cout << NodeList[offset + 0].nn[i] << "  ";
     }      
     else {
       for(long unsigned int n = 0; n < endNode(0,P)+1; n++) {
 	cout << endl<< " Node number = " << n + offset << " FL="<<NodeList[n].fwdLinks<<" : ";
-	for(int i = 0; i < q+2; i++) cout << NodeList[offset + n].nn[i] << "  ";
+	for(int i = 0; i < q+t_offset; i++) cout << NodeList[offset + n].nn[i] << "  ";
       } 
     }
     for(int lev = 1; lev < Levels+1; lev++)  {
       cout << endl << "lev = " << lev << "  T = " << t << endl;
       for(long unsigned int n = endNode(lev-1,P)+1; n < endNode(lev,P)+1; n++) {
 	cout << endl<< " Node number = " << n + offset << " FL="<<NodeList[n].fwdLinks<<" : ";
-	for(int i = 0; i < q+2; i++) cout << NodeList[offset + n].nn[i] << "  ";
+	for(int i = 0; i < q+t_offset; i++) cout << NodeList[offset + n].nn[i] << "  ";
       }
     }      
   }  
@@ -409,14 +415,14 @@ void PrintComplexPositions(const vector<Vertex> NodeList, Param P) {
 
 void CheckArea(const vector<Vertex> NodeList, Param P) {
 
-  double length_01 = 0.0;
-  double length_02 = 0.0;
-  double length_12 = 0.0;
-  double equi_area = area3q(P.q);
-  double ave       = 0.0;
+  Float length_01 = 0.0;
+  Float length_02 = 0.0;
+  Float length_12 = 0.0;
+  Float equi_area = area3q(P.q);
+  Float ave       = 0.0;
 
-  double sig1 = 0.0;
-  double sig2 = 0.0;
+  Float sig1 = 0.0;
+  Float sig2 = 0.0;
   int count = 0;
 
   if(P.verbosity) cout<<endl<<"Checking boundary areas"<<endl;
@@ -460,12 +466,12 @@ void CheckEdgeLength(const vector<Vertex> NodeList, Param P) {
   
   int q = P.q;
   int Levels = P.Levels;
-  double length = 0.0;
-  double sig = 0.0;
+  Float length = 0.0;
+  Float sig = 0.0;
   int  nn_node;
   bool Vcentre = P.Vcentre;
-  double length_0 = d12(NodeList[0].z, NodeList[1].z);
-  double tol = 1e-2;
+  Float length_0 = d12(NodeList[0].z, NodeList[1].z);
+  Float tol = 1e-2;
 
   //Level 0 is specific to how the graph is centred.
   if(Vcentre) {
@@ -511,14 +517,14 @@ void CheckEdgeLength(const vector<Vertex> NodeList, Param P) {
   cout<<endl<<"LENGTH STD DEV = "<<sig<<endl;
   if(sig>tol) {
     cout<<"ERROR: Hypergeometric length STD_DEV has diverged over "<<tol<<endl;
-    exit(0);
+    //exit(0);
   }
 }
 
-void DataDump(vector<Vertex> NodeList, vector<double> phi, Param p) {
+void DataDump(vector<Vertex> NodeList, vector<Float> phi, Param p) {
 
   long unsigned int TotNumber = (endNode(p.Levels,p) + 1) * p.t;
-  double norm = 0.0;
+  Float norm = 0.0;
   for(long unsigned int i = 0;i < TotNumber; i++) norm += phi[i]*phi[i];
   for(long unsigned int i = 0;i < TotNumber; i++) phi[i] /= sqrt(norm); 
   
@@ -527,9 +533,9 @@ void DataDump(vector<Vertex> NodeList, vector<double> phi, Param p) {
   //Data file for lattice/analytical propagator data,
   //Complex positions (Poincare, UHP), etc.
   
-  double theta   = 0.0;
-  complex<double> ratio;
-  complex<double> src = NodeList[j].z;
+  Float theta   = 0.0;
+  complex<Float> ratio;
+  complex<Float> src = NodeList[j].z;
     
   for(int lev=0; lev<p.Levels; lev++) {
     
@@ -537,7 +543,7 @@ void DataDump(vector<Vertex> NodeList, vector<double> phi, Param p) {
 	    p.q,
 	    p.Levels, 
 	    p.t, 
-	    p.msqr,
+	    (double)p.msqr,
 	    p.src_pos,
 	    lev+1,
 	    p.bc == true ? "Dirichlet" : "Neumann",
@@ -548,22 +554,22 @@ void DataDump(vector<Vertex> NodeList, vector<double> phi, Param p) {
     for(long unsigned int i = endNode(lev,p)+1; i < endNode(lev+1,p)+1; i++) {
       ratio = NodeList[i].z/NodeList[j].z;
       theta = atan2( ratio.imag() , ratio.real() );
-      complex<double> snk = NodeList[i].z;
+      complex<Float> snk = NodeList[i].z;
       
       if(i !=j )  {
-	fprintf(fp1, "%e %e %e %e %e %e %e %e %e %e\n", 
-		theta,                          //1 source/sink angle
-		p.N_latt*phi[i],                //2 lattice prop
-		greens2D(snk, src),             //3 analytical prop massless
-		greensM2D(snk, src, p),         //4 analytic prop massive
-		(greens2D(snk, src) - p.N_latt*phi[i])/greens2D(src, snk),         //5 rel error		
-		(greensM2D(snk, src, p) - p.N_latt*phi[i])/greensM2D(src, snk, p), //6 rel error
-		abs(snk - src)/abs(1.0 - conj(snk)*src),                           //7 Rich's x
-		(2*(1-abs(snk))*(1-abs(src)) /( pow((1-abs(snk)),2) +
-						pow((1-abs(src)),2) +
-						pow(abs(snk - src),2)) ),
-		d12(snk , src),                         //8 delta s (hyperbolic)
-		abs(DisktoUHP(snk) - DisktoUHP(src)));  //9 delta s UHP
+	fprintf(fp1, "%e %Le %e %e %e %e %Le %e %e %e\n", 
+		(double)theta,                          //1 source/sink angle
+		(Float)p.N_latt*(Float)phi[i],        //2 lattice prop
+		(double)greens2D(snk, src),             //3 analytical prop massless
+		(double)greensM2D(snk, src, p),         //4 analytic prop massive
+		(double)(greens2D(snk, src) - p.N_latt*phi[i])/(double)greens2D(src, snk),         //5 rel error		
+		(double)(greensM2D(snk, src, p) - (double)p.N_latt*(double)phi[i])/(double)greensM2D(src, snk, p), //6 rel error
+		(Float)abs(snk - src)/(Float)abs((Float)1.0 - conj(snk)*src),                           //7 Rich's x
+		(double)(2*((Float)1.0-abs(snk))*((Float)1.0-abs(src)) /( pow(((Float)1.0-abs(snk)),2) +
+									  pow(((Float)1-abs(src)),2) +
+									  pow(abs(snk - src),2)) ),
+		(double)d12(snk , src),                         //8 delta s (hyperbolic)
+		(double)abs(DisktoUHP(snk) - DisktoUHP(src)));  //9 delta s UHP
       }
     }
     fclose(fp1);
@@ -602,107 +608,97 @@ Need 3 point to define the mobius. Circle to Circle.
 ****************************************************************/
 
 // Translate w to 0 
-complex<double> T(complex<double> z,  complex<double> w)
+complex<Float> T(complex<Float> z,  complex<Float> w)
 { //translate w to 0
-  return (z - w)/(z*conj(w) + 1.0);
+  return (z - w)/(z*conj(w) + (Float)1.0);
 }
 
 // Rotate at z = 0
-complex<double> R(complex<double> z, complex<double> omega)
+complex<Float> R(complex<Float> z, complex<Float> omega)
 {
   // rotate by omega = exp [i theta] about z= 0
   return omega*z;
  }
 
 //Reflection z accross the z1 -- z2 line
-complex<double> flip(complex<double> z, complex<double> z1, complex<double> z2)
+complex<Float> flip(complex<Float> z, complex<Float> z1, complex<Float> z2)
 {
   // reflection (or flip)  z across (z1,z2)
   return T( R( conj( T(z,z1) ), z2/conj(z2) ), -z1 );
 }
 
 //Geodesic from z = 0 to z
-double  s(complex<double> z)
+Float  s(complex<Float> z)
 {
-   return logl((1.0+abs(z))/(1.0-abs(z)));
+   return log(((Float)1.0+abs(z))/((Float)1.0-abs(z)));
 }
 
 //Geodesic distance s from origin
-double r(double s)
+Float r(Float s)
 {
-  return tanhl(s/2);
+  return tanh(s/2);
 }
 
-//Geodesic distandce from z1 to z2
-double d12(complex<double> z, complex<double> w) {
+//Geodesic distance from z1 to z2
+Float d12(complex<Float> z, complex<Float> w) {
 
-  //2asinh( |z1 - z2| / sqrt( (1-|z1|)
-
-  //double denom = sqrt( 1.0 - norm(z1) - norm(z2) + norm(z1)*norm(z2));
-  //cout<<"Arg="<<abs(z1 - z2) / sqrt( (1.0 - norm(z1)) * (1.0 - norm(z2)));
-  //cout<<" numer="<<abs(z1 - z2);
-  //cout<<" denom="<<sqrt( (1.0 - norm(z1)) * (1.0 - norm(z2)))<<endl;
-
-  return log ( (abs(1.0-conj(z)*w) + abs(z-w))/(abs(1.0-conj(z)*w) - abs(z-w)));
-	       
-  //double length =  2.0 * asinhl(abs(z1 - z2) / sqrt( (1.0 - norm(z1)) * (1.0 - norm(z2)) ) ) ;
-  //double length =  2.0 * asinhl( abs(z1 - z2)/denom ) ;
-  //return length;
+  return log ( (abs((Float)1.0-conj(z)*w) + abs(z-w))/(abs((Float)1.0-conj(z)*w) - abs(z-w)));
+  
 }
 
 // length of arc q fold triangle to origin.
-double s3p(int q)
+Float s3p(int q)
 {  //vertex centered Arc lengeth
-  return 2.0*acoshl(1.0/sinl(M_PI/(double)q));
+  return (Float)2.0*acosh((Float)1.0/sin(M_PI/(Float)q));
 }
 
 // Area equilateral triangle with angles 2 pi/q
-double area3q(int q)
+Float area3q(int q)
 {
   //pi - (3 * hyp_angle) = defect
-  return M_PI - 3.0*(2.0*M_PI/(double)q);
+  return M_PI - (Float)3.0*(2.0*M_PI/(Float)q);
 }
 
 // Area non-equilateral triangle with side length a,b,c
-double areaGeneral(Param P, double a, double b, double c) {
+Float areaGeneral(Param P, Float a, Float b, Float c) {
   //pi - (A+B+C) = defect
   
   // use general cosine law:
   // cos(C) = (cosh(c) - cosh(a)cosh(b)) / sinh(a)sinh(b)
-  double C = acosl( -(coshl(c) - coshl(a)*coshl(b)) / (sinhl(a)*sinhl(b)) );
+  Float C = acos( -(cosh(c) - cosh(a)*cosh(b)) / (sinh(a)*sinh(b)) );
   
   // use general sine law:
   // sin(A)/sinh(a) = sin(B)/sinh(b) = ...
-  double B = asinl( sinhl(b)*sinl(C)/sinhl(c) );
-  double A = asinl( sinhl(a)*sinl(C)/sinhl(c) );
+  Float B = asin( sinh(b)*sin(C)/sinh(c) );
+  Float A = asin( sinh(a)*sin(C)/sinh(c) );
 
   return M_PI - (A+B+C);
 }
 
 //
-double centralRad(double s)
+Float centralRad(Float s)
 {
-  return (sqrt( cosh(s/2.0) -1.0/4.0) -0.5*sqrt(3.0))/sqrt(cosh(s/2.0) -1.0);
+  return (sqrt( cosh(s/2.0) - (Float)1.0/4.0) - 0.5*sqrt(3.0))/sqrt(cosh(s/2.0) -(Float)1.0);
 }
 
 //
-complex<double> DisktoUHP(complex<double> z)
+complex<Float> DisktoUHP(complex<Float> z)
 {
   // z = -1 -i, 1, i maps to u =  -1, 0 1, infty
-  return (z + I)/(1.0 + I * z);
+  return (z + I)/((Float)1.0 + I * z);
 }
 //
-complex<double> UHPtoDisk(complex<double> u)
+complex<Float> UHPtoDisk(complex<Float> u)
 {
   // u = 0, 1, infty  maps to -1 -i , 1, i  
-  return (u - I)/(1.0 - I*u); 
+  return (u - I)/((Float)1.0 - I*u); 
 }
 
 //- Rotate z about z0 by 2*k*pi/q 
-complex<double> newVertex(complex<double> z,complex<double> z0,int k, int q) {
+complex<Float> newVertex(complex<Float> z,complex<Float> z0, int k, int q) {
 
-  complex<double> w( 0.0, 2.0 * sinl(k * M_PI/q) );
-  complex<double> a( cosl(k*M_PI/q)*(1.0 - norm(z0)), sinl(k*M_PI/q)*(1.0 + norm(z0)) ); 
+  complex<Float> w( 0.0, 2.0 * sin(k * M_PI/q) );
+  complex<Float> a( cos(k*M_PI/q)*((Float)1.0 - norm(z0)), sin(k*M_PI/q)*((Float)1.0 + norm(z0)) ); 
   w = w*z0;
   
   //cout<<"New z = "<<-(a*z - w)/(conj(w)*z - conj(a))<<endl;
@@ -710,34 +706,34 @@ complex<double> newVertex(complex<double> z,complex<double> z0,int k, int q) {
 }
 
 
-complex<double> inversion(complex<double> z0, double r)
+complex<Float> inversion(complex<Float> z0, Float r)
 {
   // z_image conj(z0) = r^2
   return r*2/conj(z0);
 }
 
-complex<double> squareInversion(complex<double>z0,double r1,double r2 )
+complex<Float> squareInversion(complex<Float>z0,Float r1,Float r2 )
 {
   return inversion(inversion(z0, r1),r2);
 }
 
-double greens2D(complex<double> z, complex<double> w)
+Float greens2D(complex<Float> z, complex<Float> w)
 {
-  return -log( tanh ( log ( (abs(1.0-conj(z)*w) + abs(z-w))/(abs(1.0-conj(z)*w) - abs(z-w)) )/2 ) );    
+  return -log( tanh ( log ( (abs((Float)1.0-conj(z)*w) + abs(z-w))/(abs((Float)1.0-conj(z)*w) - abs(z-w)) )/2 ) );    
 }
 
-double greensM2D(complex<double> z, complex<double> w, Param p)
+Float greensM2D(complex<Float> z, complex<Float> w, Param p)
 {
 
   //First compute 2F1  
 
-  double delta = 0.5 + sqrt(0.25 + p.msqr);
-  double h = 1;
-  double result = 0.0;
-  double result_0 = 0.0;
-  double geo = exp(-2*d12(z,w));
-  double a,b,c;
-  double tol = 1e-10;
+  Float delta = 0.5 + sqrt(0.25 + p.msqr);
+  Float h = 1;
+  Float result = 0.0;
+  Float result_0 = 0.0;
+  Float geo = exp(-2*d12(z,w));
+  Float a,b,c;
+  Float tol = 1e-10;
   int n=0;
   bool conv = false;
 

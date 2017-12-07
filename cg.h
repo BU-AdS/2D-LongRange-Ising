@@ -6,15 +6,14 @@
 
 using namespace std;
 
-int Mphi(vector<double> &phi, const vector<double> phi0,
+int Mphi(vector<Float> &phi, const vector<Float> phi0,
 	 vector<Vertex> NodeList, Param P) {
 
   int Levels = P.Levels;
   int q = P.q;
   int T = P.t;
-  double msqr = P.msqr;
-  double C_msqr = P.C_msqr;
-  double lambda = P.lambda;  
+  Float msqr = P.msqr;
+  Float C_msqr = P.C_msqr;
   bool bc = P.bc;
   int InternalNodes = endNode(Levels-1,P)+1;
   int TotNumber = endNode(Levels,P)+1;
@@ -30,9 +29,6 @@ int Mphi(vector<double> &phi, const vector<double> phi0,
       //mass term
       phi[i] = C_msqr*msqr * phi0[i];    
 
-      //interaction term
-      phi[i] += lambda * pow(phi0[i],3);
-      
       for(int mu = 0; mu < q+T_offset; mu++) {
 	phi[i] += (phi0[i] - phi0[NodeList[i].nn[mu]]);
       }
@@ -44,8 +40,6 @@ int Mphi(vector<double> &phi, const vector<double> phi0,
       //cout<<"Exterior i="<<i<<" t="<<t<<endl;
       //mass term
       phi[i] = C_msqr*msqr * phi0[i];
-      //interaction term
-      phi[i] += lambda * pow(phi0[i],3);
       
       //the zeroth link is always on the same level.
       phi[i] += phi0[i] - phi0[NodeList[i].nn[0]];
@@ -56,7 +50,7 @@ int Mphi(vector<double> &phi, const vector<double> phi0,
       for(int mu = q-1; mu > (NodeList[i].fwdLinks); mu--) {
 	phi[i] += phi0[i] - phi0[NodeList[i].nn[mu]];
       }      
-
+      
       //We use the member data fwdLinks to apply the boundary
       //condition. For Dirichlet, the field value is 0. For
       //Neumann, the derivative is zero.
@@ -82,8 +76,8 @@ int Mphi(vector<double> &phi, const vector<double> phi0,
 }
 
 
-double Minv_phi(vector<double> &phi, const vector<double> phi0,
-		const vector<double> b, const vector<Vertex> NodeList,
+Float Minv_phi(vector<Float> &phi, const vector<Float> phi0,
+		const vector<Float> b, const vector<Vertex> NodeList,
 		Param P)
 {
   // CG solutions to Mphi = b 
@@ -92,9 +86,9 @@ double Minv_phi(vector<double> &phi, const vector<double> phi0,
   int diskN = endNode(Levels,P) + 1;
   int N = P.t*diskN;
   
-  vector<double> res(N,0.0), resNew(N,0.0),  pvec(N,0.0), Mpvec(N,0.0), pvec_tmp(N,0.0);
-  double alpha, beta, denom;
-  double rsq = 0, rsqNew = 0, bsqrt = 0, truersq = 0.0;
+  vector<Float> res(N,0.0), resNew(N,0.0),  pvec(N,0.0), Mpvec(N,0.0), pvec_tmp(N,0.0);
+  Float alpha, beta, denom;
+  Float rsq = 0, rsqNew = 0, bsqrt = 0, truersq = 0.0;
   int  i;
   
   for(i = 0; i<N; i++){
@@ -105,7 +99,7 @@ double Minv_phi(vector<double> &phi, const vector<double> phi0,
   bsqrt = sqrt(bsqrt);
   
   int maxIter = P.MaxIter;
-  double resEpsilon = P.tol;
+  Float resEpsilon = P.tol;
   // iterate till convergence
   rsqNew = 100.0;
   int k = 0;
@@ -141,14 +135,14 @@ double Minv_phi(vector<double> &phi, const vector<double> phi0,
   }
   
   if(k == maxIter) {
-    printf("CG: Failed to converge iter = %d, rsq = %e\n", k, rsq); 
+    printf("CG: Failed to converge iter = %d, rsq = %e\n", k, (double)rsq); 
     //  Failed convergence 
   }
   
   Mphi(Mpvec, phi, NodeList, P);  
   for(int i=0; i < N ; i++) truersq += (Mpvec[i] - b[i])*(Mpvec[i] - b[i]);
   
-  printf("# CG: Converged iter = %d, rsq = %e, truesq = %e\n",k,rsq,truersq);
+  printf("# CG: Converged iter = %d, rsq = %e, truesq = %e\n",k,(double)rsq,(double)truersq);
 
   return truersq; // Convergence 
 }

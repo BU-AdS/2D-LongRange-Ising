@@ -4,8 +4,10 @@
 #include <cmath>
 #include <vector>
 #include <cstring>
-#include <util.h>
 
+#define Float long double
+
+#include <util.h>
 #include <graph.h>
 #include <cg.h>
 #include <eigen.h>
@@ -60,9 +62,9 @@ int main(int argc, char **argv) {
   // CG routine //
   //------------//
   
-  vector<double> b(TotNumber,0.0);
-  vector<double> phi(TotNumber,0.0);
-  vector<double> phi0(TotNumber,0.0);  
+  vector<Float> b(TotNumber,0.0);
+  vector<Float> phi(TotNumber,0.0);
+  vector<Float> phi0(TotNumber,0.0);  
   
   if(p.src_pos < 0 || p.src_pos > TotNumber) {
     cout<<"ERROR: Source Position must be g.e. 0 and l.e. "<<TotNumber-1<<endl;
@@ -71,7 +73,7 @@ int main(int argc, char **argv) {
   
   b[p.src_pos] = 1.0;
   
-  double truesq = 0.0;
+  Float truesq = 0.0;
   truesq = Minv_phi(phi, phi0, b, NodeList, p);
   cout<<"Tolerance = "<<p.tol<<" True Residual = "<<sqrt(truesq)<<endl;  
 
