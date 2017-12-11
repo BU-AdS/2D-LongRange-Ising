@@ -20,6 +20,9 @@ int Mphi(vector<Float> &phi, const vector<Float> phi0,
   int offset = TotNumber;
   int T_offset = 0;
   T == 1 ? T_offset = 0 : T_offset = 2;
+
+  int inv_t_weight = 1.0/P.temporal_weight;
+
   
   for(int t = 0; t<T; t++) {
 
@@ -29,18 +32,23 @@ int Mphi(vector<Float> &phi, const vector<Float> phi0,
       //mass term
       phi[i] = C_msqr*msqr * phi0[i];    
 
-      for(int mu = 0; mu < q+T_offset; mu++) {
+      //Spatial links
+      for(int mu = 0; mu < q; mu++)
 	phi[i] += (phi0[i] - phi0[NodeList[i].nn[mu]]);
-      }
+
+      //Temporal links
+      for(int mu = q; mu < q+T_offset; mu++)
+	phi[i] += inv_t_weight*(phi0[i] - phi0[NodeList[i].nn[mu]]);
     }
   
-    // Dirichlet or Neuman at Exterior Nodes.  
+    //Dirichlet or Neuman at Exterior Nodes.  
     for(int i = t*offset + InternalNodes; i < t*offset + TotNumber; i++){
       
       //cout<<"Exterior i="<<i<<" t="<<t<<endl;
       //mass term
       phi[i] = C_msqr*msqr * phi0[i];
-      
+
+      //Spatial links
       //the zeroth link is always on the same level.
       phi[i] += phi0[i] - phi0[NodeList[i].nn[0]];
       
@@ -66,8 +74,8 @@ int Mphi(vector<Float> &phi, const vector<Float> phi0,
       
       //Temporal links at exterior
       if(T>1) {
-	for(int mu = q; mu < q+2; mu++) {
-	  phi[i] += (phi0[i] - phi0[NodeList[i].nn[mu]]);
+	for(int mu = q; mu < q+T_offset; mu++) {
+	  phi[i] += inv_t_weight*(phi0[i] - phi0[NodeList[i].nn[mu]]);
 	}
       }    
     }
@@ -135,14 +143,14 @@ Float Minv_phi(vector<Float> &phi, const vector<Float> phi0,
   }
   
   if(k == maxIter) {
-    printf("CG: Failed to converge iter = %d, rsq = %e\n", k, (double)rsq); 
+    printf("CG: Failed to converge iter = %d, rsq = %e\n", k, (Float)rsq); 
     //  Failed convergence 
   }
   
   Mphi(Mpvec, phi, NodeList, P);  
   for(int i=0; i < N ; i++) truersq += (Mpvec[i] - b[i])*(Mpvec[i] - b[i]);
   
-  printf("# CG: Converged iter = %d, rsq = %e, truesq = %e\n",k,(double)rsq,(double)truersq);
+  printf("# CG: Converged iter = %d, rsq = %e, truesq = %e\n",k,(Float)rsq,(Float)truersq);
 
   return truersq; // Convergence 
 }

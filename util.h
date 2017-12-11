@@ -27,7 +27,7 @@ class Param{
   int src_pos = -1;
   Float DiskScale = 1.0;
   char fname[256];
-
+  double temporal_weight = 1.0;
   
   void print(){
     cout<<"Parameter status:"<<endl;
@@ -86,10 +86,12 @@ class Param{
     Levels  = atoi(argv[9]);
     src_pos = atoi(argv[10]);
     
-    if(atof(argv[11]) == 0) C_msqr = -0.0346991/msqr + 0.605827*msqr + 4.29681;
+    //if(atof(argv[11]) == 0) C_msqr = -0.0126762/msqr + 0.0689398*msqr + 2.02509;
+    if(atof(argv[11]) == 0) C_msqr = -0.0126762/msqr + 0.0689398*msqr + 2.02509;
     else C_msqr = atof(argv[11]);
     
-    if(atof(argv[12]) == 0) N_latt = 0.0477515/(msqr + 0.310365) + 0.14219;
+    //if(atof(argv[12]) == 0) N_latt = 0.294452/(msqr + 0.766901) + 0.0788137;
+    if(atof(argv[12]) == 0) N_latt = 0.294452/(msqr + 0.766901) + 0.0788137;
     else N_latt = atof(argv[12]);
     
     q = atoi(argv[13]);
@@ -536,7 +538,7 @@ void DataDump(vector<Vertex> NodeList, vector<Float> phi, Param p) {
   Float theta   = 0.0;
   complex<Float> ratio;
   complex<Float> src = NodeList[j].z;
-    
+  
   for(int lev=0; lev<p.Levels; lev++) {
     
     sprintf(p.fname, "q%d_Lev%d_T%d_msqr%.3e_src%d_sinkLev%d_%s_%s.dat",
@@ -550,26 +552,26 @@ void DataDump(vector<Vertex> NodeList, vector<Float> phi, Param p) {
 	    p.Vcentre == true ? "Vertex" : "Circum");
     FILE *fp1;
     fp1=fopen(p.fname, "w");
-    
+
     for(long unsigned int i = endNode(lev,p)+1; i < endNode(lev+1,p)+1; i++) {
       ratio = NodeList[i].z/NodeList[j].z;
       theta = atan2( ratio.imag() , ratio.real() );
       complex<Float> snk = NodeList[i].z;
       
       if(i !=j )  {
-	fprintf(fp1, "%e %Le %e %e %e %e %Le %e %e %e\n", 
-		(double)theta,                          //1 source/sink angle
-		(Float)p.N_latt*(Float)phi[i],        //2 lattice prop
-		(double)greens2D(snk, src),             //3 analytical prop massless
-		(double)greensM2D(snk, src, p),         //4 analytic prop massive
-		(double)(greens2D(snk, src) - p.N_latt*phi[i])/(double)greens2D(src, snk),         //5 rel error		
-		(double)(greensM2D(snk, src, p) - (double)p.N_latt*(double)phi[i])/(double)greensM2D(src, snk, p), //6 rel error
+	fprintf(fp1, "%e %e %e %e %.10e %.10e %.10e %e %e %e\n",
+		(Float)theta,                          //1 source/sink angle
+		(Float)p.N_latt*(Float)phi[i],         //2 lattice prop
+		(Float)greens2D(snk, src),             //3 analytical prop massless
+		(Float)greensM2D(snk, src, p),         //4 analytic prop massive
+		(Float)(greens2D(snk, src) - p.N_latt*phi[i])/(Float)greens2D(src, snk),         //5 rel error		
+		(Float)(greensM2D(snk, src, p) - (Float)p.N_latt*(Float)phi[i])/(Float)greensM2D(src, snk, p), //6 rel error
 		(Float)abs(snk - src)/(Float)abs((Float)1.0 - conj(snk)*src),                           //7 Rich's x
-		(double)(2*((Float)1.0-abs(snk))*((Float)1.0-abs(src)) /( pow(((Float)1.0-abs(snk)),2) +
-									  pow(((Float)1-abs(src)),2) +
-									  pow(abs(snk - src),2)) ),
-		(double)d12(snk , src),                         //8 delta s (hyperbolic)
-		(double)abs(DisktoUHP(snk) - DisktoUHP(src)));  //9 delta s UHP
+		(Float)(2*((Float)1.0-abs(snk))*((Float)1.0-abs(src)) /( pow(((Float)1.0-abs(snk)),2) +
+									    pow(((Float)1-abs(src)),2) +
+									 pow(abs(snk - src),2)) ), //8
+		(Float)d12(snk , src),                         //8 delta s (hyperbolic)
+		(Float)abs(DisktoUHP(snk) - DisktoUHP(src)));  //9 delta s UHP
       }
     }
     fclose(fp1);
@@ -745,7 +747,7 @@ Float greensM2D(complex<Float> z, complex<Float> w, Param p)
     result += ( (a*b) / (c*tgamma(n+1)) ) * pow(geo,n);
     if( abs(result_0 - result)/result_0 < tol ) conv = true;
     n++;
-    //if(n%1000 == 0) cout<<n<<" 2F1 iters"<<endl; 
+    if(n%10000 == 0) cout<<n<<" 2F1 iters "<<geo<<" "<<abs(result_0 - result)/result_0<<endl; 
   }
   
   //Then compute coefficient. 

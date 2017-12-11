@@ -24,7 +24,7 @@ VERBOSITY='q'
 
 MAX_ITER=1000
 TOL=1e-10
-TIMESLICES=1
+TIMESLICES=100
 LEVELS=$1
 MASS=$2
 SRC_POS=$3
@@ -34,11 +34,14 @@ LAMBDA=$6
 Q=$7
 SCALE=1.0
 
-./adsrun ${BC} ${CENTRE} ${VERBOSITY} \
+COMMAND="./adsrun ${BC} ${CENTRE} ${VERBOSITY} \
 	 ${MAX_ITER} ${TOL} ${TIMESLICES} ${MASS} ${LAMBDA} ${LEVELS} \
-	 ${SRC_POS} ${C_MASS} ${N_LATT} ${Q} ${SCALE}
+	 ${SRC_POS} ${C_MASS} ${N_LATT} ${Q} ${SCALE}"
 
-mv q${Q}_Lev${LEVELS}_T1_msqr${MASS}_src*_sinkLev${LEVELS}_${BC_STRING}_${CENTRE_STRING}.dat > lattice.dat
+echo ${COMMAND}
+${COMMAND}
+
+cat q${Q}_Lev${LEVELS}_T${TIMESLICES}_msqr${MASS}_src*_sinkLev${LEVELS}_${BC_STRING}_${CENTRE_STRING}.dat > lattice.dat
 rm *${CENTRE_STRING}.dat
 
 cp plotter.p plotter_t.p
@@ -52,13 +55,18 @@ sed -i '' s/_CENTRE_STRING_/${CENTRE_STRING}/g plotter_t.p
 sed -i '' s/_BC_STRING_/${BC_STRING}/g plotter_t.p
 
 gnuplot plotter_t.p
-
-epstopdf q=${Q}_m2=${MASS}_Cm2=${C_MASS}_CN=${N_LATT}.eps --autorotate=All
-rm q=${Q}_m2=${MASS}_Cm2=${C_MASS}_CN=${N_LATT}.eps
-#open q=${Q}_m2=${MASS}_Cm2=${C_MASS}_CN=${N_LATT}.pdf
+rm plotter_t.p
+rm lattice.dat
+rm fit.log
 
 WRITE=$8
+
 if [ $WRITE -eq 1 ]; then
-    mv q=${Q}_m2=${MASS}_Cm2=${C_MASS}_CN=${N_LATT}.pdf ./good${Q}
+    epstopdf q=${Q}_m2=${MASS}_Cm2=${C_MASS}_CN=${N_LATT}.eps --autorotate=All
+    rm q=${Q}_m2=${MASS}_Cm2=${C_MASS}_CN=${N_LATT}.eps
+    open q=${Q}_m2=${MASS}_Cm2=${C_MASS}_CN=${N_LATT}.pdf
+    mkdir PDFs
+    mv q=${Q}_m2=${MASS}_Cm2=${C_MASS}_CN=${N_LATT}.pdf PDFs    
 fi
 
+rm q=${Q}_m2=${MASS}_Cm2=${C_MASS}_CN=${N_LATT}.eps

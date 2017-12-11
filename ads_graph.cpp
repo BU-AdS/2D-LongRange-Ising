@@ -5,7 +5,7 @@
 #include <vector>
 #include <cstring>
 
-#define Float long double
+#define Float double
 
 #include <util.h>
 #include <graph.h>
