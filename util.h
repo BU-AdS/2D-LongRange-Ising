@@ -17,6 +17,7 @@ class Param{
   bool Vcentre = true;  //if true, place vertex at centre. If false, use circumcentre.
   bool verbosity = false;  //if true, print all data. If false, print summary.
   int MaxIter = 100000;
+  int n_shift = 100;
   Float tol = pow(10,-6);
   int t = 1;
   Float msqr = 0.1;
@@ -27,7 +28,7 @@ class Param{
   int src_pos = -1;
   Float DiskScale = 1.0;
   char fname[256];
-  double temporal_weight = 1.0;
+
   
   void print(){
     cout<<"Parameter status:"<<endl;
@@ -35,6 +36,7 @@ class Param{
     cout<<"B.C. = "<< (bc ? ("Dirichlet") : ("Neumann") ) << endl;
     cout<<"Centre = "<< (Vcentre ? ("Vertex") : ("Circum") ) << endl;
     cout<<"MaxIter = "<<MaxIter<<endl;
+    cout<<"Number of Shifts = "<<n_shift<<endl;
     cout<<"Tol = "<<tol<<endl;
     cout<<"TimeSlices = "<<t<<endl;   
     cout<<"Mass squared = "<<msqr<<endl;
@@ -95,7 +97,8 @@ class Param{
     else N_latt = atof(argv[12]);
     
     q = atoi(argv[13]);
-    DiskScale = atoi(argv[14]);
+    n_shift = atoi(argv[14]);
+    
   }
 };
 
@@ -104,6 +107,7 @@ class Vertex{
   int nn[11] = {0,0,0,0,0,0,0,0,0,0,0};
   int fwdLinks;
   complex<Float> z;
+  double temporal_weight = 1.0;
 };
 
 
@@ -123,6 +127,7 @@ complex<Float> flip(complex<Float> z, complex<Float> z1, complex<Float> z2);
 Float s(complex<Float> z);
 Float r(Float s );
 Float d12(complex<Float> z1, complex<Float> z2);
+Float sigma(complex<Float> z1, complex<Float> z2, int t);
 Float s3p(int q);
 Float area3q(int q);
 Float areaGeneral(Param P, Float A, Float B, Float C);
@@ -214,9 +219,8 @@ void GetComplexPositions(Graph &NodeList, Param& P){
 
   int q = P.q;
   int Levels = P.Levels;
-  Float lower = 1.0;
-  Float upper = 0.0;  
-
+  int T_offset = endNode(P.Levels,P)+1;
+  
   if(P.Vcentre == true) {
     //Assume for now that the origin (level 0) is a vertex
     NodeList[0].z = 0.0;
@@ -235,11 +239,9 @@ void GetComplexPositions(Graph &NodeList, Param& P){
 	for(int k=0; k<q; k++) {
 	  if(NodeList[n].nn[k] != -1) {
 	    NodeList[NodeList[n].nn[k]].z = newVertex(NodeList[NodeList[n].nn[0]].z, NodeList[n].z, k, q);
+	    NodeList[NodeList[n].nn[k]].temporal_weight = (1+pow(abs(NodeList[NodeList[n].nn[k]].z),2))/(1-pow(abs(NodeList[NodeList[n].nn[k]].z),2));
+	    //NodeList[NodeList[n].nn[k]].temporal_weight = 1.0 / pow(cos(M_PI*abs(NodeList[NodeList[n].nn[k]].z)/2),1);
 	  }
-	}
-	if(l==Levels) {
-	  if( abs(NodeList[n].z) < lower ) lower = abs(NodeList[n].z);
-	  if( abs(NodeList[n].z) > upper ) upper = abs(NodeList[n].z);
 	}
       }
     }    
@@ -273,49 +275,20 @@ void GetComplexPositions(Graph &NodeList, Param& P){
       }
     }
     for(int l=1; l<Levels+1; l++) {
-      //int counter = 0;
       for(long unsigned int n=endNode(l-1,P)+1; n<endNode(l,P)+1; n++) {
 	for(int k=0; k<q; k++) {
 	  if(NodeList[n].nn[k] != -1) {
 	    NodeList[NodeList[n].nn[k]].z = newVertex(NodeList[NodeList[n].nn[0]].z, NodeList[n].z, k, q);
+	    NodeList[NodeList[n].nn[k]].temporal_weight = (1+pow(abs(NodeList[NodeList[n].nn[k]].z),2))/(1-pow(abs(NodeList[NodeList[n].nn[k]].z),2));
 	  }
-	}
-	if(l==Levels) {
-	  if( abs(NodeList[n].z) < lower ) lower = abs(NodeList[n].z);
-	  if( abs(NodeList[n].z) > upper ) upper = abs(NodeList[n].z);
 	}
       }
     }
   }
   
-  /*
-  //Histogram
-  int N = 5000;
-  Float arr[N];
-  Float fac = 0.0001;
-  Float width = ((1+fac)*upper - (1-fac)*lower)/N;
-  int count = 0;
-  int distinct = 0;
-  cout<<endl<<"Upper = "<<upper<<" Lower = "<<lower<<" circum = "<<endNode(Levels,P) - endNode(Levels-1,P)<<endl;
-  
-  for(long unsigned int n=0; n<N; n++) arr[n] = 0;    
-  for(long unsigned int n=endNode(Levels-1,P)+1; n<endNode(Levels,P)+1; n++) {
-    for(int i=0; i<N; i++)
-      if(abs(NodeList[n].z) > (1-fac)*lower + i*width && abs(NodeList[n].z) < (1-fac)*lower + (i+1)*width ) {
-	arr[i]++;
-	count++;
-	if(P.verbosity) cout<<abs(NodeList[n].z)<<endl;
-      }
-  }
-  cout<<endl;
-  for(int i=0; i<N; i++) {
-    if(P.verbosity) cout<<arr[i]<<" ";
-    if(arr[i] != 0) distinct++;
-  }
-  cout<<endl<<"Count = "<<count<<endl;
-  cout<<endl<<"Distinct = "<<distinct<<endl;
-  */
-
+  //Copy all 2D complex positions along the cylinder
+  for(long unsigned int n=0; n<endNode(P.Levels,P)+1; n++) 
+    for(int t=1; t<P.t; t++) NodeList[n + T_offset*t].z = NodeList[n].z;
 }
 
 //- For each node n, with a link to another node,
@@ -518,12 +491,13 @@ void CheckEdgeLength(const vector<Vertex> NodeList, Param P) {
   sig = sqrt(sig);
   cout<<endl<<"LENGTH STD DEV = "<<sig<<endl;
   if(sig>tol) {
-    cout<<"ERROR: Hypergeometric length STD_DEV has diverged over "<<tol<<endl;
+    cout<<"WARNING: Hypergeometric length STD_DEV has diverged over "<<tol<<endl;
     //exit(0);
   }
 }
 
-void DataDump(vector<Vertex> NodeList, vector<Float> phi, Param p) {
+//Data file for lattice/analytical propagator data,
+void DataDump(vector<Vertex> NodeList, Float *phi, Param p) {
 
   long unsigned int TotNumber = (endNode(p.Levels,p) + 1) * p.t;
   Float norm = 0.0;
@@ -531,50 +505,80 @@ void DataDump(vector<Vertex> NodeList, vector<Float> phi, Param p) {
   for(long unsigned int i = 0;i < TotNumber; i++) phi[i] /= sqrt(norm); 
   
   long unsigned int j = p.src_pos;
-  
-  //Data file for lattice/analytical propagator data,
-  //Complex positions (Poincare, UHP), etc.
-  
-  Float theta   = 0.0;
+
+  int T = p.t;
+  int T_offset = 0;
+  Float theta = 0.0;
+  Float delta = p.t < 2 ? 0.5 + sqrt(0.25 + p.msqr) : 1.0 + sqrt(1 + p.msqr);
   complex<Float> ratio;
   complex<Float> src = NodeList[j].z;
-  
-  for(int lev=0; lev<p.Levels; lev++) {
-    
-    sprintf(p.fname, "q%d_Lev%d_T%d_msqr%.3e_src%d_sinkLev%d_%s_%s.dat",
-	    p.q,
-	    p.Levels, 
-	    p.t, 
-	    (double)p.msqr,
-	    p.src_pos,
-	    lev+1,
-	    p.bc == true ? "Dirichlet" : "Neumann",
-	    p.Vcentre == true ? "Vertex" : "Circum");
-    FILE *fp1;
-    fp1=fopen(p.fname, "w");
 
-    for(long unsigned int i = endNode(lev,p)+1; i < endNode(lev+1,p)+1; i++) {
-      ratio = NodeList[i].z/NodeList[j].z;
-      theta = atan2( ratio.imag() , ratio.real() );
-      complex<Float> snk = NodeList[i].z;
+  //Loop over timeslices
+  for(int t=0; t<T; t++) {
+    T_offset = (endNode(p.Levels,p) + 1) * t;
+
+    //Loop over circumference levels
+    for(int lev=0; lev<p.Levels; lev++) {
       
-      if(i !=j )  {
-	fprintf(fp1, "%e %e %e %e %.10e %.10e %.10e %e %e %e\n",
-		(Float)theta,                          //1 source/sink angle
-		(Float)p.N_latt*(Float)phi[i],         //2 lattice prop
-		(Float)greens2D(snk, src),             //3 analytical prop massless
-		(Float)greensM2D(snk, src, p),         //4 analytic prop massive
-		(Float)(greens2D(snk, src) - p.N_latt*phi[i])/(Float)greens2D(src, snk),         //5 rel error		
-		(Float)(greensM2D(snk, src, p) - (Float)p.N_latt*(Float)phi[i])/(Float)greensM2D(src, snk, p), //6 rel error
-		(Float)abs(snk - src)/(Float)abs((Float)1.0 - conj(snk)*src),                           //7 Rich's x
-		(Float)(2*((Float)1.0-abs(snk))*((Float)1.0-abs(src)) /( pow(((Float)1.0-abs(snk)),2) +
-									    pow(((Float)1-abs(src)),2) +
-									 pow(abs(snk - src),2)) ), //8
-		(Float)d12(snk , src),                         //8 delta s (hyperbolic)
-		(Float)abs(DisktoUHP(snk) - DisktoUHP(src)));  //9 delta s UHP
+      sprintf(p.fname, "q%d_Lev%d_T%d_msqr%.3Le_srct0_srcpos%d_sinkt%dLev%d_%s_%s.dat",
+	      p.q,
+	      p.Levels,
+	      p.t,
+	      (Float)p.msqr,
+	      p.src_pos,
+	      t,
+	      lev+1,
+	      p.bc == true ? "Dirichlet" : "Neumann",
+	      p.Vcentre == true ? "Vertex" : "Circum");
+      FILE *fp1;
+      fp1=fopen(p.fname, "w");
+      
+      //Loop over H2 disk
+      for(long unsigned int k = endNode(lev,p)+1; k < endNode(lev+1,p)+1; k++) {
+	
+	//Construct i
+	int i = k + T_offset;
+	
+	ratio = NodeList[i].z/NodeList[j].z;
+	theta = atan2( ratio.imag() , ratio.real() );
+	complex<Float> snk = NodeList[i].z;
+	
+	//index divided by disk size, using the int floor feature/bug,
+	//gives the timeslice for each index.
+	int t1 = j / (TotNumber/p.t);
+	int t2 = i / (TotNumber/p.t);
+	//Assume PBC.
+	int delta_t = (t2-t1) > p.t/2 ? (t2-t1) - p.t : (t2-t1);
+
+	Float r = abs(NodeList[i].z);
+	Float r_p = abs(NodeList[j].z);
+	Float xi = (cosh(delta_t)*(1+r)*(1+r_p) - 4*r*r_p*cos(theta)) / ((1-r)*(1-r_p));
+	
+	if( i != j )  {
+	  fprintf(fp1, "%d %d %.8Le %.8Le %.8Le %.8Le %.8Le\n",
+		  //1 Timeslice, 2 H2 pos
+		  t, i,
+		  
+		  //3 source/sink angle
+		  (Float)theta,
+		  
+		  //4 lattice prop
+		  (Float)p.N_latt*(Float)phi[i],
+		  
+		  //5 invariant
+		  1.0/xi,
+		  //(Float)( ((Float)1.0-abs(snk))*((Float)1.0-abs(src))/(pow(abs(snk - src),2))),
+		  
+		  //6 AdS2p1 formula
+		  (Float)(exp(-delta*sigma(src,snk,delta_t)) / (1 - exp(-2*sigma(src,snk,delta_t)))),
+
+		  //7 geodesic
+		  (Float)sigma(src,snk,delta_t)
+		  );
+	}
       }
+      fclose(fp1);
     }
-    fclose(fp1);
   }
 }
 
@@ -646,6 +650,18 @@ Float d12(complex<Float> z, complex<Float> w) {
 
   return log ( (abs((Float)1.0-conj(z)*w) + abs(z-w))/(abs((Float)1.0-conj(z)*w) - abs(z-w)));
   
+}
+
+//Geodesic distance from z1,t1 to z2,t2
+Float sigma(complex<Float> z, complex<Float> w, int delta_t) {
+
+  Float theta = atan2( (w/z).imag() , (w/z).real() );
+  Float r = abs(z);
+  Float r_p = abs(w);  
+  Float xi = (cosh(delta_t)*(1+r)*(1+r_p) - 4*r*r_p*cos(theta)) / ((1-r)*(1-r_p)); 
+  
+  return acosh(xi);
+    
 }
 
 // length of arc q fold triangle to origin.
@@ -739,7 +755,7 @@ Float greensM2D(complex<Float> z, complex<Float> w, Param p)
   int n=0;
   bool conv = false;
 
-  while( !conv ) {    
+  while( !conv && n < 10000 ) {    
     result_0 = result;
     a = tgamma(delta + n)/tgamma(delta);
     b = tgamma(h + n)/tgamma(h);

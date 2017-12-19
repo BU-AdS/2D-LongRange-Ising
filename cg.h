@@ -6,7 +6,7 @@
 
 using namespace std;
 
-int Mphi(vector<Float> &phi, const vector<Float> phi0,
+int Mphi(Float *phi, const Float *phi0,
 	 vector<Vertex> NodeList, Param P) {
 
   int Levels = P.Levels;
@@ -21,9 +21,6 @@ int Mphi(vector<Float> &phi, const vector<Float> phi0,
   int T_offset = 0;
   T == 1 ? T_offset = 0 : T_offset = 2;
 
-  int inv_t_weight = 1.0/P.temporal_weight;
-
-  
   for(int t = 0; t<T; t++) {
 
     //loop over interior nodes on all disks    
@@ -38,7 +35,7 @@ int Mphi(vector<Float> &phi, const vector<Float> phi0,
 
       //Temporal links
       for(int mu = q; mu < q+T_offset; mu++)
-	phi[i] += inv_t_weight*(phi0[i] - phi0[NodeList[i].nn[mu]]);
+	phi[i] += (phi0[i] - phi0[NodeList[i].nn[mu]]);
     }
   
     //Dirichlet or Neuman at Exterior Nodes.  
@@ -75,7 +72,7 @@ int Mphi(vector<Float> &phi, const vector<Float> phi0,
       //Temporal links at exterior
       if(T>1) {
 	for(int mu = q; mu < q+T_offset; mu++) {
-	  phi[i] += inv_t_weight*(phi0[i] - phi0[NodeList[i].nn[mu]]);
+	  phi[i] += (phi0[i] - phi0[NodeList[i].nn[mu]]);
 	}
       }    
     }
@@ -84,17 +81,28 @@ int Mphi(vector<Float> &phi, const vector<Float> phi0,
 }
 
 
-Float Minv_phi(vector<Float> &phi, const vector<Float> phi0,
-		const vector<Float> b, const vector<Vertex> NodeList,
-		Param P)
-{
+Float Minv_phi(Float *phi, Float *b,
+	       const vector<Vertex> NodeList, Param P) {
   // CG solutions to Mphi = b 
   //  see http://en.wikipedia.org/wiki/Conjugate_gradient_method
   int Levels = P.Levels;
   int diskN = endNode(Levels,P) + 1;
   int N = P.t*diskN;
   
-  vector<Float> res(N,0.0), resNew(N,0.0),  pvec(N,0.0), Mpvec(N,0.0), pvec_tmp(N,0.0);
+  Float *res, *resNew, *pvec, *Mpvec, *pvec_tmp;  
+  res      = (Float*)malloc(N*sizeof(Float));
+  resNew   = (Float*)malloc(N*sizeof(Float));
+  pvec     = (Float*)malloc(N*sizeof(Float));  
+  Mpvec    = (Float*)malloc(N*sizeof(Float));
+  pvec_tmp = (Float*)malloc(N*sizeof(Float));
+  for(int i=0; i<N; i++) {
+    res[i]      = 0.0;
+    resNew[i]   = 0.0;
+    pvec[i]     = 0.0;  
+    Mpvec[i]    = 0.0;
+    pvec_tmp[i] = 0.0;
+  }
+  
   Float alpha, beta, denom;
   Float rsq = 0, rsqNew = 0, bsqrt = 0, truersq = 0.0;
   int  i;
@@ -143,14 +151,14 @@ Float Minv_phi(vector<Float> &phi, const vector<Float> phi0,
   }
   
   if(k == maxIter) {
-    printf("CG: Failed to converge iter = %d, rsq = %e\n", k, (Float)rsq); 
+    printf("CG: Failed to converge iter = %d, rsq = %Le\n", k, (Float)rsq); 
     //  Failed convergence 
   }
   
   Mphi(Mpvec, phi, NodeList, P);  
   for(int i=0; i < N ; i++) truersq += (Mpvec[i] - b[i])*(Mpvec[i] - b[i]);
   
-  printf("# CG: Converged iter = %d, rsq = %e, truesq = %e\n",k,(Float)rsq,(Float)truersq);
+  printf("# CG: Converged iter = %d, rsq = %Le, truesq = %Le\n",k,(Float)rsq,(Float)truersq);
 
   return truersq; // Convergence 
 }

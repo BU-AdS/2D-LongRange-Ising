@@ -24,14 +24,16 @@ VERBOSITY='q'
 
 MAX_ITER=1000
 TOL=1e-10
-TIMESLICES=100
 LEVELS=$1
 MASS=$2
 SRC_POS=$3
 C_MASS=$4
 N_LATT=$5
-LAMBDA=$6
-Q=$7
+Q=$6
+TIMESLICES=$7
+SINK_T=$8
+
+LAMBDA=0.0
 SCALE=1.0
 
 COMMAND="./adsrun ${BC} ${CENTRE} ${VERBOSITY} \
@@ -41,7 +43,7 @@ COMMAND="./adsrun ${BC} ${CENTRE} ${VERBOSITY} \
 echo ${COMMAND}
 ${COMMAND}
 
-cat q${Q}_Lev${LEVELS}_T${TIMESLICES}_msqr${MASS}_src*_sinkLev${LEVELS}_${BC_STRING}_${CENTRE_STRING}.dat > lattice.dat
+cat q${Q}_Lev${LEVELS}_T${TIMESLICES}_msqr${MASS}_srct0_*_sinkt${SINK_T}Lev${LEVELS}_${BC_STRING}_${CENTRE_STRING}.dat > lattice.dat
 rm *${CENTRE_STRING}.dat
 
 cp plotter.p plotter_t.p
@@ -53,20 +55,32 @@ sed -i '' s/_Q_/${Q}/g plotter_t.p
 sed -i '' s/_LEVELS_/${LEVELS}/g plotter_t.p
 sed -i '' s/_CENTRE_STRING_/${CENTRE_STRING}/g plotter_t.p
 sed -i '' s/_BC_STRING_/${BC_STRING}/g plotter_t.p
+sed -i '' s/_SINK_T_/${SINK_T}/g plotter_t.p
+sed -i '' s/_TIMESLICES_/${TIMESLICES}/g plotter_t.p
 
+if [ ${TIMESLICES} -ge 1 ]; then
+    sed -i '' s/_d_/2/g plotter_t.p
+else
+    sed -i '' s/_d_/1/g plotter_t.p
+fi
+    
 gnuplot plotter_t.p
-rm plotter_t.p
-rm lattice.dat
-rm fit.log
 
-WRITE=$8
+WRITE=$9
+
+echo $WRITE
+
+fname=q${Q}_msqr${MASS}_gmsqr${C_MASS}_gN${N_LATT}_T${TIMESLICES}_dT${SINK_T}
 
 if [ $WRITE -eq 1 ]; then
-    epstopdf q=${Q}_m2=${MASS}_Cm2=${C_MASS}_CN=${N_LATT}.eps --autorotate=All
-    rm q=${Q}_m2=${MASS}_Cm2=${C_MASS}_CN=${N_LATT}.eps
-    open q=${Q}_m2=${MASS}_Cm2=${C_MASS}_CN=${N_LATT}.pdf
+    epstopdf q${Q}_msqr${MASS}_gmsqr${C_MASS}_gN${N_LATT}_T${TIMESLICES}_dT${SINK_T}.eps --autorotate=All
+    mkdir EPS
+    mv q${Q}_msqr${MASS}_gmsqr${C_MASS}_gN${N_LATT}_T${TIMESLICES}_dT${SINK_T}.eps ./EPS/.
     mkdir PDFs
-    mv q=${Q}_m2=${MASS}_Cm2=${C_MASS}_CN=${N_LATT}.pdf PDFs    
+    mv q${Q}_msqr${MASS}_gmsqr${C_MASS}_gN${N_LATT}_T${TIMESLICES}_dT${SINK_T}.pdf ./PDFs/.
 fi
 
-rm q=${Q}_m2=${MASS}_Cm2=${C_MASS}_CN=${N_LATT}.eps
+rm q${Q}_msqr${MASS}_gmsqr${C_MASS}_gN${N_LATT}_T${TIMESLICES}_dT${SINK_T}.eps
+rm fit.log
+rm lattice.dat
+rm plotter_t.p

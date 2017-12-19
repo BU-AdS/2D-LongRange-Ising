@@ -5,11 +5,12 @@
 #include <vector>
 #include <cstring>
 
-#define Float double
+#define Float long double
 
 #include <util.h>
 #include <graph.h>
 #include <cg.h>
+#include <cg_multishift.h>
 #include <eigen.h>
 
 using namespace std;
@@ -46,40 +47,48 @@ int main(int argc, char **argv) {
   GetComplexPositions(NodeList, p);
   
   //Debug tools
-#if 1
-  
-  ConnectivityCheck(NodeList, p);
-  CheckEdgeLength(NodeList, p);
-  CheckArea(NodeList, p);
   if(p.verbosity) {
+    ConnectivityCheck(NodeList, p);
+    CheckEdgeLength(NodeList, p);
+    CheckArea(NodeList, p);
     PrintNodeTables(NodeList, p);  
     PrintComplexPositions(NodeList, p);
   }
   
-#endif
-
-  //------------//
-  // CG routine //
-  //------------//
-  
-  vector<Float> b(TotNumber,0.0);
-  vector<Float> phi(TotNumber,0.0);
-  vector<Float> phi0(TotNumber,0.0);  
-  
   if(p.src_pos < 0 || p.src_pos > TotNumber) {
-    cout<<"ERROR: Source Position must be g.e. 0 and l.e. "<<TotNumber-1<<endl;
+    cout<<"ERROR: Source Position must be g.e. 0 and l.e. "<<TotNumber-1;
+    cout<<endl;
     exit(0);
+  }
+  
+  //-------------//
+  // CG routines //
+  //-------------//
+
+  Float *phi = (Float*)malloc(TotNumber*sizeof(Float));
+  Float *b   = (Float*)malloc(TotNumber*sizeof(Float));
+  for(int i=0; i<TotNumber; i++) {
+    phi[i] = 0.0;
+    b[i]   = 0.0;
   }
   
   b[p.src_pos] = 1.0;
   
   Float truesq = 0.0;
-  truesq = Minv_phi(phi, phi0, b, NodeList, p);
-  cout<<"Tolerance = "<<p.tol<<" True Residual = "<<sqrt(truesq)<<endl;  
+  truesq = Minv_phi(phi, b, NodeList, p);
+  cout<<"Tolerance = "<<p.tol<<" True Residual = "<<sqrt(truesq)<<endl;
+  //DataDump(NodeList, phi, p);  
 
-  DataDump(NodeList, phi, p);  
+  int n_shift = p.n_shift;
+  Float **phi_ms = (Float**)malloc(n_shift*sizeof(Float*));
+  for(int i=0; i<n_shift; i++) {
+    phi_ms[i] = (Float*)malloc(TotNumber*sizeof(Float));
+    for(int j=0; j<TotNumber; j++) phi_ms[i][j] = 0.0;
+  }
+  
+  Minv_phi_ms(phi_ms, b, NodeList, p);
+  
   //Mphi_ev(NodeList, p);
   
   return 0;
 }
-
