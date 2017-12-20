@@ -129,8 +129,11 @@ void BuildGraph(Graph &NodeList, Param P){
 	//Fwd link
 	NodeList[t*offset + n].nn[q  ] = (t+1)*offset + n;    
 	//Bkd link
-	NodeList[t*offset + n].nn[q+1] = (t-1)*offset + n;      
+	NodeList[t*offset + n].nn[q+1] = (t-1)*offset + n;
+	//fwdLinks data
+	NodeList[t*offset + n].fwdLinks = NodeList[n].fwdLinks;
       }
+    
     
     //Correct forward t links for t = T-1
     int t=T-1;
@@ -280,6 +283,8 @@ void BuildGraph(Graph &NodeList, Param P){
 	NodeList[t*offset + n].nn[q  ] = (t+1)*offset + n;    
 	//Bkd link
 	NodeList[t*offset + n].nn[q+1] = (t-1)*offset + n;
+	//fwdLinks data
+	NodeList[t*offset + n].fwdLinks = NodeList[n].fwdLinks;
       }
     
     //Correct forward t links for t = T-1

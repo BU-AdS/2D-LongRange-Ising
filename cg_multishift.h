@@ -80,7 +80,7 @@ void Minv_phi_ms(Float **phi, Float *phi0, vector<Vertex> NodeList, Param p){
 
   int n_shift = p.n_shift;
   int size = (endNode(p.Levels,p) + 1) * p.t;
-  int resid_freq_check = 1;
+  int resid_freq_check = 10;
   int max_iter = p.MaxIter;
   Float eps = p.tol;
   Float *shifts = (Float*)malloc(n_shift*sizeof(Float));
@@ -106,7 +106,7 @@ void cg_multishift(Float **phi, Float *phi0, int n_shift, int size,
   // Initialize vectors.
   Float *r, *p, *Ap;
   Float **p_s;
-  Float alpha, beta, beta_prev, rsq, rsqNew, bsqrt, truersq, tmp; 
+  Float alpha, beta, beta_prev, rsq, rsqNew, bsqrt, tmp; 
   Float *alpha_s, *beta_s, *zeta_s, *zeta_s_prev;
   int k,i,n;
   int n_shift_rem = n_shift; // number of systems to still iterate on. 
@@ -128,7 +128,7 @@ void cg_multishift(Float **phi, Float *phi0, int n_shift, int size,
   Ap = new Float[size];
 
   // Initialize values.
-  rsq = 0.0; rsqNew = 0.0; bsqrt = 0.0; truersq = 0.0; k=0;
+  rsq = 0.0; rsqNew = 0.0; bsqrt = 0.0; k=0;
   for (n = 0; n < n_shift; n++)
   {
     // beta_0, zeta_0, zeta_-1

@@ -47,10 +47,10 @@ int main(int argc, char **argv) {
   GetComplexPositions(NodeList, p);
   
   //Debug tools
+  ConnectivityCheck(NodeList, p);
+  CheckEdgeLength(NodeList, p);
+  CheckArea(NodeList, p);  
   if(p.verbosity) {
-    ConnectivityCheck(NodeList, p);
-    CheckEdgeLength(NodeList, p);
-    CheckArea(NodeList, p);
     PrintNodeTables(NodeList, p);  
     PrintComplexPositions(NodeList, p);
   }
@@ -65,8 +65,8 @@ int main(int argc, char **argv) {
   // CG routines //
   //-------------//
 
-  Float *phi = (Float*)malloc(TotNumber*sizeof(Float));
-  Float *b   = (Float*)malloc(TotNumber*sizeof(Float));
+  Float* phi = new Float[TotNumber];
+  Float* b   = new Float[TotNumber];
   for(int i=0; i<TotNumber; i++) {
     phi[i] = 0.0;
     b[i]   = 0.0;
@@ -78,17 +78,20 @@ int main(int argc, char **argv) {
   truesq = Minv_phi(phi, b, NodeList, p);
   cout<<"Tolerance = "<<p.tol<<" True Residual = "<<sqrt(truesq)<<endl;
   //DataDump(NodeList, phi, p);  
-
+  
   int n_shift = p.n_shift;
-  Float **phi_ms = (Float**)malloc(n_shift*sizeof(Float*));
+  Float** phi_ms = new Float*[n_shift];
   for(int i=0; i<n_shift; i++) {
-    phi_ms[i] = (Float*)malloc(TotNumber*sizeof(Float));
+    phi_ms[i] = new long double[TotNumber];
     for(int j=0; j<TotNumber; j++) phi_ms[i][j] = 0.0;
   }
   
-  Minv_phi_ms(phi_ms, b, NodeList, p);
-  
+  Minv_phi_ms(phi_ms, b, NodeList, p);  
   //Mphi_ev(NodeList, p);
-  
+
+  delete phi;
+  delete b;
+  delete phi_ms;
+     
   return 0;
 }

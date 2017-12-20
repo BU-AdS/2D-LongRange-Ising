@@ -111,14 +111,6 @@ class Vertex{
 };
 
 
-/* struct Vertex{ */
-/*   int nn[Nlinks+2]; */
-/*   int fwdLinks; */
-/*   complex<Float> z; */
-/* }; */
-
-
-
 typedef vector<Vertex> Graph;
 
 complex<Float> T(complex<Float> z,  complex<Float> w);
@@ -239,7 +231,7 @@ void GetComplexPositions(Graph &NodeList, Param& P){
 	for(int k=0; k<q; k++) {
 	  if(NodeList[n].nn[k] != -1) {
 	    NodeList[NodeList[n].nn[k]].z = newVertex(NodeList[NodeList[n].nn[0]].z, NodeList[n].z, k, q);
-	    NodeList[NodeList[n].nn[k]].temporal_weight = (1+pow(abs(NodeList[NodeList[n].nn[k]].z),2))/(1-pow(abs(NodeList[NodeList[n].nn[k]].z),2));
+	    //NodeList[NodeList[n].nn[k]].temporal_weight = (1+pow(abs(NodeList[NodeList[n].nn[k]].z),2))/(1-pow(abs(NodeList[NodeList[n].nn[k]].z),2));
 	    //NodeList[NodeList[n].nn[k]].temporal_weight = 1.0 / pow(cos(M_PI*abs(NodeList[NodeList[n].nn[k]].z)/2),1);
 	  }
 	}
@@ -279,16 +271,18 @@ void GetComplexPositions(Graph &NodeList, Param& P){
 	for(int k=0; k<q; k++) {
 	  if(NodeList[n].nn[k] != -1) {
 	    NodeList[NodeList[n].nn[k]].z = newVertex(NodeList[NodeList[n].nn[0]].z, NodeList[n].z, k, q);
-	    NodeList[NodeList[n].nn[k]].temporal_weight = (1+pow(abs(NodeList[NodeList[n].nn[k]].z),2))/(1-pow(abs(NodeList[NodeList[n].nn[k]].z),2));
+	    //NodeList[NodeList[n].nn[k]].temporal_weight = (1+pow(abs(NodeList[NodeList[n].nn[k]].z),2))/(1-pow(abs(NodeList[NodeList[n].nn[k]].z),2));
 	  }
 	}
       }
     }
   }
-  
-  //Copy all 2D complex positions along the cylinder
-  for(long unsigned int n=0; n<endNode(P.Levels,P)+1; n++) 
-    for(int t=1; t<P.t; t++) NodeList[n + T_offset*t].z = NodeList[n].z;
+
+  if(P.t > 1) {
+    //Copy all 2D complex positions along the cylinder
+    for(long unsigned int n=0; n<endNode(P.Levels,P)+1; n++) 
+      for(int t=1; t<P.t; t++) NodeList[n + T_offset*t].z = NodeList[n].z;
+  }
 }
 
 //- For each node n, with a link to another node,
