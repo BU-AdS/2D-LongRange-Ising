@@ -28,6 +28,15 @@ class Param{
   int src_pos = -1;
   char fname[256];
 
+  int Lt = 32;
+  int S1 = 32;
+  int SurfaceVol = 0;
+  int latVol = 0;
+  double lambda = 1.0;
+  //double musqr = 1.0;
+  int *cluster ;    // Swendsen Wang Data Struture
+  int *stack ;     // Wolf Data Struture
+  int NumClusters ;
   
   void print(){
     cout<<"Parameter status:"<<endl;
@@ -251,7 +260,7 @@ void GetComplexPositions(Graph &NodeList, Param& P){
     
     //Assert that node 1 is node 0 rotated by 2*PI/3
     complex<Float>init_1(init_mod*cos(2.0*M_PI/3.0),
-			  init_mod*sin(2.0*M_PI/3.0));
+			 init_mod*sin(2.0*M_PI/3.0));
     
     NodeList[1].z = init_1;
     //Rotate node 1 about node 0 to create level 0 (the equilateral triangle)
@@ -322,6 +331,8 @@ void ConnectivityCheck(Graph &NodeList, Param P){
     }
   }
 
+  //Eyeball the output. something out of place will
+  //stick out like a sore thumb.
   if(P.verbosity) PrintNodeTables(AuxNodeList, P);
 }
 
@@ -584,7 +595,7 @@ void DataDump(vector<Vertex> NodeList, Float *phi, Param p, int level, int t_ran
 //Overloaded version for single mass CG
 void DataDump(vector<Vertex> NodeList, Float *phi, Param p) {
   int shift = 0;
-  int t_range = 3;
+  int t_range = 3;//FIXME
   int level = p.Levels;
   DataDump(NodeList, phi, p, level, t_range, shift);
 }
@@ -751,7 +762,7 @@ Float greensM2D(complex<Float> z, complex<Float> w, Param p)
 
   //First compute 2F1  
 
-  Float delta = 0.5 + sqrt(0.25 + p.msqr);
+  Float delta = p.t > 1 ? 1.0 + sqrt(1.0 + p.msqr) : 0.5 + sqrt(0.25 + p.msqr);
   Float h = 1;
   Float result = 0.0;
   Float result_0 = 0.0;
