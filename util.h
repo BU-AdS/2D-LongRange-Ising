@@ -29,6 +29,15 @@ class Param{
   Float DiskScale = 1.0;
   char fname[256];
 
+   int Lt = 32;
+  int S1 = 32;
+  int SurfaceVol = 0;
+  int latVol = 0;
+  // double lambda = 1.0;
+  //double musqr = 1.0;
+  int *cluster ;    // Swendsen Wang Data Struture
+  int *stack ;     // Wolf Data Struture
+  int NumClusters ;
   
   void print(){
     cout<<"Parameter status:"<<endl;
