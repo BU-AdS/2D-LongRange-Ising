@@ -45,7 +45,7 @@ int Mphi(Float *phi, const Float *phi0,
       if(T>1) {
 	for(int mu = q; mu < q+T_offset; mu++) {
 	  //cout<<"i="<<i<<" mu="<<mu<<" phi0="<<phi0[i]<<" phi0["<<NodeList[i].nn[mu]<<"]="<<phi0[NodeList[i].nn[mu]]<<endl;
-	  phi[i] += (phi0[i] - phi0[NodeList[i].nn[mu]]);
+	  phi[i] += (phi0[i] - phi0[NodeList[i].nn[mu]])/(NodeList[i].temporal_weight);
 	}
       }
     }
@@ -86,7 +86,7 @@ int Mphi(Float *phi, const Float *phi0,
       if(T>1) {
 	for(int mu = q; mu < q+T_offset; mu++) {
 	  //cout<<"i="<<i<<" mu="<<mu<<" phi0="<<phi0[i]<<" phi0["<<NodeList[i].nn[mu]<<"]="<<phi0[NodeList[i].nn[mu]]<<endl;
-	  phi[i] += (phi0[i] - phi0[NodeList[i].nn[mu]]);
+	  phi[i] += (phi0[i] - phi0[NodeList[i].nn[mu]])/(NodeList[i].temporal_weight);
 	}
       }    
     }

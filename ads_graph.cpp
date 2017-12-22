@@ -61,37 +61,32 @@ int main(int argc, char **argv) {
     exit(0);
   }
   
-  //-------------//
-  // CG routines //
-  //-------------//
-
-  Float* phi = new Float[TotNumber];
-  Float* b   = new Float[TotNumber];
-  for(int i=0; i<TotNumber; i++) {
-    phi[i] = 0.0;
-    b[i]   = 0.0;
-  }
-  
-  b[p.src_pos] = 1.0;
-  
-  Float truesq = 0.0;
-  truesq = Minv_phi(phi, b, NodeList, p);
-  cout<<"Tolerance = "<<p.tol<<" True Residual = "<<sqrt(truesq)<<endl;
-  //DataDump(NodeList, phi, p);  
+  //---------------//
+  // Multishift CG //
+  //---------------//
   
   int n_shift = p.n_shift;
-  Float** phi_ms = new Float*[n_shift];
+  Float** phi = new Float*[n_shift];
   for(int i=0; i<n_shift; i++) {
-    phi_ms[i] = new long double[TotNumber];
-    for(int j=0; j<TotNumber; j++) phi_ms[i][j] = 0.0;
+    phi[i] = new long double[TotNumber];
+    for(int j=0; j<TotNumber; j++) phi[i][j] = 0.0;
   }
+  Float* b   = new Float[TotNumber];
+  for(int i=0; i<TotNumber; i++) b[i]   = 0.0;
   
-  Minv_phi_ms(phi_ms, b, NodeList, p);  
-  //Mphi_ev(NodeList, p);
+  b[p.src_pos] = 1.0;  
 
-  delete phi;
-  delete b;
-  delete phi_ms;
-     
+  Minv_phi_ms(phi, b, NodeList, p);
+    
+  for(int i=0; i<n_shift; i++) {
+    DataDump(NodeList, phi[i], p, p.Levels, p.t/2, i);
+  }
+
+  //Mphi_ev(NodeList, p);
+  
+  for(int i=0; i<n_shift; i++) delete[] phi[i];
+  delete[] phi;
+  delete[] b;
+  
   return 0;
 }

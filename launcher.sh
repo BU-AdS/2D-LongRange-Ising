@@ -43,8 +43,7 @@ COMMAND="./adsrun ${BC} ${CENTRE} ${VERBOSITY} \
 echo ${COMMAND}
 ${COMMAND}
 
-cat q${Q}_Lev${LEVELS}_T${TIMESLICES}_msqr${MASS}_srct0_*_sinkt${SINK_T}Lev${LEVELS}_${BC_STRING}_${CENTRE_STRING}.dat > lattice.dat
-rm *${CENTRE_STRING}.dat
+cat ./data_dump/q${Q}_Lev${LEVELS}_T${TIMESLICES}_msqr${MASS}_srct0_*_sinkt${SINK_T}Lev${LEVELS}_${BC_STRING}_${CENTRE_STRING}.dat > lattice.dat
 
 cp plotter.p plotter_t.p
 

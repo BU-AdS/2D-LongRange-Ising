@@ -75,20 +75,23 @@ Float diffnorm2sq(Float* v1, Float* v2, const int size)
   return dv;
 }
 
-//Short term wrapper
+//Wrapper for AdS code.
 void Minv_phi_ms(Float **phi, Float *phi0, vector<Vertex> NodeList, Param p){
 
   int n_shift = p.n_shift;
   int size = (endNode(p.Levels,p) + 1) * p.t;
   int resid_freq_check = 10;
   int max_iter = p.MaxIter;
+  Float msqr = p.msqr;
+  Float delta_msqr = p.delta_msqr;
   Float eps = p.tol;
   Float *shifts = (Float*)malloc(n_shift*sizeof(Float));
-  for(int i=0; i<n_shift; i++) shifts[i] = -0.2 + i*0.01;
+  for(int i=0; i<n_shift; i++) shifts[i] = p.C_msqr*msqr + i*delta_msqr;
 
   cg_multishift(phi, phi0, n_shift, size, resid_freq_check,
 		max_iter, eps, shifts, NodeList, p);
   
+  free(shifts);  
 }
 
 // Solves lhs = A^(-1) rhs using multishift CG as defined in

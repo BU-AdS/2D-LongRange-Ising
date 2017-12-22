@@ -17,16 +17,15 @@ class Param{
   bool Vcentre = true;  //if true, place vertex at centre. If false, use circumcentre.
   bool verbosity = false;  //if true, print all data. If false, print summary.
   int MaxIter = 100000;
-  int n_shift = 100;
   Float tol = pow(10,-6);
   int t = 1;
   Float msqr = 0.1;
-  Float lambda = 1.0;
+  int n_shift = 1;
+  Float delta_msqr = 0.01;
   Float C_msqr = 1.0;
   Float N_latt = 1.0;
   int Levels = 3;
   int src_pos = -1;
-  Float DiskScale = 1.0;
   char fname[256];
 
   
@@ -36,16 +35,15 @@ class Param{
     cout<<"B.C. = "<< (bc ? ("Dirichlet") : ("Neumann") ) << endl;
     cout<<"Centre = "<< (Vcentre ? ("Vertex") : ("Circum") ) << endl;
     cout<<"MaxIter = "<<MaxIter<<endl;
-    cout<<"Number of Shifts = "<<n_shift<<endl;
     cout<<"Tol = "<<tol<<endl;
     cout<<"TimeSlices = "<<t<<endl;   
     cout<<"Mass squared = "<<msqr<<endl;
-    cout<<"lambda = "<<lambda<<endl;
+    cout<<"Number of Shifts = "<<n_shift<<endl;
+    cout<<"Msqr increment = "<<delta_msqr<<endl;
     cout<<"Levels = "<<Levels<<endl;
     cout<<"Source Position = "<<src_pos<<endl;
     cout<<"Mass squared Correction = "<<C_msqr<<endl;
     cout<<"Lattice normalisation = "<<N_latt<<endl;
-    cout<<"DiskScale = "<<DiskScale<<endl;
   }
   
   void init(int argc, char **argv) {
@@ -80,16 +78,19 @@ class Param{
       exit(0);
     }
 
-    MaxIter = atoi(argv[4]);
-    tol     = atof(argv[5]);
-    t       = atoi(argv[6]);    
-    msqr    = atof(argv[7]);
-    lambda  = atof(argv[8]);
-    Levels  = atoi(argv[9]);
-    src_pos = atoi(argv[10]);
+    MaxIter    = atoi(argv[4]);
+    tol        = atof(argv[5]);
+    t          = atoi(argv[6]);
+    msqr       = atof(argv[7]);
+    delta_msqr = atof(argv[8]);
+    Levels     = atoi(argv[9]);
+    src_pos    = atoi(argv[10]);
     
     //if(atof(argv[11]) == 0) C_msqr = -0.0126762/msqr + 0.0689398*msqr + 2.02509;
-    if(atof(argv[11]) == 0) C_msqr = -0.0126762/msqr + 0.0689398*msqr + 2.02509;
+    if(atof(argv[11]) == 0) {
+      if(t > 1) C_msqr = (1.57557326 + 1.56565549/msqr);
+      else C_msqr = -0.0126762/msqr + 0.0689398*msqr + 2.02509;
+    }
     else C_msqr = atof(argv[11]);
     
     //if(atof(argv[12]) == 0) N_latt = 0.294452/(msqr + 0.766901) + 0.0788137;
@@ -231,7 +232,7 @@ void GetComplexPositions(Graph &NodeList, Param& P){
 	for(int k=0; k<q; k++) {
 	  if(NodeList[n].nn[k] != -1) {
 	    NodeList[NodeList[n].nn[k]].z = newVertex(NodeList[NodeList[n].nn[0]].z, NodeList[n].z, k, q);
-	    //NodeList[NodeList[n].nn[k]].temporal_weight = (1+pow(abs(NodeList[NodeList[n].nn[k]].z),2))/(1-pow(abs(NodeList[NodeList[n].nn[k]].z),2));
+	    NodeList[NodeList[n].nn[k]].temporal_weight = (1+pow(abs(NodeList[NodeList[n].nn[k]].z),2))/(1-pow(abs(NodeList[NodeList[n].nn[k]].z),2));
 	    //NodeList[NodeList[n].nn[k]].temporal_weight = 1.0 / pow(cos(M_PI*abs(NodeList[NodeList[n].nn[k]].z)/2),1);
 	  }
 	}
@@ -271,7 +272,7 @@ void GetComplexPositions(Graph &NodeList, Param& P){
 	for(int k=0; k<q; k++) {
 	  if(NodeList[n].nn[k] != -1) {
 	    NodeList[NodeList[n].nn[k]].z = newVertex(NodeList[NodeList[n].nn[0]].z, NodeList[n].z, k, q);
-	    //NodeList[NodeList[n].nn[k]].temporal_weight = (1+pow(abs(NodeList[NodeList[n].nn[k]].z),2))/(1-pow(abs(NodeList[NodeList[n].nn[k]].z),2));
+	    NodeList[NodeList[n].nn[k]].temporal_weight = (1+pow(abs(NodeList[NodeList[n].nn[k]].z),2))/(1-pow(abs(NodeList[NodeList[n].nn[k]].z),2));
 	  }
 	}
       }
@@ -491,7 +492,7 @@ void CheckEdgeLength(const vector<Vertex> NodeList, Param P) {
 }
 
 //Data file for lattice/analytical propagator data,
-void DataDump(vector<Vertex> NodeList, Float *phi, Param p) {
+void DataDump(vector<Vertex> NodeList, Float *phi, Param p, int level, int t_range, int shift) {
 
   long unsigned int TotNumber = (endNode(p.Levels,p) + 1) * p.t;
   Float norm = 0.0;
@@ -503,79 +504,90 @@ void DataDump(vector<Vertex> NodeList, Float *phi, Param p) {
   int T = p.t;
   int T_offset = 0;
   Float theta = 0.0;
+  //Float msqr = (Float)p.msqr + (Float)p.delta_msqr*shift;
   Float delta = p.t < 2 ? 0.5 + sqrt(0.25 + p.msqr) : 1.0 + sqrt(1 + p.msqr);
   complex<Float> ratio;
   complex<Float> src = NodeList[j].z;
-
+  
   //Loop over timeslices
-  for(int t=0; t<T; t++) {
+  for(int t=25; t<T/2; t++) {
     T_offset = (endNode(p.Levels,p) + 1) * t;
 
     //Loop over circumference levels
     for(int lev=0; lev<p.Levels; lev++) {
-      
-      sprintf(p.fname, "q%d_Lev%d_T%d_msqr%.3Le_srct0_srcpos%d_sinkt%dLev%d_%s_%s.dat",
-	      p.q,
-	      p.Levels,
-	      p.t,
-	      (Float)p.msqr,
-	      p.src_pos,
-	      t,
-	      lev+1,
-	      p.bc == true ? "Dirichlet" : "Neumann",
-	      p.Vcentre == true ? "Vertex" : "Circum");
-      FILE *fp1;
-      fp1=fopen(p.fname, "w");
-      
-      //Loop over H2 disk
-      for(long unsigned int k = endNode(lev,p)+1; k < endNode(lev+1,p)+1; k++) {
-	
-	//Construct i
-	int i = k + T_offset;
-	
-	ratio = NodeList[i].z/NodeList[j].z;
-	theta = atan2( ratio.imag() , ratio.real() );
-	complex<Float> snk = NodeList[i].z;
-	
-	//index divided by disk size, using the int floor feature/bug,
-	//gives the timeslice for each index.
-	int t1 = j / (TotNumber/p.t);
-	int t2 = i / (TotNumber/p.t);
-	//Assume PBC.
-	int delta_t = (t2-t1) > p.t/2 ? (t2-t1) - p.t : (t2-t1);
 
-	Float r = abs(NodeList[i].z);
-	Float r_p = abs(NodeList[j].z);
-	Float xi = (cosh(delta_t)*(1+r)*(1+r_p) - 4*r*r_p*cos(theta)) / ((1-r)*(1-r_p));
+      if(lev+1 == level && t<t_range) {
+	sprintf(p.fname, "./data_dump/q%d_Lev%d_T%d_BASEmsqr%.5Le_LATTmsqr%.5Le_srct0_srcpos%d_sinkt%dLev%d_%s_%s.dat",
+		p.q,
+		p.Levels,
+		p.t,
+		p.msqr,
+		p.C_msqr*p.msqr + shift*p.delta_msqr,
+		p.src_pos,
+		0,
+		lev+1,
+		p.bc == true ? "Dirichlet" : "Neumann",
+		p.Vcentre == true ? "Vertex" : "Circum");
+	FILE *fp1;
+	fp1=fopen(p.fname, "a");
 	
-	if( i != j )  {
-	  fprintf(fp1, "%d %d %.8Le %.8Le %.8Le %.8Le %.8Le\n",
-		  //1 Timeslice, 2 H2 pos
-		  t, i,
-		  
-		  //3 source/sink angle
-		  (Float)theta,
-		  
-		  //4 lattice prop
-		  (Float)p.N_latt*(Float)phi[i],
-		  
-		  //5 invariant
-		  1.0/xi,
-		  //(Float)( ((Float)1.0-abs(snk))*((Float)1.0-abs(src))/(pow(abs(snk - src),2))),
-		  
-		  //6 AdS2p1 formula
-		  (Float)(exp(-delta*sigma(src,snk,delta_t)) / (1 - exp(-2*sigma(src,snk,delta_t)))),
-
-		  //7 geodesic
-		  (Float)sigma(src,snk,delta_t)
-		  );
+	//Loop over H2 disk
+	for(long unsigned int k = endNode(lev,p)+1; k < endNode(lev+1,p)+1; k++) {
+	  
+	  //Construct i
+	  int i = k + T_offset;
+	  
+	  ratio = NodeList[i].z/NodeList[j].z;
+	  theta = atan2( ratio.imag() , ratio.real() );
+	  complex<Float> snk = NodeList[i].z;
+	  
+	  //index divided by disk size, using the int floor feature/bug,
+	  //gives the timeslice for each index.
+	  int t1 = j / (TotNumber/p.t);
+	  int t2 = i / (TotNumber/p.t);
+	  //Assume PBC.
+	  int delta_t = (t2-t1);// > p.t/2 ? (t2-t1) - p.t : (t2-t1);
+	  
+	  Float r = abs(NodeList[i].z);
+	  Float r_p = abs(NodeList[j].z);
+	  Float xi = (cosh(delta_t)*(1+r)*(1+r_p) - 4*r*r_p*cos(theta)) / ((1-r)*(1-r_p));
+	  
+	  if( i != j && (abs(theta) > M_PI/2) ) {
+	    fprintf(fp1, "%d %d %.8Le %.8Le %.8Le %.8Le %.8Le\n",
+		    //1 Timeslice, 2 H2 pos
+		    t, i,
+		    
+		    //3 source/sink angle
+		    (Float)theta,
+		    
+		    //4 lattice prop
+		    (Float)p.N_latt*(Float)phi[i],
+		    
+		    //5 invariant
+		    1.0/xi,
+		    //(Float)( ((Float)1.0-abs(snk))*((Float)1.0-abs(src))/(pow(abs(snk - src),2))),
+		    
+		    //6 AdS2p1 formula
+		    (Float)(exp(-delta*sigma(src,snk,delta_t)) / (1 - exp(-2*sigma(src,snk,delta_t)))),
+		    
+		    //7 geodesic
+		    (Float)sigma(src,snk,delta_t)
+		    );
+	  }
 	}
+	fclose(fp1);
       }
-      fclose(fp1);
     }
   }
 }
 
+//Overloaded version for single mass CG
+void DataDump(vector<Vertex> NodeList, Float *phi, Param p) {
+  int shift = 0;
+  int t_range = 3;
+  int level = p.Levels;
+  DataDump(NodeList, phi, p, level, t_range, shift);
+}
 
 /********************************************
 Basic Hyperbolic Algebra. 

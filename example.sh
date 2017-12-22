@@ -14,21 +14,23 @@ VERBOSITY='q'
 
 Q=7
 MAX_ITER=100000
-TOL=1e-10
-TIMESLICES=100
-MSQR=-0.2
-LEVELS=8
+TOL=1e-60
+TIMESLICES=200
+MSQR=1.0
+LEVELS=7
 SRC_POS=-1
-g_MSQR=1.0
+g_MSQR=4.6275
 g_LATT=1.0
-LAMBDA=0.0
-SCALE=1.0
-N_SHIFT=400
+delta_MSQR=0.01
+N_SHIFT=1
 
 make
 
+rm -rf data_dump
+mkdir data_dump
+
 COMMAND="./adsrun ${BC} ${CENTRE} ${VERBOSITY} \
-	 	  ${MAX_ITER} ${TOL} ${TIMESLICES} ${MSQR} ${LAMBDA} \
+	 	  ${MAX_ITER} ${TOL} ${TIMESLICES} ${MSQR} ${delta_MSQR} \
 	 	  ${LEVELS} ${SRC_POS} ${g_MSQR} ${g_LATT} ${Q} ${N_SHIFT}"
 
 echo ${COMMAND}
