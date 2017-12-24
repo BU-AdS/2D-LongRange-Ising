@@ -27,16 +27,6 @@ class Param{
   int Levels = 3;
   int src_pos = -1;
   char fname[256];
-
-  int Lt = 32;
-  int S1 = 32;
-  int SurfaceVol = 0;
-  int latVol = 0;
-  double lambda = 1.0;
-  //double musqr = 1.0;
-  int *cluster ;    // Swendsen Wang Data Struture
-  int *stack ;     // Wolf Data Struture
-  int NumClusters ;
   
   void print(){
     cout<<"Parameter status:"<<endl;
@@ -110,6 +100,18 @@ class Param{
     n_shift = atoi(argv[14]);
     
   }
+
+  int Lt = 32;
+  int S1 = 32;
+  int SurfaceVol = 0;
+  int latVol = 0;
+  double lambda = 1.0;
+  //double musqr = 1.0;
+  int *cluster ;    // Swendsen Wang Data Struture
+  int *stack ;     // Wolf Data Struture
+  int NumClusters ;
+
+  
 };
 
 class Vertex{
@@ -521,7 +523,7 @@ void DataDump(vector<Vertex> NodeList, Float *phi, Param p, int level, int t_ran
   complex<Float> src = NodeList[j].z;
   
   //Loop over timeslices
-  for(int t=25; t<T/2; t++) {
+  for(int t=0; t<T/2; t++) {
     T_offset = (endNode(p.Levels,p) + 1) * t;
 
     //Loop over circumference levels

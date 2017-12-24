@@ -180,11 +180,11 @@ metropolis_update_phi(vector<double> & phi, vector<int> & s, Param p,
     }
   }
   
-   if(iter < 100 ){
-      printf(" At iter = %d the Acceptance  =  %d  with  %d tries and rate  %g \n", iter,accept, tries,
+  if(iter < 100 ){
+    printf(" At iter = %d the Acceptance  =  %d  with  %d tries and rate  %g \n", iter,accept, tries,
   	   (double)accept/(double)tries);
-      //  printf(" delta_phi = %.8f  (delta_min , delta_max) = ( %.8f, %.8f ) \n \n", delta_phi, delta_min, delta_max);
-   };
+    //  printf(" delta_phi = %.8f  (delta_min , delta_max) = ( %.8f, %.8f ) \n \n", delta_phi, delta_min, delta_max);
+  };
   
   if (iter > 990 && iter < 1000)
     {

@@ -9,7 +9,7 @@
 using namespace std;
  mt19937_64 rng(137);
 uniform_real_distribution<double> unif;
-#define Float long double
+#define Float double
 
 #include <util.h>
 #include <graph.h>
@@ -26,7 +26,7 @@ int main(int argc, char **argv) {
   //If the specified source position is < 0, place the point source
   //on the outer circumference.
   if(p.src_pos < 0) p.src_pos = endNode(p.Levels-1,p) + (endNode(p.Levels,p) - endNode(p.Levels-1,p) )/2;  
-
+ 
   //Print paramters
   p.print();
 
@@ -71,7 +71,7 @@ int main(int argc, char **argv) {
   int n_shift = p.n_shift;
   Float** phi = new Float*[n_shift];
   for(int i=0; i<n_shift; i++) {
-    phi[i] = new long double[TotNumber];
+    phi[i] = new Float[TotNumber];
     for(int j=0; j<TotNumber; j++) phi[i][j] = 0.0;
   }
   Float* b   = new Float[TotNumber];
@@ -79,10 +79,10 @@ int main(int argc, char **argv) {
   
   b[p.src_pos] = 1.0;  
 
-  Minv_phi_ms(phi, b, NodeList, p);
+  //Minv_phi_ms(phi, b, NodeList, p);
     
   for(int i=0; i<n_shift; i++) {
-    DataDump(NodeList, phi[i], p, p.Levels, p.t/2, i);
+    //DataDump(NodeList, phi[i], p, p.Levels, p.t/2, i);
   }
 
   //Mphi_ev(NodeList, p);
@@ -90,17 +90,32 @@ int main(int argc, char **argv) {
   for(int i=0; i<n_shift; i++) delete[] phi[i];
   delete[] phi;
   delete[] b;
+
+  /*
+    Jobs to do
+    incorporate the the internal DoF.
+
+    check that the cylynder is the same as DS code.
+    use the tuned ADS mass to match the CFT
+
+    find the factor that brings the kinetic term to the surface term.
+    
+    Kinetic term = Cosh(t) - cos(phi)
+
+   */
+
   
   /*****************  Monte Carlo Update *********************/
   //p.S1 =  endNode( p.Levels,q) - endNode( p.Levels-1,q);
   //Test against    ./2d_phi4 -0.7 0.5 32 16384 16384
-  p.S1 = 32; // compare with Dave Schaich's code
-  p.Lt = p.S1;
+  //p.S1 = endNode(p.Levels, p); // compare with Dave Schaich's code
+  p.Lt = 32;
+  p.S1 = 32;
   p.SurfaceVol = p.S1 * p.Lt;
   p.lambda = 0.5;
   p.msqr = 0.7;
   
-  // Debug against Shaich code  mu^2 = 0.7 lambda = 0.5 Size = 32  "^-0.7,0.5" 32-50.csv
+  //Debug against Shaich code  mu^2 = -0.7 lambda = 0.5 Size = 32  "^-0.7,0.5" 32-50.csv
   //Table I  in  paper by David Schaich, Will Loinaz https://arxiv.org/abs/0902.0045
   
   vector<double> phi_cyl( p.SurfaceVol,0.0);
@@ -108,7 +123,7 @@ int main(int argc, char **argv) {
   p.latVol =  p.SurfaceVol;
   
   // p.cluster = (int *) malloc( p.latVol * sizeof (int));  //Swendsen Wang Data Structure
-  //  p.stack = (int *) malloc(p.latVol * sizeof (int));    //Wolff Data Structure
+  // p.stack = (int *) malloc(p.latVol * sizeof (int));    //Wolff Data Structure
     
   double KE = 0.0, PE = 0.0;
   double Etot = 0.0;
@@ -121,12 +136,11 @@ int main(int argc, char **argv) {
     mag_phi +=  phi_cyl[i];
   }
   
-     
-  cout <<"p,Levels =  "<< p.Levels  << "  Lattice Size is p.S1 x p.Lt =  "<< p.S1
+  cout <<"p.Levels =  "<< p.Levels  << "  Lattice Size is p.S1 x p.Lt =  "<< p.S1
        << " x "<<p.Lt<< "  Initial Mag is " << mag_phi << endl;
   Etot =   action_phi(phi_cyl,s, p,  KE, PE);
   
-  cout << " KE = " << KE <<"  PE  " << PE<< "   KE + PE "<< KE + PE << "   " << Etot << endl;
+  cout << " KE = " << KE <<" PE " << PE<< " KE + PE "<< KE + PE << "   " << Etot << endl;
   
   int Thermalize = 100000;
   
@@ -139,11 +153,11 @@ int main(int argc, char **argv) {
     mag_phi +=  phi_cyl[i];
   }
     
-  int AverIter = 400000;
+  int AverIter = 4000000;
   double AverE = 0.0;
   double tmpPhi = 0.0;
   double AveAbsPhi = 0.0;
-  double AvePhi2=0.0;
+  double AvePhi2 =0.0;
   double AvePhi4 = 0.0;
   double MagPhi = 0.0;
   double rhoVol = 1.0/(double) p.SurfaceVol;
