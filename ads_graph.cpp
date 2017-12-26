@@ -7,9 +7,9 @@
 #include <random>
 
 using namespace std;
- mt19937_64 rng(137);
+mt19937_64 rng(137);
 uniform_real_distribution<double> unif;
-#define Float double
+#define Float long double
 
 #include <util.h>
 #include <graph.h>
@@ -20,13 +20,12 @@ uniform_real_distribution<double> unif;
 
 int main(int argc, char **argv) {
 
-  Param p;
-  if(argc > 1) p.init(argc, argv);
+  cout<<setprecision(10);
   
-  //If the specified source position is < 0, place the point source
-  //on the outer circumference.
-  if(p.src_pos < 0) p.src_pos = endNode(p.Levels-1,p) + (endNode(p.Levels,p) - endNode(p.Levels-1,p) )/2;  
- 
+  Param p;
+  //Process Command line arguments
+  if(argc > 1) p.init(argc, argv);
+    
   //Print paramters
   p.print();
 
@@ -39,8 +38,11 @@ int main(int argc, char **argv) {
   //Object to hold index positions of vertices
   vector<Vertex> NodeList(TotNumber);
 
-  //Initialise. -1 in NodeList indicates that node
-  //is not yet populated.
+  //-1 in NodeList indicates that node n has no connections.
+  //This is used during construction to indicate if the node is yet
+  //to be populated. During truncation, nodes to be removed are
+  //assined a position of -1, and all connections to that node are
+  //removed.
   for(int n = 0; n <TotNumber;n++)
     for(int mu = 0; mu < p.q+2; mu++) 
       NodeList[n].nn[mu] = -1;
@@ -48,16 +50,47 @@ int main(int argc, char **argv) {
   //Construct neighbour table and z-coords
   BuildGraph(NodeList, p);
   GetComplexPositions(NodeList, p);
+  //PrintNodeTables(NodeList, p);
+  
+  //Check that hyperbolic radius and levels requested
+  //are compatible. Shift radius to maximize connectivity.
+  int r_min_pos = 0;
+  Float r_min = 1.0;
+  for(int n=endNode(p.Levels-1,p)+1; n<endNode(p.Levels,p)+1; n++){
+    //if(s(NodeList[n].z) < p.hyp_rad) {
+    //cout<<"ERROR: Please request either more levels or a smaller ";
+    //cout<<"hypergeometric radius"<<endl;
+    //exit(0);
+    //}
+    if(abs(NodeList[n].z) < r_min) {
+      r_min = abs(NodeList[n].z);
+      r_min_pos = n;
+    }
+  }
+  p.hyp_rad = s(NodeList[r_min_pos].z);
+  cout<<"HYP_RAD = "<<p.hyp_rad<<endl;
+  
+  hypRadGraph(NodeList, p);
+  //PrintNodeTables(NodeList, p);
+  //radiusCheck(NodeList, p);
+  
+  //If the specified source position is < 0, place the point source
+  //on the outer circumference.
+  int graph_size = 0;
+  for(int n=0; n<endNode(p.Levels-1,p); n++)
+    if(NodeList[n].pos != -1) {
+      graph_size++;
+      cout<<n<<endl;
+    }
+  
+  if(p.src_pos < 0) p.src_pos = r_min_pos;
+
+  
   
   //Debug tools
-  ConnectivityCheck(NodeList, p);
-  CheckEdgeLength(NodeList, p);
-  CheckArea(NodeList, p);  
-  if(p.verbosity) {
-    PrintNodeTables(NodeList, p);  
-    PrintComplexPositions(NodeList, p);
-  }
-  
+  //CheckEdgeLength(NodeList, p);
+  //CheckArea(NodeList, p);  
+
   if(p.src_pos < 0 || p.src_pos > TotNumber) {
     cout<<"ERROR: Source Position must be g.e. 0 and l.e. "<<TotNumber-1;
     cout<<endl;
@@ -67,6 +100,8 @@ int main(int argc, char **argv) {
   //---------------//
   // Multishift CG //
   //---------------//
+
+  cout<<"SOURCE = "<<p.src_pos<<endl;
   
   int n_shift = p.n_shift;
   Float** phi = new Float*[n_shift];
@@ -79,13 +114,14 @@ int main(int argc, char **argv) {
   
   b[p.src_pos] = 1.0;  
 
+  Minv_phi(phi[0], b, NodeList, p);
   //Minv_phi_ms(phi, b, NodeList, p);
     
   for(int i=0; i<n_shift; i++) {
     //DataDump(NodeList, phi[i], p, p.Levels, p.t/2, i);
   }
 
-  //Mphi_ev(NodeList, p);
+  Mphi_ev(NodeList, p);
   
   for(int i=0; i<n_shift; i++) delete[] phi[i];
   delete[] phi;

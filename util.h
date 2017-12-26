@@ -26,6 +26,8 @@ class Param{
   Float N_latt = 1.0;
   int Levels = 3;
   int src_pos = -1;
+  Float hyp_rad = 5.0;
+  
   char fname[256];
   
   void print(){
@@ -40,6 +42,7 @@ class Param{
     cout<<"Number of Shifts = "<<n_shift<<endl;
     cout<<"Msqr increment = "<<delta_msqr<<endl;
     cout<<"Levels = "<<Levels<<endl;
+    cout<<"HYP radius = "<<hyp_rad<<endl;
     cout<<"Source Position = "<<src_pos<<endl;
     cout<<"Mass squared Correction = "<<C_msqr<<endl;
     cout<<"Lattice normalisation = "<<N_latt<<endl;
@@ -98,7 +101,7 @@ class Param{
     
     q = atoi(argv[13]);
     n_shift = atoi(argv[14]);
-    
+    hyp_rad = atof(argv[15]);
   }
 
   int Lt = 32;
@@ -116,6 +119,7 @@ class Param{
 
 class Vertex{
  public:
+  int pos = -1;
   int nn[11] = {0,0,0,0,0,0,0,0,0,0,0};
   int fwdLinks;
   complex<Float> z;
@@ -300,7 +304,7 @@ void GetComplexPositions(Graph &NodeList, Param& P){
 //- For each node n, with a link to another node,
 //  it checks that the neighbour table on the linked
 //  node contains the original node n as a neighbour.
-void ConnectivityCheck(Graph &NodeList, Param P){
+void connectivityCheck(Graph &NodeList, Param P){
 
   int q = P.q;
   int Levels = P.Levels;
@@ -318,15 +322,18 @@ void ConnectivityCheck(Graph &NodeList, Param P){
     }
   
   for(long unsigned int n=0; n<TotNumber; n++) {
-    for(int m=0; m<q+t_offset; m++) {
-      //Check that the link is valid
-      if(NodeList[n].nn[m] != -1) {
-	for(int p=0; p<q+t_offset; p++) {
-	  //Loop over all links on the linked node,
-	  //check if original node exists in neighbour
-	  //table.
-	  if( n == NodeList[ NodeList[n].nn[m] ].nn[p] ) {
-	    AuxNodeList[n].nn[m] = 1;
+    //Check that the node is valid
+    if(NodeList[n].pos != -1) {      
+      for(int m=0; m<q+t_offset; m++) {
+	//Check that the link is valid
+	if(NodeList[n].nn[m] != -1) {
+	  for(int p=0; p<q+t_offset; p++) {
+	    //Loop over all links on the linked node,
+	    //check if original node exists in neighbour
+	    //table.
+	    if( n == NodeList[ NodeList[n].nn[m] ].nn[p] ) {
+	      AuxNodeList[n].nn[m] = 1;
+	    }
 	  }
 	}
       }
@@ -335,7 +342,66 @@ void ConnectivityCheck(Graph &NodeList, Param P){
 
   //Eyeball the output. something out of place will
   //stick out like a sore thumb.
-  if(P.verbosity) PrintNodeTables(AuxNodeList, P);
+  PrintNodeTables(AuxNodeList, P);
+}
+
+//Truncate the graph according to the hyperbolic radius
+//condition |z| < s.
+void hypRadGraph(Graph &NodeList, Param P){
+
+  Float hyp_rad = P.hyp_rad;
+  int q = P.q;
+  int Levels = P.Levels;
+  int T = P.t;
+  int TotNumber = T*(endNode(Levels,P)+1);
+  int t_offset  = 0;
+  T == 1 ? t_offset = 0 : t_offset = 2;
+  
+  for(long unsigned int n=0; n<TotNumber; n++) {
+    if(s(NodeList[n].z) > hyp_rad+0.1) {     
+      //This node must be removed. loop over its neighbours
+      //and remove this specific connection.
+      if(P.verbosity) cout<<"Deletng node: "<<n<<" connections: ";
+      NodeList[n].pos = -1;
+      for(int m=0; m<q+t_offset; m++)
+	for(int k=0; k<q+t_offset; k++) {
+	  if(NodeList[NodeList[n].nn[m]].nn[k] == n) {
+	    NodeList[NodeList[n].nn[m]].nn[k] = -1;
+	    NodeList[n].nn[m] = -1;
+	    if(P.verbosity) cout<<NodeList[n].nn[m]<<" ";
+	  }
+	}
+      if(P.verbosity) cout<<endl;
+    }
+  }
+  
+  //Eyeball the output. Something out of place will
+  //stick out like a sore thumb.
+  //if(P.verbosity) PrintNodeTables(NodeList, P); 
+}
+
+//Print the hyperbolic and poincare radii
+void radiusCheck(Graph &NodeList, Param P){
+
+  Float hyp_rad_ave = 0.0;
+  Float poi_rad_ave = 0.0;
+  //Float hyp_rad_sig = 0.0;
+  //Float poi_rad_sig = 0.0;
+
+  int q = P.q;
+  int TotNumber = (endNode(P.Levels,P)+1);
+  
+  for(long unsigned int n=0; n<TotNumber; n++) {
+    for(int m=0; m<q; m++)
+      if(NodeList[n].nn[m] == -1 && NodeList[n].pos != -1) {
+	cout<<"n = "<<n<<" |z| = "<<abs(NodeList[n].z)<<" s = "<<s(NodeList[n].z)<<endl;
+	poi_rad_ave += abs(NodeList[n].z);
+	hyp_rad_ave += s(NodeList[n].z);	
+      }
+  }
+  //Eyeball the output. Something out of place will
+  //stick out like a sore thumb.
+  //if(P.verbosity) PrintNodeTables(NodeList, P);  
 }
 
 void PrintNodeTables(const vector<Vertex> NodeList, Param P) {
@@ -347,26 +413,28 @@ void PrintNodeTables(const vector<Vertex> NodeList, Param P) {
   T == 1 ? t_offset = 0 : t_offset = 2;
   
   for(int t=0; t<T; t++) {
-
-    int offset = t*( endNode(Levels,P) + 1 );
-    
-    cout << endl << "lev = " << 0 << "  T = " << t << endl;
+    int offset = t*( endNode(Levels,P) + 1 );    
+    cout<<endl<<"lev = "<<0<<" T = "<<t<<endl;
     
     if(P.Vcentre) {
-      cout << endl<< " Node number = " << 0 + offset << " : ";
-      for(int i = 0; i < q+t_offset; i++) cout << NodeList[offset + 0].nn[i] << "  ";
+      cout<<endl<<" Node number = "<<0 + offset<<" : ";
+      for(int i = 0; i < q+t_offset; i++) cout<<NodeList[offset + 0].nn[i]<<"  ";
     }      
     else {
       for(long unsigned int n = 0; n < endNode(0,P)+1; n++) {
-	cout << endl<< " Node number = " << n + offset << " FL="<<NodeList[n].fwdLinks<<" : ";
-	for(int i = 0; i < q+t_offset; i++) cout << NodeList[offset + n].nn[i] << "  ";
-      } 
+	cout<<endl<<"n= "<<n<<" Node number = "<<n + offset<<" FL="<<NodeList[n].fwdLinks<<" |z|= "<<abs(NodeList[n].z)<<" s= "<<s(NodeList[n].z)<<" : ";
+	for(int i = 0; i < q+t_offset; i++) cout<<NodeList[offset + n].nn[i]<< "  ";
+      }
     }
     for(int lev = 1; lev < Levels+1; lev++)  {
-      cout << endl << "lev = " << lev << "  T = " << t << endl;
-      for(long unsigned int n = endNode(lev-1,P)+1; n < endNode(lev,P)+1; n++) {
-	cout << endl<< " Node number = " << n + offset << " FL="<<NodeList[n].fwdLinks<<" : ";
-	for(int i = 0; i < q+t_offset; i++) cout << NodeList[offset + n].nn[i] << "  ";
+      cout<<endl<<"lev = "<<lev<<" T = "<<t<<endl;
+      long unsigned int low = endNode(lev-1,P)+1;
+      long unsigned int high= endNode(lev,P)+1;
+      
+      for(long unsigned int n = low; n < high; n++) {
+	cout<<endl<<"n= "<<n<<" Node number = "<<NodeList[n + offset].pos<<" FL="<<NodeList[n].fwdLinks<<" |z|= "<<abs(NodeList[n].z)<<" s= "<<s(NodeList[n].z)<<" : ";
+	for(int i = 0; i < q+t_offset; i++)
+	  cout << NodeList[offset + n].nn[i] << "  ";
       }
     }      
   }  
@@ -377,24 +445,21 @@ void PrintComplexPositions(const vector<Vertex> NodeList, Param P) {
 
   int Levels = P.Levels;
   
-  if(P.verbosity) cout<<endl<<"#Printing for Level 0"<<endl;
+  cout<<endl<<"#Printing for Level 0"<<endl;
   for(long unsigned int n=0; n<endNode(0,P)+1; n++) {
-    if(P.verbosity) {
-      cout<<"n="<<n<<" z="<<NodeList[n].z.real()<<","<<NodeList[n].z.imag();
-      cout<<" |z|="<<abs(NodeList[n].z)<<" phi="<<arg(NodeList[n].z);
-    }
+    //cout<<"n="<<n<<" z="<<NodeList[n].z.real()<<","<<NodeList[n].z.imag();
+    cout<<"n= "<<n<<" |z|="<<abs(NodeList[n].z)<<" s="<<s(NodeList[n].z);    
   }
   for(int l=1; l<Levels+1; l++) {
-    if(P.verbosity) cout<<endl<<"Printing for Level "<<l<<endl;
+    cout<<endl<<"Printing for Level "<<l<<endl;
     for(long unsigned int n=endNode(l-1,P)+1; n<endNode(l,P)+1; n++) {
-      if(P.verbosity) {
-	cout<<"n="<<n<<" z="<<NodeList[n].z.real()<<","<<NodeList[n].z.imag();
-	cout<<" |z|="<<abs(NodeList[n].z)<<" phi="<<arg(NodeList[n].z);
-	cout<<endl;
-      }
+      //cout<<"n="<<n<<" z="<<NodeList[n].z.real()<<","<<NodeList[n].z.imag();
+      cout<<"n= "<<n<<" |z|="<<abs(NodeList[n].z)<<" s="<<s(NodeList[n].z);
+      cout<<endl;
     }
   }
 }
+
 
 void CheckArea(const vector<Vertex> NodeList, Param P) {
 
@@ -530,12 +595,12 @@ void DataDump(vector<Vertex> NodeList, Float *phi, Param p, int level, int t_ran
     for(int lev=0; lev<p.Levels; lev++) {
 
       if(lev+1 == level && t<t_range) {
-	sprintf(p.fname, "./data_dump/q%d_Lev%d_T%d_BASEmsqr%.5Le_LATTmsqr%.5Le_srct0_srcpos%d_sinkt%dLev%d_%s_%s.dat",
+	sprintf(p.fname, "./data_dump/q%d_Lev%d_T%d_BASEmsqr%.5e_LATTmsqr%.5e_srct0_srcpos%d_sinkt%dLev%d_%s_%s.dat",
 		p.q,
 		p.Levels,
 		p.t,
-		p.msqr,
-		p.C_msqr*p.msqr + shift*p.delta_msqr,
+		(double)p.msqr,
+		(double)(p.C_msqr*p.msqr + shift*p.delta_msqr),
 		p.src_pos,
 		0,
 		lev+1,
@@ -566,25 +631,25 @@ void DataDump(vector<Vertex> NodeList, Float *phi, Param p, int level, int t_ran
 	  Float xi = (cosh(delta_t)*(1+r)*(1+r_p) - 4*r*r_p*cos(theta)) / ((1-r)*(1-r_p));
 	  
 	  if( i != j && (abs(theta) > M_PI/2) ) {
-	    fprintf(fp1, "%d %d %.8Le %.8Le %.8Le %.8Le %.8Le\n",
+	    fprintf(fp1, "%d %d %.8e %.8e %.8e %.8e %.8e\n",
 		    //1 Timeslice, 2 H2 pos
 		    t, i,
 		    
 		    //3 source/sink angle
-		    (Float)theta,
+		    (double)theta,
 		    
 		    //4 lattice prop
-		    (Float)p.N_latt*(Float)phi[i],
+		    (double)p.N_latt*(double)phi[i],
 		    
 		    //5 invariant
-		    1.0/xi,
-		    //(Float)( ((Float)1.0-abs(snk))*((Float)1.0-abs(src))/(pow(abs(snk - src),2))),
+		    (double)1.0/((double)xi),
+		    //(double)( ((double)1.0-abs(snk))*((double)1.0-abs(src))/(pow(abs(snk - src),2))),
 		    
 		    //6 AdS2p1 formula
-		    (Float)(exp(-delta*sigma(src,snk,delta_t)) / (1 - exp(-2*sigma(src,snk,delta_t)))),
+		    (double)(exp(-delta*sigma(src,snk,delta_t)) / (1 - exp(-2*sigma(src,snk,delta_t)))),
 		    
 		    //7 geodesic
-		    (Float)sigma(src,snk,delta_t)
+		    (double)sigma(src,snk,delta_t)
 		    );
 	  }
 	}
@@ -652,13 +717,13 @@ complex<Float> flip(complex<Float> z, complex<Float> z1, complex<Float> z2)
   return T( R( conj( T(z,z1) ), z2/conj(z2) ), -z1 );
 }
 
-//Geodesic from z = 0 to z
+//Hyperbolic distance s, from origin to z
 Float  s(complex<Float> z)
 {
    return log(((Float)1.0+abs(z))/((Float)1.0-abs(z)));
 }
 
-//Geodesic distance s from origin
+//Poincare distance |z| from origin to s
 Float r(Float s)
 {
   return tanh(s/2);
