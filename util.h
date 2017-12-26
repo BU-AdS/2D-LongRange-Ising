@@ -27,6 +27,8 @@ class Param{
   int Levels = 3;
   int src_pos = -1;
   Float hyp_rad = 5.0;
+  int r_min_pos = 0;
+  int r_max_pos = 0;
   
   char fname[256];
   
@@ -101,7 +103,6 @@ class Param{
     
     q = atoi(argv[13]);
     n_shift = atoi(argv[14]);
-    hyp_rad = atof(argv[15]);
   }
 
   int Lt = 32;
@@ -148,6 +149,7 @@ Float greens2D(complex<Float> z, complex<Float> w);
 Float greensM2D(complex<Float> z, complex<Float> w, Param p);
 complex<Float> newVertex(complex<Float> z,complex<Float> z0,int k, int q);
 
+void radiusCheck(Graph &NodeList, Param P);
 void PrintNodeTables(const vector<Vertex> NodeList, Param P);
 
 //- Edge length from center z = 0
@@ -248,7 +250,6 @@ void GetComplexPositions(Graph &NodeList, Param& P){
 	  if(NodeList[n].nn[k] != -1) {
 	    NodeList[NodeList[n].nn[k]].z = newVertex(NodeList[NodeList[n].nn[0]].z, NodeList[n].z, k, q);
 	    NodeList[NodeList[n].nn[k]].temporal_weight = (1+pow(abs(NodeList[NodeList[n].nn[k]].z),2))/(1-pow(abs(NodeList[NodeList[n].nn[k]].z),2));
-	    //NodeList[NodeList[n].nn[k]].temporal_weight = 1.0 / pow(cos(M_PI*abs(NodeList[NodeList[n].nn[k]].z)/2),1);
 	  }
 	}
       }
@@ -347,18 +348,36 @@ void connectivityCheck(Graph &NodeList, Param P){
 
 //Truncate the graph according to the hyperbolic radius
 //condition |z| < s.
-void hypRadGraph(Graph &NodeList, Param P){
+void hypRadGraph(Graph &NodeList, Param &P){
 
-  Float hyp_rad = P.hyp_rad;
   int q = P.q;
   int Levels = P.Levels;
   int T = P.t;
   int TotNumber = T*(endNode(Levels,P)+1);
   int t_offset  = 0;
   T == 1 ? t_offset = 0 : t_offset = 2;
+
+  //Find radius to maximize connectivity.
+  int r_min_pos = 0;
+  int r_max_pos = 0;
+  Float r_min = 1.0;
+  Float r_max = 0.0;
+
+  //Locate the node on the outer circumference with the smallest
+  //radius
+  for(int n=endNode(P.Levels-1,P)+1; n<endNode(P.Levels,P)+1; n++){
+    if(abs(NodeList[n].z) < r_min) {
+      r_min = abs(NodeList[n].z);
+      r_min_pos = n;
+    }
+  }
+  P.hyp_rad = s(NodeList[r_min_pos].z);
+  cout<<"HYP_RAD = "<<P.hyp_rad<<endl;
+
+  Float hyp_rad = P.hyp_rad;
   
   for(long unsigned int n=0; n<TotNumber; n++) {
-    if(s(NodeList[n].z) > hyp_rad+0.1) {     
+    if(s(NodeList[n].z) >= hyp_rad + 0.0) {     
       //This node must be removed. loop over its neighbours
       //and remove this specific connection.
       if(P.verbosity) cout<<"Deletng node: "<<n<<" connections: ";
@@ -375,9 +394,24 @@ void hypRadGraph(Graph &NodeList, Param P){
     }
   }
   
+  for(int n=endNode(P.Levels-2,P)+1; n<endNode(P.Levels-1,P)+1; n++){
+    if(abs(NodeList[n].z) < r_min && NodeList[n].pos != -1) {
+      r_min = abs(NodeList[n].z);
+      r_min_pos = n;
+    }
+    if(abs(NodeList[n].z) > r_max && NodeList[n].pos != -1) {
+      r_max = abs(NodeList[n].z);
+      r_max_pos = n;
+    }
+  }
+  P.r_max_pos = r_max_pos;
+  cout<<"R MAX POS = "<<P.r_max_pos<<endl;
+  P.r_min_pos = r_min_pos;
+  cout<<"R MIN POS = "<<P.r_min_pos<<endl;
+  
   //Eyeball the output. Something out of place will
   //stick out like a sore thumb.
-  //if(P.verbosity) PrintNodeTables(NodeList, P); 
+  //if(P.verbosity == "d") radiusCheck(NodeList, P); 
 }
 
 //Print the hyperbolic and poincare radii
@@ -385,20 +419,52 @@ void radiusCheck(Graph &NodeList, Param P){
 
   Float hyp_rad_ave = 0.0;
   Float poi_rad_ave = 0.0;
-  //Float hyp_rad_sig = 0.0;
-  //Float poi_rad_sig = 0.0;
+  Float hyp_rad_sig = 0.0;
+  Float poi_rad_sig = 0.0;
 
   int q = P.q;
+  int count = 0;
   int TotNumber = (endNode(P.Levels,P)+1);
   
   for(long unsigned int n=0; n<TotNumber; n++) {
-    for(int m=0; m<q; m++)
+    //loop over neighbours. Break if an outer node is found.
+    for(int m=0; m<q; m++) {
       if(NodeList[n].nn[m] == -1 && NodeList[n].pos != -1) {
-	cout<<"n = "<<n<<" |z| = "<<abs(NodeList[n].z)<<" s = "<<s(NodeList[n].z)<<endl;
+	//cout<<"n = "<<n<<" |z| = "<<abs(NodeList[n].z)<<" s = ";
+	//cout<<s(NodeList[n].z)<<endl;
+	
 	poi_rad_ave += abs(NodeList[n].z);
-	hyp_rad_ave += s(NodeList[n].z);	
+	hyp_rad_ave += s(NodeList[n].z);
+	count++;
+	m=q;
       }
+    }
   }
+  
+  hyp_rad_ave /= count;
+  poi_rad_ave /= count;
+  
+  for(long unsigned int n=0; n<TotNumber; n++) {
+    for(int m=0; m<q; m++) {
+      if(NodeList[n].nn[m] == -1 && NodeList[n].pos != -1) {
+	hyp_rad_sig += pow(hyp_rad_ave - s(NodeList[n].z),2);
+	poi_rad_sig += pow(poi_rad_ave - abs(NodeList[n].z),2);
+	m=q;
+      }
+    }
+  }
+
+  hyp_rad_sig /= (count-1);
+  poi_rad_sig /= (count-1);
+  hyp_rad_sig = sqrt(hyp_rad_sig);
+  poi_rad_sig = sqrt(poi_rad_sig);
+  
+  cout<<"HYP RAD AVE = "<<hyp_rad_ave<<endl;
+  cout<<"HYP RAD SIG = "<<hyp_rad_sig<<endl;
+  cout<<"POI RAD AVE = "<<poi_rad_ave<<endl;
+  cout<<"POI RAD SIG = "<<poi_rad_sig<<endl;
+
+  
   //Eyeball the output. Something out of place will
   //stick out like a sore thumb.
   //if(P.verbosity) PrintNodeTables(NodeList, P);  
@@ -412,7 +478,7 @@ void PrintNodeTables(const vector<Vertex> NodeList, Param P) {
   int t_offset  = 0;
   T == 1 ? t_offset = 0 : t_offset = 2;
   
-  for(int t=0; t<T; t++) {
+  for(int t=0; t<1; t++) {
     int offset = t*( endNode(Levels,P) + 1 );    
     cout<<endl<<"lev = "<<0<<" T = "<<t<<endl;
     
@@ -426,7 +492,7 @@ void PrintNodeTables(const vector<Vertex> NodeList, Param P) {
 	for(int i = 0; i < q+t_offset; i++) cout<<NodeList[offset + n].nn[i]<< "  ";
       }
     }
-    for(int lev = 1; lev < Levels+1; lev++)  {
+    for(int lev = Levels-1; lev < Levels+1; lev++)  {
       cout<<endl<<"lev = "<<lev<<" T = "<<t<<endl;
       long unsigned int low = endNode(lev-1,P)+1;
       long unsigned int high= endNode(lev,P)+1;
@@ -631,7 +697,7 @@ void DataDump(vector<Vertex> NodeList, Float *phi, Param p, int level, int t_ran
 	  Float xi = (cosh(delta_t)*(1+r)*(1+r_p) - 4*r*r_p*cos(theta)) / ((1-r)*(1-r_p));
 	  
 	  if( i != j && (abs(theta) > M_PI/2) ) {
-	    fprintf(fp1, "%d %d %.8e %.8e %.8e %.8e %.8e\n",
+	    fprintf(fp1, "%d %d %.8e %.8Le %.8e %.8e %.8e\n",
 		    //1 Timeslice, 2 H2 pos
 		    t, i,
 		    
@@ -639,7 +705,7 @@ void DataDump(vector<Vertex> NodeList, Float *phi, Param p, int level, int t_ran
 		    (double)theta,
 		    
 		    //4 lattice prop
-		    (double)p.N_latt*(double)phi[i],
+		    (Float)p.N_latt*(Float)phi[i],
 		    
 		    //5 invariant
 		    (double)1.0/((double)xi),

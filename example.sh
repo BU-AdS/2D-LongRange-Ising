@@ -17,13 +17,12 @@ MAX_ITER=1000
 TOL=1e-5
 TIMESLICES=200
 MSQR=1.0
-LEVELS=7
+LEVELS=8
 SRC_POS=-1
 g_MSQR=1.0
 g_LATT=1.0
 delta_MSQR=0.01
 N_SHIFT=1
-HYP_RAD=1
 
 make
 
@@ -32,8 +31,7 @@ mkdir data_dump
 
 COMMAND="./adsrun ${BC} ${CENTRE} ${VERBOSITY} \
 	 	  ${MAX_ITER} ${TOL} ${TIMESLICES} ${MSQR} ${delta_MSQR} \
-	 	  ${LEVELS} ${SRC_POS} ${g_MSQR} ${g_LATT} ${Q} ${N_SHIFT} \
-		  ${HYP_RAD} "
+	 	  ${LEVELS} ${SRC_POS} ${g_MSQR} ${g_LATT} ${Q} ${N_SHIFT} "
 
 echo ${COMMAND}
 
