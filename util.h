@@ -523,7 +523,7 @@ void DataDump(vector<Vertex> NodeList, Float *phi, Param p, int level, int t_ran
   complex<Float> src = NodeList[j].z;
   
   //Loop over timeslices
-  for(int t=0; t<T/2; t++) {
+  for(int t=12; t<T/2; t++) {
     T_offset = (endNode(p.Levels,p) + 1) * t;
 
     //Loop over circumference levels

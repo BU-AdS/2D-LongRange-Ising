@@ -9,7 +9,7 @@
 using namespace std;
  mt19937_64 rng(137);
 uniform_real_distribution<double> unif;
-#define Float double
+#define Float long double
 
 #include <util.h>
 #include <graph.h>
@@ -79,10 +79,10 @@ int main(int argc, char **argv) {
   
   b[p.src_pos] = 1.0;  
 
-  //Minv_phi_ms(phi, b, NodeList, p);
+  Minv_phi_ms(phi, b, NodeList, p);
     
   for(int i=0; i<n_shift; i++) {
-    //DataDump(NodeList, phi[i], p, p.Levels, p.t/2, i);
+    DataDump(NodeList, phi[i], p, p.Levels, p.t/4, i);
   }
 
   //Mphi_ev(NodeList, p);
