@@ -82,7 +82,7 @@ int main(int argc, char **argv) {
   Minv_phi_ms(phi, b, NodeList, p);
     
   for(int i=0; i<n_shift; i++) {
-    DataDump(NodeList, phi[i], p, p.Levels, p.t/4, i);
+    DataDump(NodeList, phi[i], p, p.Levels, p.t/2, i);
   }
 
   //Mphi_ev(NodeList, p);
