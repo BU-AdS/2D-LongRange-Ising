@@ -95,12 +95,8 @@ int main(int argc, char **argv) {
   
   b[p.src_pos] = 1.0;  
 
-<<<<<<< HEAD
-  Minv_phi_ms(phi, b, NodeList, p);
-=======
   Minv_phi(phi[0], b, NodeList, p);
   //Minv_phi_ms(phi, b, NodeList, p);
->>>>>>> 19b88bac0aa9505717051b36cb9807727bcc07f2
     
   for(int i=0; i<n_shift; i++) {
     DataDump(NodeList, phi[i], p, p.Levels, p.t/2, i);
