@@ -31,6 +31,21 @@ class Param{
   int r_max_pos = 0;
   
   char fname[256];
+
+  int Lt = 32;
+  int S1 = 32;
+  int SurfaceVol = 0;
+  int latVol = 0;
+  double lambda = 1.0;
+  double musqr  = 1.0;
+
+  int n_therm=100000;
+  int n_meas=100;
+  int n_skip=100;
+    
+  int *cluster ;    // Swendsen Wang Data Struture
+  int *stack ;     // Wolf Data Struture
+  int NumClusters ;
   
   void print(){
     cout<<"Parameter status:"<<endl;
@@ -103,19 +118,16 @@ class Param{
     
     q = atoi(argv[13]);
     n_shift = atoi(argv[14]);
+
+    //MC params
+    
+    n_therm = atoi(argv[15]);
+    n_meas  = atoi(argv[16]);
+    n_skip  = atoi(argv[17]);
+    musqr   = atof(argv[18]);
+    lambda  = atof(argv[19]);
+    
   }
-
-  int Lt = 32;
-  int S1 = 32;
-  int SurfaceVol = 0;
-  int latVol = 0;
-  double lambda = 1.0;
-  //double musqr = 1.0;
-  int *cluster ;    // Swendsen Wang Data Struture
-  int *stack ;     // Wolf Data Struture
-  int NumClusters ;
-
-  
 };
 
 class Vertex{

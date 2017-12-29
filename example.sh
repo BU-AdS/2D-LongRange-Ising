@@ -24,6 +24,12 @@ g_LATT=1.0
 delta_MSQR=0.01
 N_SHIFT=1
 
+N_THERM=500000
+N_MEAS=100
+N_SKIP=10000
+MUSQR=0.7
+LAMBDA=0.5
+
 make
 
 rm -rf data_dump
@@ -31,7 +37,8 @@ mkdir data_dump
 
 COMMAND="./adsrun ${BC} ${CENTRE} ${VERBOSITY} \
 	 	  ${MAX_ITER} ${TOL} ${TIMESLICES} ${MSQR} ${delta_MSQR} \
-	 	  ${LEVELS} ${SRC_POS} ${g_MSQR} ${g_LATT} ${Q} ${N_SHIFT} "
+	 	  ${LEVELS} ${SRC_POS} ${g_MSQR} ${g_LATT} ${Q} ${N_SHIFT} \
+		  ${N_THERM} ${N_MEAS} ${N_SKIP} ${MUSQR} ${LAMBDA} "
 
 echo ${COMMAND}
 

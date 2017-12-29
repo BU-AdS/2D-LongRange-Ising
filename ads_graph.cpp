@@ -125,19 +125,19 @@ int main(int argc, char **argv) {
   /*****************  Monte Carlo Update *********************/
   //p.S1 =  endNode( p.Levels,q) - endNode( p.Levels-1,q);
   //Test against    ./2d_phi4 -0.7 0.5 32 16384 16384
-  //p.S1 = endNode(p.Levels, p); // compare with Dave Schaich's code
-  p.Lt = 32;
+  //compare with Dave Schaich's code
+  //p.S1 = endNode(p.Levels,p) - endNode(p.Levels-1,p);
+  //p.Lt = p.S1;
   p.S1 = 32;
+  p.Lt = 32;
   p.SurfaceVol = p.S1 * p.Lt;
-  p.lambda = 0.5;
-  p.msqr = 0.7;
   
   //Debug against Shaich code  mu^2 = -0.7 lambda = 0.5 Size = 32  "^-0.7,0.5" 32-50.csv
   //Table I  in  paper by David Schaich, Will Loinaz https://arxiv.org/abs/0902.0045
   
-  vector<double> phi_cyl( p.SurfaceVol,0.0);
-  vector<int> s( p.SurfaceVol,0.0);
-  p.latVol =  p.SurfaceVol;
+  vector<double> phi_cyl(p.SurfaceVol,0.0);
+  vector<int> s(p.SurfaceVol,0.0);
+  p.latVol = p.SurfaceVol;
   
   // p.cluster = (int *) malloc( p.latVol * sizeof (int));  //Swendsen Wang Data Structure
   // p.stack = (int *) malloc(p.latVol * sizeof (int));    //Wolff Data Structure
@@ -160,62 +160,73 @@ int main(int argc, char **argv) {
   
   cout<<" K = "<<KE<<" U = "<<PE<<" K + U = "<<KE+PE;
   cout<<" (Check) E = "<<Etot<<endl;
+
   
-  int Thermalize = 100000;
+  Etot = action_phi(phi_cyl, s, p, KE, PE);
+
+  cout<<"K = "<<KE<<" U = "<<PE<<" K + U = "<<KE+PE<<endl;
+  cout<<"Etot = "<<Etot<<endl;
+  cout<<"Etot - (K+U) = "<<Etot-(KE+PE)<<endl;
   
-  for(int iter = 0;iter < Thermalize;iter++) {
-    metropolis_update_phi(phi_cyl, s, p, delta_mag_phi);
-    // cout <<"   " <<  metropolis_update_phi(phi_cyl, s, p, delta_mag_phi) << "   " << delta_mag_phi<< endl;
+  for(int iter = 0;iter < p.n_therm; iter++) {
+    metropolis_update_phi(phi_cyl, s, p, delta_mag_phi, iter);
+    if((iter+1)%5000 == 0) cout<<"Therm sweep "<<iter+1<<endl;
   }
   
   for(int i = 0;i < p.SurfaceVol; i++) {
-    mag_phi +=  phi_cyl[i];
+    mag_phi += phi_cyl[i];
   }
-    
-  int AverIter = 4000000;
-  double AverE = 0.0;
-  double tmpPhi = 0.0;
-  double AveAbsPhi = 0.0;
-  double AvePhi2 =0.0;
+
+  double tmp     = 0.0;
+  
+  double AverE   = 0.0;
+  double AverE2  = 0.0;
+  double AvePhiAb= 0.0;
+  double AvePhi  = 0.0;
+  double AvePhi2 = 0.0;
   double AvePhi4 = 0.0;
-  double MagPhi = 0.0;
-  double rhoVol = 1.0/(double)p.SurfaceVol;
-  for(int iter = 0;iter < AverIter;iter++) {
-    metropolis_update_phi(phi_cyl, s, p, delta_mag_phi);
-    mag_phi += delta_mag_phi;
-    AverE +=   action_phi(phi_cyl,s, p,  KE, PE);
-    MagPhi = 0.0;
-    for(int i = 0;i < p.SurfaceVol; i++) {
-      tmpPhi = phi_cyl[i];
-      MagPhi+= phi_cyl[i];
-      //       AveAbsPhi +=  abs(tmpPhi);
-      //tmpPhi *= tmpPhi;
-      //AvePhi2 += tmpPhi;
-      // tmpPhi *= tmpPhi;
-      // AvePhi4 += tmpPhi;
-    }
-    AveAbsPhi += abs(MagPhi);
-    MagPhi    *= MagPhi;
-    AvePhi2   += MagPhi;
-    MagPhi    *= MagPhi;
-    AvePhi4   += MagPhi;
+  double MagPhi  = 0.0;
+  double rhoVol  = 1.0/(double)p.SurfaceVol;
+  double rhoVol2 = rhoVol*rhoVol;
+  double rhoVol4 = rhoVol2*rhoVol2;
+  
+  for(int iter = 0;iter < p.n_skip*p.n_meas; iter++) {
     
-    // cout <<"   " <<  metropolis_update_phi(phi_cyl, s, p, delta_mag_phi) << "   " << delta_mag_phi<< endl;
+    metropolis_update_phi(phi_cyl, s, p, delta_mag_phi, iter);
+    
+    mag_phi += rhoVol*delta_mag_phi;
+    tmp      = action_phi(phi_cyl,s, p, KE, PE);
+    AverE   += rhoVol*tmp;
+    AverE2  += rhoVol2*tmp*tmp;
+    
+    MagPhi   = 0.0;
+    for(int i = 0;i < p.SurfaceVol; i++) {
+      MagPhi += phi_cyl[i];
+    }
+    MagPhi    *= rhoVol;
+    
+    AvePhiAb  += abs(MagPhi);
+    AvePhi    += MagPhi;
+    AvePhi2   += MagPhi*MagPhi;
+    AvePhi4   += MagPhi*MagPhi*MagPhi*MagPhi;
+    
+    if((iter+1) % p.n_skip == 0) {      
+      cout<<"Mearurement "<<(iter+1)/p.n_skip<<" Running averages."<<endl;
+      cout<<setprecision(8);
+      double norm = 1.0/(iter+1);
+      
+      cout<<"Average Mag. Density = "<<norm*mag_phi<<endl;
+      cout<<"Average Eng. Density = "<<AverE*norm<<endl;
+      cout<<"Ave |phi| = "<<AvePhiAb*norm<<endl;
+      cout<<"Ave phi   = "<<AvePhi*norm<<endl;
+      cout<<"Ave phi^2 = "<<AvePhi2*norm<<endl;
+      cout<<"Ave phi^4 = "<<AvePhi4*norm<<endl;
+      cout<<"Suscep    = "<<(AvePhi2*norm - pow(AvePhiAb*norm,2))/rhoVol<<endl;
+      cout<<"Spec Heat = "<<(AverE2*norm - pow(AverE*norm,2))/rhoVol<<endl;
+      cout<<"Binder    = "<<1.0 - AvePhi4/(3.0*AvePhi2*AvePhi2*norm)<<endl<<endl;
+					
+    }
   }
-  
-  cout<< "Average Mag Density = " <<rhoVol*mag_phi/(double)AverIter<<" Averge Energy Density "<<rhoVol*AverE/(double)AverIter<<endl;
-  
-  // for(int i = 0;i < p.SurfaceVol; i++)
-  //{
-  //  AveAbsphi +=  abs(phi_cyl[i]);
-  //};
-  
-  double quartPhi = AvePhi4/(double)AverIter ;
-  double squaredPhi = AvePhi2/(double)AverIter;
-  double cumulant = 1.0 - quartPhi / (3.0 * squaredPhi * squaredPhi);
-  
-  cout<<"AveAbsphi = "<<rhoVol*AveAbsPhi/(double)AverIter<<endl;
-  cout<<"Avephi2 = "<<squaredPhi<<" Avephi4 = "<<quartPhi<<" Binder= "<<cumulant<<endl;
   
   return 0;
 }
