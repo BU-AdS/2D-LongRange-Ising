@@ -12,59 +12,53 @@
 // 
 
 inline int
-xp(int i, Param p)
-{
+xp(int i, Param p) {
   return (i + 1) % p.S1 + p.S1 * (i / p.S1);
 }
 
 inline int
-xm(int i,  Param  p)
-{
+xm(int i,  Param  p) {
   return (i - 1 + p.S1) % p.S1 + p.S1 * (i / p.S1);
 }
 
 /* jump to next t shell */
 inline int
-tp(int i,  Param  p)
-{
+tp(int i,  Param  p) {
   return i % p.S1 + p.S1 * ((i / p.S1 + 1) % p.Lt);
 }
 
 /* return to last t shell */
 inline int
-ttm(int i,  Param  p)   // Some compiler have tm as resurved!
-{
+ttm(int i,  Param  p){
+  // Some compiler have tm as resurved!
   return i % p.S1 + p.S1 * ((i / p.S1 - 1 + p.Lt) % p.Lt);
 }
 
-double
-action_phi(vector<double> &phi, vector<int> &s, Param p, double & KE,  double & PE)
-{
+double action_phi(vector<double> &phi, vector<int> &s, Param p, double & KE,  double & PE) {
+
   int i;
   KE = 0.0;
   PE = 0.0;
-  //  int p.latVol = p.SurfaceVol;
- 
+  
+  p.latVol = p.SurfaceVol;
+  
   for (i = 0; i < p.latVol; i++)
-    {  
-      if (s[i] * phi[i] < 0) printf("ERROR s and phi NOT aligned ! \n");
-    };
-
+    if (s[i] * phi[i] < 0)
+      printf("ERROR s and phi NOT aligned ! \n");
+  
   //Shaich parameter  p.lambaa = 4 lambda_Schaich
   // p.musqr =  2*musqr_Schaich  + 4
   
   /* PE  terms */
-  for (i = 0; i < p.latVol; i++)
-    {
-      PE += 0.25 * p.lambda* phi[i]*phi[i]*phi[i]*phi[i] - 0.5* p.msqr * phi[i] * phi[i];
-    }
+  for (i = 0; i < p.latVol; i++) {
+    PE += 0.25 * p.lambda* phi[i]*phi[i]*phi[i]*phi[i] - 0.5* p.musqr * phi[i] * phi[i];
+  }
   
   /* KE Terms on the sphere AdS and along the cylinder */
-  for (i = 0; i <p.latVol; i++)
-    {
-      KE += 0.5 * (phi[i] - phi[xp(i,p)]) * (phi[i] - phi[xp(i,p)]);
-      KE += 0.5 * (phi[i] - phi[tp(i,p)]) * (phi[i] - phi[tp(i,p)]);
-    }	  
+  for (i = 0; i <p.latVol; i++) {
+    KE += 0.5 * (phi[i] - phi[xp(i,p)]) * (phi[i] - phi[xp(i,p)]);
+    KE += 0.5 * (phi[i] - phi[tp(i,p)]) * (phi[i] - phi[tp(i,p)]);
+  }	  
   
   return PE + KE;
 }
@@ -72,42 +66,38 @@ action_phi(vector<double> &phi, vector<int> &s, Param p, double & KE,  double & 
 
 /******* Prob = EXP[ - E]  AcceptProb = Min[1, exp[ - DeltaE]]    ********/
 
-int
-metropolis_update_phi(vector<double> & phi, vector<int> & s, Param p,
-		      double & delta_mag_phi)
-{
+int metropolis_update_phi(vector<double> & phi, vector<int> & s, Param p,
+			  double & delta_mag_phi, int iter) {
   int  s_old;
   /* int x; */
-   uniform_real_distribution<double> unif;
+  uniform_real_distribution<double> unif;
   int delta_mag = 0;
   int accept = 0;
   int tries = 0;
-  static int iter = 0;
+  //static int iter = 0;
   /* static double delta_max = 10.; */
   /* static double delta_min = 0.0; */
   
   static double delta_phi = 1.5;
   
   delta_mag_phi = 0.;
-  
+
+#pragma omp parallel for
   for (int i = 0; i < p.latVol; i++) {
     
-    if (s[i] * phi[i] < 0)
-      {
-	printf("ERROR s and phi NOT aligned ! \n");
-      }
+    if (s[i] * phi[i] < 0) printf("ERROR s and phi NOT aligned ! \n");
     
     double DeltaE = 0.0;
     double phi_new = phi[i] + delta_phi * (2.0*unif(rng) - 1.0);
     
 #if 0
     // Put into test.h later
-    printf("\n Entering metropolisr for i = %d \n", i);
+    printf("\n Entering metropolis for i = %d \n", i);
     double KE = 0.0;
     double PE = 0.0;
     double DeltaKE = 0.0;
     double DeltaPE = 0.0;
-    double Energy = action_phi(phi, s,  p, KE,  PE);
+    double Energy = action_phi(phi, s, p, KE,  PE);
     double DeltaEnergy = 0.0;
     DeltaKE = KE;
     DeltaPE = PE; 
@@ -125,23 +115,24 @@ metropolis_update_phi(vector<double> & phi, vector<int> & s, Param p,
     
 #endif
     
-    /**********   Potential Term    **************/
+    /**********  Potential Term  **************/
     
-    DeltaE += 0.25*  p.lambda* ( phi_new*phi_new*phi_new*phi_new - phi[i]*phi[i]*phi[i]*phi[i] );
-    DeltaE += - 0.5 * p.msqr* ( phi_new * phi_new  - phi[i]*phi[i] );
+    DeltaE += 0.25 * p.lambda * ( phi_new*phi_new*phi_new*phi_new - phi[i]*phi[i]*phi[i]*phi[i] );
+    DeltaE += -0.5 * p.musqr  * ( phi_new*phi_new                 - phi[i]*phi[i] );
     
-    /**********   Kinetic  Term  **************/
+    /**********   Kinetic Term  **************/
     
-    DeltaE += 0.5*( (phi_new - phi[xp(i, p)]) * (phi_new - phi[xp(i, p)])
-		    -  (phi[i] - phi[xp(i, p)]) * (phi[i] - phi[xp(i, p)]) );
-    DeltaE += 0.5* ( (phi_new - phi[xm(i, p)]) * (phi_new - phi[xm(i, p)])
-		     -  (phi[i] - phi[xm(i, p)]) * (phi[i] - phi[xm(i, p)]) );
+    DeltaE += 0.5*( (phi_new - phi[xp(i, p)]) * (phi_new - phi[xp(i, p)]) -
+		    (phi[i]  - phi[xp(i, p)]) * (phi[i]  - phi[xp(i, p)]) );
+    DeltaE += 0.5*( (phi_new - phi[xm(i, p)]) * (phi_new - phi[xm(i, p)]) -
+		    (phi[i]  - phi[xm(i, p)]) * (phi[i]  - phi[xm(i, p)]) );
     
-    DeltaE += 0.5* ( (phi_new - phi[tp(i, p)]) * (phi_new - phi[tp(i, p)])
-		     -   (phi[i] - phi[tp(i, p)]) * (phi[i] - phi[tp(i, p)]) );
-    DeltaE += 0.5* ( (phi_new - phi[ttm(i, p)]) * (phi_new - phi[ttm(i, p)]) 
-		     -   (phi[i] - phi[ttm(i, p)]) * (phi[i] - phi[ttm(i, p)]) );
-    
+    DeltaE += 0.5*( (phi_new - phi[tp(i, p)])  * (phi_new - phi[tp(i, p)]) -
+		    (phi[i]  - phi[tp(i, p)])  * (phi[i]  - phi[tp(i, p)]) );
+    DeltaE += 0.5*( (phi_new - phi[ttm(i, p)]) * (phi_new - phi[ttm(i, p)]) - 
+		    (phi[i]  - phi[ttm(i, p)]) * (phi[i]  - phi[ttm(i, p)]) );
+
+    //cout<<"DeltaE = "<<DeltaE<<endl;
     //    cout<<"i= "<< i <<"  "<< xp(i, p) <<"  " << xm(i, p) <<"  " << tp(i, p) <<"  " << tm(i, p) << endl;
     tries += 1;    
     if(DeltaE < 0.0)
@@ -164,129 +155,47 @@ metropolis_update_phi(vector<double> & phi, vector<int> & s, Param p,
 	s[i] = (phi_new > 0) ? 1 : -1;
 	delta_mag += s[i] - s_old;
       }     
-  }                                /* end  for (i = 0; i < p.latVol; i++)  */
+  }// end loop over lattice volume 
+  
   
   /**** TUNING ACCEPTANCE *****/
-#if 0
-  if (iter < 1000) {
-    if ((double) accept / (double) tries < .50) {
-      delta_phi -= 0.05;
+#if 1
+  if (iter > 1000) {
+    if ((double) accept / (double) tries < .5) {
+      delta_phi -= 0.01;
       /*  delta_max = delta_phi;
 	  delta_phi = (delta_max + delta_min) / 2.; */
     } else {
-      delta_phi += 0.05;
+      delta_phi += 0.01;
       /*      delta_min = delta_phi;
 	      delta_phi = (delta_max + delta_min) / 2.; */
     }
   }
+  //}
   
+  /*
   if(iter < 100 ){
-    printf(" At iter = %d the Acceptance  =  %d  with  %d tries and rate  %g \n", iter,accept, tries,
-  	   (double)accept/(double)tries);
-    //  printf(" delta_phi = %.8f  (delta_min , delta_max) = ( %.8f, %.8f ) \n \n", delta_phi, delta_min, delta_max);
+  printf(" At iter = %d the Acceptance  =  %d  with  %d tries and rate  %g \n", iter,accept, tries,
+  (double)accept/(double)tries);
+  //  printf(" delta_phi = %.8f  (delta_min , delta_max) = ( %.8f, %.8f ) \n \n", delta_phi, delta_min, delta_max);
   };
+  */
   
-  if (iter > 990 && iter < 1000)
-    {
-      fprintf(stdout, "#RTPHI: delta_phi %.10g accept %d tries %d rate %.3f\n",
-	      delta_phi, accept, tries, (double) accept / (double) tries);
-    }
+  if ((iter+1)%1000 == 0 && p.verbosity) {
+    fprintf(stdout, "#Report: delta_phi %.10g accept %d tries %d rate %.3f\n",
+	    delta_phi, accept, tries, (double) accept / (double) tries);
+  }
+  
+  
 #endif
   
-  iter++;
+  //iter++;
   return delta_mag;
 }
 
 #if 0
-int
-swendsen_wang_update(douvle phi, int *s, Param p)
-{
-  int num_sw_clusters = 0;
 
-  make_sw_clusters_phi(phi,s, p);
-
-  num_sw_clusters = flatten_sw_clusters(p);
-
-  flip_sw_clusters(phi,s, p);
-
-  return num_sw_clusters;
-}
-
-int
-flatten_sw_clusters(param_t p)
-{
-  int i, lead, number_cluster = 0, root, trail;
-
-  for (i = 0; i < p->latVol; i++) {
-    if (p->cluster[i] == i) {
-      number_cluster++;
-    } else {
-      /* p->cluster[i] = find(i, p) ; */
-      /*  inline the collapsing find */
-      for (root = i; p->cluster[root] != root; root = p->cluster[root]);
-
-      for (trail = i; trail != root; trail = lead) {
-        lead = p->cluster[trail];
-        p->cluster[trail] = root;
-      }
-    }
-  }
-
-  return number_cluster;
-}
-
-void
-flip_sw_clusters_phi(double *phi, int *s, Param p)
-{
-  int i;
-  int *flip = NULL;
-
-  flip = (int *) malloc(p->latVol * sizeof(int));
-  if (flip == NULL) {
-    fprintf(stderr, "ERROR: flip_sw_clusters: flip allocation failed.\n");
-    perror("sw flip");
-    exit(-1);
-  }
-  
-  for (i = 0; i < p->latVol; i++) {
-    /*
-     * find the roots of all cluster trees.
-     *  (p->cluster[root] == root) is always true, even if the
-     * sw_cluster has not been flattened.
-     */
-    
-    if (p->cluster[i] == i) {
-      /* set flip for each cluster */
-      flip[i] = (ISING_RANDOM() < 0.5) ? 1 : 0;
-#ifdef _DEBUG_
-    } else {
-      flip[i] = 10;
-#endif
-    }
-#ifdef _DEBUG_
-    if (flip[find(i, p)] == 10) {
-      fprintf(stderr, "\n ERROR SPIN %d  NOT IN CLUSTER! \n", i);
-    }
-#endif
-    /*
-     * For efficiency, assume that the table has been fully flattened,
-     * otherwise use:
-     *
-     *   if (flip[find(i, p)] == 0) {
-     */
-    if (flip[p.cluster[i]] == 0) {
-      s[i] = -s[i];
-      phi[i] = - phi[i];
-      }
-  }      /* end for (i =n 0; i < p.latVol; i++) */
-
-  free(flip);
-}
-
-
-void
-make_sw_clusters_phi(double *phi, int *s, param_t p)
-{
+void make_sw_clusters_phi(double *phi, int *s, Param p) {
   int i, j, r, x;
   int i_root, j_root;
 
@@ -393,6 +302,91 @@ make_sw_clusters_phi(double *phi, int *s, param_t p)
  
   return;
 }
+
+int flatten_sw_clusters(Param p) {
+  int i, lead, number_cluster = 0, root, trail;
+
+  for (i = 0; i < p->latVol; i++) {
+    if (p->cluster[i] == i) {
+      number_cluster++;
+    } else {
+      /* p->cluster[i] = find(i, p) ; */
+      /*  inline the collapsing find */
+      for (root = i; p->cluster[root] != root; root = p->cluster[root]);
+
+      for (trail = i; trail != root; trail = lead) {
+        lead = p->cluster[trail];
+        p->cluster[trail] = root;
+      }
+    }
+  }
+
+  return number_cluster;
+}
+
+int swendsen_wang_update(double phi, int *s, Param p)
+{
+  int num_sw_clusters = 0;
+
+  make_sw_clusters_phi(phi,s, p);
+
+  num_sw_clusters = flatten_sw_clusters(p);
+
+  flip_sw_clusters(phi,s, p);
+
+  return num_sw_clusters;
+}
+
+
+
+void
+flip_sw_clusters_phi(double *phi, int *s, Param p)
+{
+  int i;
+  int *flip = NULL;
+
+  flip = (int *) malloc(p->latVol * sizeof(int));
+  if (flip == NULL) {
+    fprintf(stderr, "ERROR: flip_sw_clusters: flip allocation failed.\n");
+    perror("sw flip");
+    exit(-1);
+  }
+  
+  for (i = 0; i < p->latVol; i++) {
+    /*
+     * find the roots of all cluster trees.
+     *  (p->cluster[root] == root) is always true, even if the
+     * sw_cluster has not been flattened.
+     */
+    
+    if (p->cluster[i] == i) {
+      /* set flip for each cluster */
+      flip[i] = (ISING_RANDOM() < 0.5) ? 1 : 0;
+#ifdef _DEBUG_
+    } else {
+      flip[i] = 10;
+#endif
+    }
+#ifdef _DEBUG_
+    if (flip[find(i, p)] == 10) {
+      fprintf(stderr, "\n ERROR SPIN %d  NOT IN CLUSTER! \n", i);
+    }
+#endif
+    /*
+     * For efficiency, assume that the table has been fully flattened,
+     * otherwise use:
+     *
+     *   if (flip[find(i, p)] == 0) {
+     */
+    if (flip[p.cluster[i]] == 0) {
+      s[i] = -s[i];
+      phi[i] = - phi[i];
+      }
+  }      /* end for (i =n 0; i < p.latVol; i++) */
+
+  free(flip);
+}
+
 
 #endif
 
