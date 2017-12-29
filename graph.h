@@ -2,7 +2,6 @@
 #define GRAPH_H
 #include <complex>
 #include <cstring>
-//#include <util.h>
 
 using namespace std;
 
@@ -19,6 +18,7 @@ void BuildGraph(Graph &NodeList, Param P){
   if(P.Vcentre == true) {
 
     //Level 0 spatial: trivial
+    NodeList[0].pos = 0;
     for(int mu=1; mu<q+1; mu++) {
       NodeList[0].nn[mu-1] = mu;
     }
@@ -32,6 +32,8 @@ void BuildGraph(Graph &NodeList, Param P){
     
     //Level 1
     for(long unsigned int n=endNode(0,P)+1; n<endNode(1,P)+1; n++){
+
+      NodeList[n].pos = n;
       
       //This is the first node, treat it separately.
       n-1 == 0 ? NodeList[n].nn[0] = endNode(1,P) : NodeList[n].nn[0] = n-1;
@@ -60,12 +62,13 @@ void BuildGraph(Graph &NodeList, Param P){
     //Level >=2
     for(int l=2; l<Levels+1; l++){
       
-      //Loop over all nodes on this level
       //Get first new node on level l+1
       int x = endNode(l,P)+1;
       
       //Loop over all nodes on this level
       for(long unsigned int n=endNode(l-1,P)+1; n<endNode(l,P)+1; n++){      
+
+	NodeList[n].pos = n;
 	
 	//Assign links on the same level 
 	//Check if first node
@@ -132,6 +135,8 @@ void BuildGraph(Graph &NodeList, Param P){
 	NodeList[t*offset + n].nn[q+1] = (t-1)*offset + n;
 	//fwdLinks data
 	NodeList[t*offset + n].fwdLinks = NodeList[n].fwdLinks;
+	//pos data
+	NodeList[t*offset + n].pos = t*offset + n;
       }
     
     
@@ -144,6 +149,8 @@ void BuildGraph(Graph &NodeList, Param P){
   else {  
     //Level 0
     for(long unsigned int n=0; n<3; n++){
+
+      NodeList[n].pos = n;
       
       //This is the first node, treat it separately.
       n == 0 ? NodeList[n].nn[0] = 2 : NodeList[n].nn[0] =  n-1;
@@ -181,6 +188,8 @@ void BuildGraph(Graph &NodeList, Param P){
     
     //Loop over all nodes on level 1.
     for(long unsigned int n=endNode(0,P)+1; n<endNode(1,P)+1; n++){      
+
+      NodeList[n].pos = n;
       
       //Assign links on the same level 
       //Check if first node
@@ -285,6 +294,8 @@ void BuildGraph(Graph &NodeList, Param P){
 	NodeList[t*offset + n].nn[q+1] = (t-1)*offset + n;
 	//fwdLinks data
 	NodeList[t*offset + n].fwdLinks = NodeList[n].fwdLinks;
+	//pos data
+	NodeList[t*offset + n].pos = t*offset + n;
       }
     
     //Correct forward t links for t = T-1
