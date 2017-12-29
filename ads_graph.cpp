@@ -7,7 +7,7 @@
 #include <random>
 
 using namespace std;
- mt19937_64 rng(137);
+mt19937_64 rng(137);
 uniform_real_distribution<double> unif;
 #define Float long double
 
@@ -20,13 +20,12 @@ uniform_real_distribution<double> unif;
 
 int main(int argc, char **argv) {
 
-  Param p;
-  if(argc > 1) p.init(argc, argv);
+  cout<<setprecision(10);
   
-  //If the specified source position is < 0, place the point source
-  //on the outer circumference.
-  if(p.src_pos < 0) p.src_pos = endNode(p.Levels-1,p) + (endNode(p.Levels,p) - endNode(p.Levels-1,p) )/2;  
- 
+  Param p;
+  //Process Command line arguments
+  if(argc > 1) p.init(argc, argv);
+    
   //Print paramters
   p.print();
 
@@ -39,8 +38,11 @@ int main(int argc, char **argv) {
   //Object to hold index positions of vertices
   vector<Vertex> NodeList(TotNumber);
 
-  //Initialise. -1 in NodeList indicates that node
-  //is not yet populated.
+  //-1 in NodeList indicates that node n has no connections.
+  //This is used during construction to indicate if the node is yet
+  //to be populated. During truncation, nodes to be removed are
+  //assined a position of -1, and all connections to that node are
+  //removed.
   for(int n = 0; n <TotNumber;n++)
     for(int mu = 0; mu < p.q+2; mu++) 
       NodeList[n].nn[mu] = -1;
@@ -48,25 +50,39 @@ int main(int argc, char **argv) {
   //Construct neighbour table and z-coords
   BuildGraph(NodeList, p);
   GetComplexPositions(NodeList, p);
+  //Truncate the graph to within a hyperbolic radius.
+  hypRadGraph(NodeList, p);
+  //PrintNodeTables(NodeList, p);
+  radiusCheck(NodeList, p);
+  
+  //If the specified source position is < 0, place the point source
+  //on the outer circumference.
+  if(p.src_pos < 0) p.src_pos = (endNode(p.Levels,p) + 1) - 1;
+  //if(p.src_pos < 0) p.src_pos = 0;
   
   //Debug tools
-  ConnectivityCheck(NodeList, p);
-  CheckEdgeLength(NodeList, p);
-  CheckArea(NodeList, p);  
-  if(p.verbosity) {
-    PrintNodeTables(NodeList, p);  
-    PrintComplexPositions(NodeList, p);
-  }
+  //CheckEdgeLength(NodeList, p);
+  //CheckArea(NodeList, p);  
+  //PrintNodeTables(NodeList, p);
+  //PrintComplexPositions(NodeList, p);
+  //radiusCheck(NodeList, p);
   
   if(p.src_pos < 0 || p.src_pos > TotNumber) {
     cout<<"ERROR: Source Position must be g.e. 0 and l.e. "<<TotNumber-1;
     cout<<endl;
     exit(0);
   }
+  if(NodeList[p.src_pos].pos == -1) {
+    cout<<"ERROR: Source Position must be within the hyperbolic ";
+    cout<<"radius, i.e., a point on the truncated graph."<<endl;
+    exit(0);
+  }
   
   //---------------//
   // Multishift CG //
   //---------------//
+
+  cout<<"SOURCE = "<<p.src_pos<<endl;
   
   int n_shift = p.n_shift;
   Float** phi = new Float*[n_shift];
@@ -75,17 +91,22 @@ int main(int argc, char **argv) {
     for(int j=0; j<TotNumber; j++) phi[i][j] = 0.0;
   }
   Float* b   = new Float[TotNumber];
-  for(int i=0; i<TotNumber; i++) b[i]   = 0.0;
+  for(int i=0; i<TotNumber; i++) b[i] = 0.0;
   
   b[p.src_pos] = 1.0;  
 
+<<<<<<< HEAD
   Minv_phi_ms(phi, b, NodeList, p);
+=======
+  Minv_phi(phi[0], b, NodeList, p);
+  //Minv_phi_ms(phi, b, NodeList, p);
+>>>>>>> 19b88bac0aa9505717051b36cb9807727bcc07f2
     
   for(int i=0; i<n_shift; i++) {
     DataDump(NodeList, phi[i], p, p.Levels, p.t/2, i);
   }
 
-  //Mphi_ev(NodeList, p);
+  Mphi_ev(NodeList, p);
   
   for(int i=0; i<n_shift; i++) delete[] phi[i];
   delete[] phi;
@@ -136,8 +157,14 @@ int main(int argc, char **argv) {
     mag_phi +=  phi_cyl[i];
   }
   
-  cout<<"p.Levels = "<<p.Levels<<endl<<"Lattice Size "<<p.S1<<" x "<<p.Lt<<" = ";
-  cout<<p.Lt*p.S1<<endl<<"Initial Mag = "<<mag_phi<<endl;
+  cout<<"p.Levels = "<<p.Levels<<" Lattice Size "<<p.S1<<" x "<<p.Lt<<" = ";
+  cout<<p.Lt*p.S1<<" Initial Mag is"<<mag_phi<<endl;
+
+  Etot = action_phi(phi_cyl, s, p, KE, PE);
+  
+  cout<<" K = "<<KE<<" U = "<<PE<<" K + U = "<<KE+PE;
+  cout<<" (Check) E = "<<Etot<<endl;
+
   
   Etot = action_phi(phi_cyl, s, p, KE, PE);
 
