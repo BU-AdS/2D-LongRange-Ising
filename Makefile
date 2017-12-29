@@ -8,15 +8,16 @@ EIGEN=/usr/local/include/eigen3/Eigen
 TARGET	    = adsrun
 C_SOURCES   = ads_graph.cpp 
 C_OBJS      = ads_graph.o  
-MY_INCLUDES = graph.h util.h cg.h cg_multishift.h eigen.h graph.h 
+MY_INCLUDES = graph.h util.h cg.h cg_multishift.h eigen.h graph.h update.h 
 
 CCX = g++ -std=c++11
+#CCX = clang
 CXXFLAGS = -O2 -g -Wall -std=c++11 -I${EIGEN} -I. -Wall -Wno-sign-compare
 
 #============================================================
 all: $(TARGET)
 
-ads_graph.o: graph.h util.h cg.h cg_multishift.h eigen.h graph.h 
+#ads_graph.o: graph.h util.h cg.h cg_multishift.h eigen.h graph.h update.h
 
 ads_graph.o: $(MY_INCLUDES)
 

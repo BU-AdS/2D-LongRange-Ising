@@ -15,14 +15,20 @@ VERBOSITY='q'
 Q=7
 MAX_ITER=100000
 TOL=1e-20
-TIMESLICES=200
-MSQR=-0.7
+TIMESLICES=50
+MSQR=1.0
 LEVELS=3
 SRC_POS=-1
 g_MSQR=1.0
 g_LATT=1.0
 delta_MSQR=0.01
 N_SHIFT=1
+
+N_THERM=500000
+N_MEAS=100
+N_SKIP=10000
+MUSQR=0.7
+LAMBDA=0.5
 
 make
 
@@ -31,7 +37,8 @@ mkdir data_dump
 
 COMMAND="./adsrun ${BC} ${CENTRE} ${VERBOSITY} \
 	 	  ${MAX_ITER} ${TOL} ${TIMESLICES} ${MSQR} ${delta_MSQR} \
-	 	  ${LEVELS} ${SRC_POS} ${g_MSQR} ${g_LATT} ${Q} ${N_SHIFT}"
+	 	  ${LEVELS} ${SRC_POS} ${g_MSQR} ${g_LATT} ${Q} ${N_SHIFT} \
+		  ${N_THERM} ${N_MEAS} ${N_SKIP} ${MUSQR} ${LAMBDA} "
 
 echo ${COMMAND}
 
