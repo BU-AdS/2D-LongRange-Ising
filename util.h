@@ -739,8 +739,20 @@ void DataDump(vector<Vertex> NodeList, Float *phi, Param p, int level, int t_ran
   }
 }
 
-
-
+void visualiser(vector<double> phi_cyl, double barr, Param p) {
+  
+  for(int i=0; i<p.S1; i++) {
+    for(int j=0; j<p.Lt; j++) {
+      if(phi_cyl[i + p.S1*j] < -1.5*barr) cout<<"\033[1;41m \033[0m";
+      if(-1.5*barr < phi_cyl[i + p.S1*j] && phi_cyl[i + p.S1*j] < -0.5*barr) cout<<"\033[1;43m \033[0m";
+      if(-0.5*barr < phi_cyl[i + p.S1*j] && phi_cyl[i + p.S1*j] <  0.5*barr) cout<<"\033[1;42m \033[0m";
+      if( 0.5*barr < phi_cyl[i + p.S1*j] && phi_cyl[i + p.S1*j] <  1.5*barr) cout<<"\033[1;46m \033[0m";
+      if( 1.5*barr < phi_cyl[i + p.S1*j]) cout<<"\033[1;44m \033[0m";
+    }
+    cout<<endl;
+  }
+  usleep(250000);
+}
 
 /********************************************
 Basic Hyperbolic Algebra. 

@@ -101,7 +101,7 @@ int main(int argc, char **argv) {
   //Minv_phi_ms(phi, b, NodeList, p);
     
   for(int i=0; i<n_shift; i++) {
-    //DataDump(NodeList, phi[i], p, p.Levels, p.t/2, i);
+    DataDump(NodeList, phi[i], p, p.Levels, p.t/2, i);
   }
 
   //Mphi_ev(NodeList, p);
@@ -128,10 +128,10 @@ int main(int argc, char **argv) {
   //p.S1 =  endNode( p.Levels,q) - endNode( p.Levels-1,q);
   //Test against    ./2d_phi4 -0.7 0.5 32 16384 16384
   //compare with Dave Schaich's code
-  //p.S1 = endNode(p.Levels,p) - endNode(p.Levels-1,p);
-  //p.Lt = p.t;
-  p.S1 = 32;
-  p.Lt = 128;
+  p.S1 = endNode(p.Levels,p) - endNode(p.Levels-1,p);
+  p.Lt = 4*p.S1;
+  //p.S1 = 32;
+  //p.Lt = 128;
   p.SurfaceVol = p.S1 * p.Lt;
   
   //Debug against Shaich code  mu^2 = -0.7 lambda = 0.5 Size = 32  "^-0.7,0.5" 32-50.csv
@@ -169,19 +169,12 @@ int main(int argc, char **argv) {
     if((iter+1)%p.n_skip == 0) cout<<"Therm sweep "<<iter+1<<endl;
   }
   
-  for(int i = 0;i < p.SurfaceVol; i++) {
-    mag_phi += phi_cyl[i];
-  }
-
-  double tmp     = 0.0;
-  
   double E_arr[p.n_meas];
   double E2_arr[p.n_meas];
   double PhiAb_arr[p.n_meas];
   double Phi_arr[p.n_meas];
   double Phi2_arr[p.n_meas];
   double Phi4_arr[p.n_meas];
-  double MagPhi_arr[p.n_meas];
   for(int i=0; i<p.n_meas; i++) {
     E_arr[i]     = 0.0;
     E2_arr[i]    = 0.0;
@@ -189,16 +182,16 @@ int main(int argc, char **argv) {
     Phi_arr[i]   = 0.0;
     Phi2_arr[i]  = 0.0;
     Phi4_arr[i]  = 0.0;
-    MagPhi_arr[i]= 0.0;
   }
 
-  double aveE      = 0.0;
-  double aveE2     = 0.0;
-  double avePhiAb  = 0.0;
-  double avePhi    = 0.0;
-  double avePhi2   = 0.0;
-  double avePhi4   = 0.0;
-  double MagPhi = 0.0;
+  double tmpE     = 0.0;  
+  double aveE     = 0.0;
+  double aveE2    = 0.0;
+  double avePhiAb = 0.0;
+  double avePhi   = 0.0;
+  double avePhi2  = 0.0;
+  double avePhi4  = 0.0;
+  double MagPhi   = 0.0;
   
   double rhoVol  = 1.0/(double)p.SurfaceVol;
   double rhoVol2 = rhoVol*rhoVol;
@@ -215,7 +208,7 @@ int main(int argc, char **argv) {
     for(int j=0; j<p.Lt/2; j++)
       corr_ave[i][j] = 0.0;
   
-  int corr_norm = 1;
+  int idx = 1;
   
   for(int iter = 0;iter < p.n_skip*p.n_meas; iter++) {
     
@@ -223,10 +216,9 @@ int main(int argc, char **argv) {
         
     if((iter+1) % p.n_skip == 0) {
       
-      //mag_phi += rhoVol*delta_mag_phi;
-      tmp      = action_phi(phi_cyl, s, p, KE, PE);
-      aveE    += rhoVol*tmp;
-      aveE2   += rhoVol2*tmp*tmp;
+      tmpE     = action_phi(phi_cyl, s, p, KE, PE);
+      aveE    += rhoVol*tmpE;
+      aveE2   += rhoVol2*tmpE*tmpE;
       
       MagPhi = 0.0;
       for(int i = 0;i < p.SurfaceVol; i++) MagPhi += phi_cyl[i];    
@@ -237,64 +229,32 @@ int main(int argc, char **argv) {
       avePhi2   += MagPhi*MagPhi;
       avePhi4   += MagPhi*MagPhi*MagPhi*MagPhi;
       
-      int idx = (iter+1)/p.n_skip;
-      
-      E_arr[idx]     = 0.0;
-      E2_arr[idx]    = 0.0;
-      PhiAb_arr[idx] = 0.0;
-      Phi_arr[idx]   = 0.0;
-      Phi2_arr[idx]  = 0.0;
-      Phi4_arr[idx]  = 0.0;
-      MagPhi_arr[idx]= 0.0;
+      E_arr[idx]     = rhoVol*tmpE;
+      E2_arr[idx]    = rhoVol*tmpE*tmpE;
+      PhiAb_arr[idx] = abs(MagPhi);
+      Phi_arr[idx]   = MagPhi;
+      Phi2_arr[idx]  = MagPhi*MagPhi;
+      Phi4_arr[idx]  = MagPhi*MagPhi*MagPhi*MagPhi;
 
       cout<<setprecision(8);
       double norm = 1.0/(idx);
       
       cout<<"Measurement "<<(iter+1)/p.n_skip<<" Sweep "<<iter+1<<endl;
-      //cout<<"Average Mag. Density = "<<norm*mag_phi<<endl;
       cout<<"Ave Energy= "<<aveE*norm<<endl;
       cout<<"Ave |phi| = "<<avePhiAb*norm<<endl;
       cout<<"Ave phi   = "<<avePhi*norm<<endl;
       cout<<"Ave phi^2 = "<<avePhi2*norm<<endl;
       cout<<"Ave phi^4 = "<<avePhi4*norm<<endl;
-      cout<<"Suscep    = "<<(avePhi2*norm - pow(avePhiAb*norm,2))/rhoVol<<endl;
-      cout<<"Spec Heat = "<<(aveE2*norm - pow(aveE*norm,2))/rhoVol<<endl;
-      cout<<"Binder    = "<<1.0 - avePhi4/(3.0*avePhi2*avePhi2*norm)<<endl;
+      cout<<"Suscep    = "<<(avePhi2*norm-pow(avePhiAb*norm,2))/rhoVol<<endl;
+      cout<<"Spec Heat = "<<(aveE2*norm-pow(aveE*norm,2))/rhoVol<<endl;
+      cout<<"Binder    = "<<1.0-avePhi4/(3.0*avePhi2*avePhi2*norm)<<endl;
 
-      /*
-      correlators(corr_run, phi_cyl, avePhi*norm, p);      
-      for(int i=0; i<p.S1/2; i++) 
-	for(int j=0; j<p.Lt/2; j++) 
-	  corr_ave[i][j] += corr_run[i][j];
+      //correlators(corr_run, corr_ave, idx, phi_cyl, avePhi*norm, p);
+      //corr_eigs(corr_run, p);
+
+      visualiser(phi_cyl, avePhiAb*norm, p);      
       
-      //Corr dump
-      cout<<setprecision(4);      
-      cout<<"Corr Sample: "<<endl;
-      for(int i=0; i<p.S1/2; i++) {
-	cout<<"theta "<<i<<":";
-	for(int j=0; j<p.Lt/4; j++) {
-	  cout<<" "<<corr_ave[i][j]/corr_norm;
-	  corr_run[i][j] = corr_ave[i][j]/corr_norm;
-	}
-	cout<<endl;
-      }
-      corr_eigs(corr_run, p);
-      */
-	
-      //Visualisation
-      double barr = avePhiAb*norm;
-      for(int i=0; i<p.S1; i++) {
-	for(int j=0; j<p.Lt; j++) {
-	  if(phi_cyl[i + p.S1*j] < -1.5*barr) cout<<"\033[1;41m \033[0m";
-	  if(-1.5*barr < phi_cyl[i + p.S1*j] && phi_cyl[i + p.S1*j] < -0.5*barr) cout<<"\033[1;43m \033[0m";
-	  if(-0.5*barr < phi_cyl[i + p.S1*j] && phi_cyl[i + p.S1*j] < 0.5*barr) cout<<"\033[1;42m \033[0m";
-	  if(0.5*barr < phi_cyl[i + p.S1*j] && phi_cyl[i + p.S1*j] < 1.5*barr)  cout<<"\033[1;46m \033[0m";
-	  if(1.5*barr < phi_cyl[i + p.S1*j]) cout<<"\033[1;44m \033[0m";
-	}
-	cout<<endl;
-      }
-      //usleep(250000);
-      corr_norm++;
+      idx++;
     }
   }
   

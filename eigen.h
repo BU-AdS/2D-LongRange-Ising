@@ -157,7 +157,7 @@ void corr_eigs(double **corr, Param p) {
       A(i,j) = corr[i][j];
 
   EigenSolver<MatrixXd> solve(A);
-  cout << "The eigenvalues are:" << endl << solve.eigenvalues() << endl;
+  cout << "The correlation matrix eigenvalues are:" << endl << solve.eigenvalues() << endl;
 }
 
 

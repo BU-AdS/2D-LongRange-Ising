@@ -4,7 +4,7 @@
 #given. Options are listed as comments above the variable.
 
 #d=Dirichlet, n=Neumann
-BC='n'
+BC='d'
 
 #v=vertex centred, c=circumcentred.
 CENTRE='v'
@@ -14,19 +14,21 @@ VERBOSITY='q'
 
 Q=8
 MAX_ITER=100000
-TOL=1e-10
-TIMESLICES=240
+TOL=1e-20
+TIMESLICES=360
 MSQR=0.72
-LEVELS=3
+LEVELS=2
 SRC_POS=-1
 g_MSQR=1.0
 g_LATT=1.0
 delta_MSQR=0.01
 N_SHIFT=1
 
-N_THERM=500000
+#Ensure these values are sensible!
+#Currently set for testing only.
+N_THERM=50
 N_MEAS=1000
-N_SKIP=10000
+N_SKIP=5
 MUSQR=0.72
 LAMBDA=0.5
 

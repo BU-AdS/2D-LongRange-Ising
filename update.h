@@ -186,8 +186,9 @@ int metropolis_update_phi(vector<double> & phi, vector<int> & s, Param p,
   return delta_mag;
 }
 
-void correlators(double **corr, vector<double> &phi, double avePhi, Param p) {
-
+void correlators(double **corr, double **corr_ave, int corr_norm,
+		 vector<double> &phi, double avePhi, Param p) {
+  
   int s_idx = 0;
   int l_idx = 0;
 
@@ -221,10 +222,28 @@ void correlators(double **corr, vector<double> &phi, double avePhi, Param p) {
 	}
     }
 
-  //loop over sink/source *theta*
+  //Normalise, add to running average
   for(int i=0; i<p.S1/2; i++)
-    for(int j=0; j<p.Lt/2; j++) 
+    for(int j=0; j<p.Lt/2; j++) {
       corr[i][j] /= norm[i][j];
+      corr_ave[i][j] += corr[i][j];
+    }
+
+  //Corr dump to stdout and collect running average.
+  if(p.verbosity) cout<<setprecision(4);      
+  if(p.verbosity) cout<<"Corr Sample: "<<endl;
+  for(int i=0; i<p.S1/2; i++) {
+    if(p.verbosity) cout<<"theta "<<2*M_PI*i/(double)(p.S1)<<":";
+    for(int j=0; j<p.Lt/2; j++) {
+      if(p.verbosity) cout<<" "<<corr_ave[i][j]/corr_norm;
+      corr[i][j] = corr_ave[i][j]/corr_norm;
+    }
+    if(p.verbosity) cout<<endl;
+  }
+  
+  //corr now contains the current running average correlation matrix.
+  //If desired, one can perfrom an eigendecomposition on this matrix, called
+  //from here or from main.
   
 }
 
