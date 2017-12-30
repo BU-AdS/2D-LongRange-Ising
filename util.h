@@ -20,10 +20,12 @@ class Param{
   Float tol = pow(10,-6);
   int t = 1;
   Float msqr = 0.1;
+  Float C_msqr = 1.0;
+  Float C_lambda = 1.0;
+  
+  Float N_latt = 1.0;
   int n_shift = 1;
   Float delta_msqr = 0.01;
-  Float C_msqr = 1.0;
-  Float N_latt = 1.0;
   int Levels = 3;
   int src_pos = -1;
   Float hyp_rad = 5.0;
@@ -120,7 +122,7 @@ class Param{
     n_shift = atoi(argv[14]);
 
     //MC params
-    
+   
     n_therm = atoi(argv[15]);
     n_meas  = atoi(argv[16]);
     n_skip  = atoi(argv[17]);
@@ -737,13 +739,8 @@ void DataDump(vector<Vertex> NodeList, Float *phi, Param p, int level, int t_ran
   }
 }
 
-//Overloaded version for single mass CG
-void DataDump(vector<Vertex> NodeList, Float *phi, Param p) {
-  int shift = 0;
-  int t_range = 3;//FIXME
-  int level = p.Levels;
-  DataDump(NodeList, phi, p, level, t_range, shift);
-}
+
+
 
 /********************************************
 Basic Hyperbolic Algebra. 

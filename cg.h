@@ -14,6 +14,9 @@ int Mphi(Float *phi, const Float *phi0,
   int T = P.t;
   Float msqr = P.msqr;
   Float C_msqr = P.C_msqr;
+  Float lambda = P.lambda;
+  Float C_lambda = P.C_lambda;
+  
   bool bc = P.bc;
   int TotNumber = endNode(Levels,P)+1;
   int T_offset = 0;
@@ -23,13 +26,19 @@ int Mphi(Float *phi, const Float *phi0,
   for(int i = 0; i < T*TotNumber; i++) {
     
     if(NodeList[i].pos != -1) {
-      //cout<<NodeList[i].pos<<endl;
-      //mass term
-      phi[i] = C_msqr*msqr * phi0[i];    
       
-      //Spatial links
+      //mass term
+      phi[i] = C_msqr*msqr*phi0[i];    
+      //interaction term
+      phi[i] = C_lambda*lambda*phi0[i]/6.0;
+
+      //links
       for(int mu = 0; mu < q; mu++) {
+
+	//interior nodes
 	if(NodeList[i].nn[mu] != -1) phi[i] += (phi0[i] - phi0[NodeList[i].nn[mu]]);
+
+	//boundary nodes
 	else {
 	  if(bc == true) {
 	    //Apply Dirchlet BC.

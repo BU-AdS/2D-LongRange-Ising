@@ -7,30 +7,30 @@
 #include <stdlib.h>
 #include "graph.h"
 
-//  x = 0,1,.., p.S1-1  and  t = 0, 1, ..., p.Lt
-// i =  x + p.S1* r so  x = i % p.S1  and t = i/p.S1 
-// 
+// x = 0,1,..., p.S1-1  and
+// t = 0,1,..., p.Lt-1
 
-inline int
-xp(int i, Param p) {
+// i = x + p.S1*r so
+// x = i % p.S1  and
+// t = i/p.S1 
+
+
+inline int xp(int i, Param p) {
   return (i + 1) % p.S1 + p.S1 * (i / p.S1);
 }
 
-inline int
-xm(int i,  Param  p) {
+inline int xm(int i,  Param  p) {
   return (i - 1 + p.S1) % p.S1 + p.S1 * (i / p.S1);
 }
 
 /* jump to next t shell */
-inline int
-tp(int i,  Param  p) {
+inline int tp(int i,  Param  p) {
   return i % p.S1 + p.S1 * ((i / p.S1 + 1) % p.Lt);
 }
 
 /* return to last t shell */
-inline int
-ttm(int i,  Param  p){
-  // Some compiler have tm as resurved!
+inline int ttm(int i,  Param  p){
+  // Some compiler have tm as reserved!
   return i % p.S1 + p.S1 * ((i / p.S1 - 1 + p.Lt) % p.Lt);
 }
 
@@ -159,7 +159,6 @@ int metropolis_update_phi(vector<double> & phi, vector<int> & s, Param p,
   
   
   /**** TUNING ACCEPTANCE *****/
-#if 1
   if (iter > 1000) {
     if ((double) accept / (double) tries < .5) {
       delta_phi -= 0.01;
@@ -171,7 +170,6 @@ int metropolis_update_phi(vector<double> & phi, vector<int> & s, Param p,
 	      delta_phi = (delta_max + delta_min) / 2.; */
     }
   }
-  //}
   
   /*
   if(iter < 100 ){
@@ -181,17 +179,55 @@ int metropolis_update_phi(vector<double> & phi, vector<int> & s, Param p,
   };
   */
   
-  if ((iter+1)%1000 == 0 && p.verbosity) {
+  if ((iter+1)%p.n_skip == 0 && p.verbosity) {
     fprintf(stdout, "#Report: delta_phi %.10g accept %d tries %d rate %.3f\n",
 	    delta_phi, accept, tries, (double) accept / (double) tries);
-  }
-  
-  
-#endif
-  
-  //iter++;
+  }  
   return delta_mag;
 }
+
+void correlators(double **corr, vector<double> &phi, double avePhi, Param p) {
+
+  int s_idx = 0;
+  int l_idx = 0;
+
+  //Each value of \delta t and \delta \theta
+  //must be normalised seperately.
+  int norm[p.S1/2][p.Lt/2];
+  for(int i=0; i<p.S1/2; i++)
+    for(int j=0; j<p.Lt/2; j++) {
+      norm[i][j] = 0;
+      corr[i][j] = 0.0;
+    }
+  
+  //loop over sink/source *theta*
+  for(int is=0; is<p.S1; is++)
+    for(int js=0; js<p.S1; js++) {
+
+      s_idx = abs(is-js);
+      if(s_idx >= p.S1/2) s_idx = p.S1 - s_idx - 1;
+      
+      //loop over sink/source *temporal*
+      for(int il=0; il<p.Lt; il++) 
+	for(int jl=0; jl<p.Lt; jl++) {
+	  
+	  l_idx = abs(il-jl);
+	  if(l_idx >= p.Lt/2) l_idx = p.Lt - l_idx - 1;
+
+	  //cout<<s_idx<<" "<<l_idx<<endl;
+	  
+	  corr[s_idx][l_idx] += (phi[is + il*p.S1] - avePhi) * (phi[js + jl*p.S1] - avePhi);
+	  norm[s_idx][l_idx]++;	  
+	}
+    }
+
+  //loop over sink/source *theta*
+  for(int i=0; i<p.S1/2; i++)
+    for(int j=0; j<p.Lt/2; j++) 
+      corr[i][j] /= norm[i][j];
+  
+}
+
 
 #if 0
 

@@ -13,7 +13,6 @@
 #include <iomanip>
 #include <cmath>
 #include <cstring>
-//#include <graph.h>
 
 // Borrow dense matrix eigenvalue routines.
 #include <Eigen/Dense>
@@ -27,9 +26,7 @@ using namespace Eigen;
 // You can also ust use "MatrixXd".
 typedef Matrix<Float, Dynamic, Dynamic, ColMajor> dMatrix;
 
-// Reference 1-D Laplace function.
-int Mphi_ev(vector<Vertex> NodeList, Param p )
-{
+int Mphi_ev(vector<Vertex> NodeList, Param p) {
   Float *in_real;
   Float *out_real;
   int Levels = p.Levels;
@@ -151,6 +148,18 @@ int Mphi_ev(vector<Vertex> NodeList, Param p )
 
   return 0;
 }
+
+void corr_eigs(double **corr, Param p) {
+
+  MatrixXd A(p.S1/2,p.S1/2);;
+  for(int i=0; i<p.S1/2; i++)
+    for(int j=0; j<p.S1/2; j++)
+      A(i,j) = corr[i][j];
+
+  EigenSolver<MatrixXd> solve(A);
+  cout << "The eigenvalues are:" << endl << solve.eigenvalues() << endl;
+}
+
 
 
 #endif
