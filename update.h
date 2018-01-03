@@ -251,18 +251,17 @@ void autocorrelation(double *PhiAb_arr, double avePhiAbs, int meas) {
 
 }
 
-//Wolff Cluster Routines
+//------------------------// 
+// Wolff Cluster Routines //
+//------------------------//
 
 // declare functions to implement Wolff algorithm
-void growCluster(int i, vector<int> &s, int clusterSpin,
+void clusterAdd(int i, vector<int> &s, int clusterSpin,
 		 bool *cluster, vector<double> &phi, Param p);
-
-void tryAdd(int i, vector<int> &s, int clusterSpin, bool *cluster,
-	    vector<double> &phi, Param p);
 
 void wolff_update_phi(vector<double> &phi, vector<int> &s, Param p,
 		      double &delta_mag_phi, int iter) {
-
+  
   bool *cluster = new bool[p.SurfaceVol];
   for (int i = 0; i < p.SurfaceVol; i++)
     cluster[i] = false;
@@ -272,22 +271,21 @@ void wolff_update_phi(vector<double> &phi, vector<int> &s, Param p,
   int clusterSpin = s[i];
 
   //This function is recursive and will call itself
-  //until all four attempts (+-x, +-t) to add to the
-  //cluster have failed.  
+  //until all four attempts in the lattice direactions
+  // (+x, -x, +t, -t) have failed to ncrease the cluster.  
   growCluster(i, s, clusterSpin, cluster, phi, p);
+  
   int size = 0;
   for(int i=0; i<p.SurfaceVol; i++) if(cluster[i] == true) size++;
   if(p.verbosity) {
     cout<<"cluster size at iter "<<iter+1<<" = "<<size;
     cout<<" = "<<100.00*(double)size/p.SurfaceVol<<"%"<<endl;
-  }
-  
-  delete[] cluster;
-  
+  }  
+  delete[] cluster;  
 }
 
-void growCluster(int i, vector<int> &s, int clusterSpin,
-		 bool *cluster, vector<double> &phi, Param p) {
+void clusterAdd(int i, vector<int> &s, int clusterSpin,
+		bool *cluster, vector<double> &phi, Param p) {
 
   // Mark the spin as belonging to the cluster and flip it
   cluster[i] = true;
@@ -296,28 +294,27 @@ void growCluster(int i, vector<int> &s, int clusterSpin,
   
   // ferromagnetic coupling
   double J = +1;
-  double temp = 1.0;
   
-  // if the neighbor spin does not belong to the
+  // if the neighbor spin does not already belong to the
   // cluster, then try to add it to the cluster
   if(!cluster[xm(i,p)]) {
-    if(s[xm(i,p)] == clusterSpin && unif(rng) < 1 - exp(2*J*temp*phi[i]*phi[xm(i,p)])) {
-      growCluster(xm(i,p), s, clusterSpin, cluster, phi, p);
+    if(s[xm(i,p)] == clusterSpin && unif(rng) < 1 - exp(2*J*phi[i]*phi[xm(i,p)])) {
+      clusterAdd(xm(i,p), s, clusterSpin, cluster, phi, p);
     }
   }
   
   if(!cluster[xp(i,p)]) {
-    if(s[xp(i,p)] == clusterSpin && unif(rng) < 1 - exp(2*J*temp*phi[i]*phi[xp(i,p)]))
-      growCluster(xp(i,p), s, clusterSpin, cluster, phi, p);
+    if(s[xp(i,p)] == clusterSpin && unif(rng) < 1 - exp(2*J*phi[i]*phi[xp(i,p)]))
+      clusterAdd(xp(i,p), s, clusterSpin, cluster, phi, p);
   }
   
   if(!cluster[tp(i,p)]) {
-    if(s[tp(i,p)] == clusterSpin && unif(rng) < 1 - exp(2*J*temp*phi[i]*phi[tp(i,p)]))
-      growCluster(tp(i,p), s, clusterSpin, cluster, phi, p);
+    if(s[tp(i,p)] == clusterSpin && unif(rng) < 1 - exp(2*J*phi[i]*phi[tp(i,p)]))
+      clusterAdd(tp(i,p), s, clusterSpin, cluster, phi, p);
   }
   if(!cluster[ttm(i,p)]) {
-    if(s[ttm(i,p)] == clusterSpin && unif(rng) < 1 - exp(2*J*temp*phi[i]*phi[ttm(i,p)]))
-      growCluster(ttm(i,p), s, clusterSpin, cluster, phi, p);
+    if(s[ttm(i,p)] == clusterSpin && unif(rng) < 1 - exp(2*J*phi[i]*phi[ttm(i,p)]))
+      clusterAdd(ttm(i,p), s, clusterSpin, cluster, phi, p);
   }
   
 }

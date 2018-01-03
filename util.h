@@ -35,7 +35,7 @@ class Param{
 
   int Lt = 32;
   int S1 = 32;
-  int R  = 4;
+  int R  = 9;
   int SurfaceVol = 0;
   int latVol = 0;
   double lambda = 1.0;
