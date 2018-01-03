@@ -131,7 +131,7 @@ int main(int argc, char **argv) {
   p.S1 = endNode(p.Levels,p) - endNode(p.Levels-1,p);
   p.Lt = p.R*p.S1;
   //p.S1 = 32;
-  //p.Lt = 128;
+  //p.Lt = 32;
   p.SurfaceVol = p.S1 * p.Lt;
   
   //Debug against Shaich code  mu^2 = -0.7 lambda = 0.5 Size = 32  "^-0.7,0.5" 32-50.
@@ -167,6 +167,8 @@ int main(int argc, char **argv) {
   cout<<"Etot - (K+U) = "<<Etot-(KE+PE)<<endl;
   
   for(int iter = 0;iter < p.n_therm; iter++) {
+    if((iter+1)%p.n_wolff == 0)
+      wolff_update_phi(phi_cyl, s, p, delta_mag_phi, iter);
     metropolis_update_phi(phi_cyl, s, p, delta_mag_phi, iter);
     if((iter+1)%p.n_skip == 0) cout<<"Therm sweep "<<iter+1<<endl;
   }

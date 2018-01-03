@@ -17,7 +17,7 @@ MAX_ITER=100000
 TOL=1e-10
 TIMESLICES=10
 MSQR=0.72
-LEVELS=2
+LEVELS=3
 SRC_POS=-1
 g_MSQR=1.0
 g_LATT=1.0
@@ -26,10 +26,10 @@ N_SHIFT=1
 
 #Ensure these values are sensible!
 #Currently set for testing only.
-N_THERM=50000
+N_THERM=100000
 N_MEAS=1000
 N_SKIP=1000
-N_WOLFF=50
+N_WOLFF=8
 MUSQR=0.72
 LAMBDA=0.5
 

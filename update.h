@@ -69,7 +69,7 @@ double action_phi(vector<double> &phi, vector<int> &s, Param p, double & KE,  do
 int metropolis_update_phi(vector<double> &phi, vector<int> &s, Param p,
 			  double & delta_mag_phi, int iter) {
   int  s_old;
-  uniform_real_distribution<double> unif;
+  uniform_real_distribution<double> unif(0.0,1.0);
   int delta_mag = 0;
   int accept = 0;
   int tries = 0;
@@ -273,8 +273,15 @@ void wolff_update_phi(vector<double> &phi, vector<int> &s, Param p,
 
   //This function is recursive and will call itself
   //until all four attempts (+-x, +-t) to add to the
-  //cluster have failed.
-  growCluster(i, s, clusterSpin, cluster, phi, p);  
+  //cluster have failed.  
+  growCluster(i, s, clusterSpin, cluster, phi, p);
+  int size = 0;
+  for(int i=0; i<p.SurfaceVol; i++) if(cluster[i] == true) size++;
+  if(p.verbosity) {
+    cout<<"cluster size at iter "<<iter+1<<" = "<<size;
+    cout<<" = "<<100.00*(double)size/p.SurfaceVol<<"%"<<endl;
+  }
+  
   delete[] cluster;
   
 }
@@ -287,33 +294,29 @@ void growCluster(int i, vector<int> &s, int clusterSpin,
   s[i] *= -1;
   phi[i] *= -1;
   
-  // 1 - e^(-2J/kT)
-  double addProb;
   // ferromagnetic coupling
   double J = +1;
-
+  double temp = 1.0;
+  
   // if the neighbor spin does not belong to the
   // cluster, then try to add it to the cluster
   if(!cluster[xm(i,p)]) {
-    addProb = 1 - exp(-2*J*phi[i]*phi[xm(i,p)]);
-    if(s[xm(i,p)] == clusterSpin && unif(rng) < addProb)
+    if(s[xm(i,p)] == clusterSpin && unif(rng) < 1 - exp(2*J*temp*phi[i]*phi[xm(i,p)])) {
       growCluster(xm(i,p), s, clusterSpin, cluster, phi, p);
+    }
   }
   
   if(!cluster[xp(i,p)]) {
-    addProb = 1 - exp(-2*J*phi[i]*phi[xp(i,p)]);
-    if(s[xp(i,p)] == clusterSpin && unif(rng) < addProb)
+    if(s[xp(i,p)] == clusterSpin && unif(rng) < 1 - exp(2*J*temp*phi[i]*phi[xp(i,p)]))
       growCluster(xp(i,p), s, clusterSpin, cluster, phi, p);
   }
   
   if(!cluster[tp(i,p)]) {
-    addProb = 1 - exp(-2*J*phi[i]*phi[tp(i,p)]);
-    if(s[tp(i,p)] == clusterSpin && unif(rng) < addProb)
+    if(s[tp(i,p)] == clusterSpin && unif(rng) < 1 - exp(2*J*temp*phi[i]*phi[tp(i,p)]))
       growCluster(tp(i,p), s, clusterSpin, cluster, phi, p);
   }
   if(!cluster[ttm(i,p)]) {
-    addProb = 1 - exp(-2*J*phi[i]*phi[ttm(i,p)]);
-    if(s[ttm(i,p)] == clusterSpin && unif(rng) < addProb)
+    if(s[ttm(i,p)] == clusterSpin && unif(rng) < 1 - exp(2*J*temp*phi[i]*phi[ttm(i,p)]))
       growCluster(ttm(i,p), s, clusterSpin, cluster, phi, p);
   }
   
