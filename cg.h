@@ -14,8 +14,6 @@ void Mphi(Float *phi, const Float *phi0,
   int T = P.t; 
   Float msqr = P.msqr; 
   Float C_msqr = P.C_msqr; 
-  Float lambda = P.lambda; 
-  Float C_lambda = P.C_lambda; 
   
   bool bc = P.bc; 
   int TotNumber = endNode(Levels,P)+1; 
@@ -28,9 +26,7 @@ void Mphi(Float *phi, const Float *phi0,
     if(NodeList[i].pos != -1) { 
       
       //mass term 
-      phi[i] = C_msqr*msqr*phi0[i];     
-      //interaction term 
-      phi[i] += C_lambda*lambda*phi0[i]*phi0[i]*phi0[i]/6.0; 
+      phi[i] = 2*C_msqr*msqr*phi0[i];     
 
       //links 
       for(int mu = 0; mu < q; mu++) { 

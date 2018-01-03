@@ -46,12 +46,12 @@ double action_phi(vector<double> &phi, vector<int> &s, Param p, double & KE,  do
     if (s[i] * phi[i] < 0)
       printf("ERROR s and phi NOT aligned ! \n");
   
-  //Shaich parameter  p.lambaa = 4 lambda_Schaich
-  // p.musqr =  2*musqr_Schaich  + 4
+  //Shaich parameter  p.lambda = 4 lambda_Schaich
+  // p.musqr =  2*musqr_Schaich + 4
   
   /* PE  terms */
   for (i = 0; i < p.latVol; i++) {
-    PE += 0.25 * p.lambda* phi[i]*phi[i]*phi[i]*phi[i] - 0.5* p.musqr * phi[i] * phi[i];
+    PE += 0.25 * p.lambda*phi[i]*phi[i]*phi[i]*phi[i] - 0.5*p.musqr*phi[i]*phi[i];
   }
   
   /* KE Terms on the sphere AdS and along the cylinder */
@@ -66,54 +66,54 @@ double action_phi(vector<double> &phi, vector<int> &s, Param p, double & KE,  do
 
 /******* Prob = EXP[ - E]  AcceptProb = Min[1, exp[ - DeltaE]]    ********/
 
-int metropolis_update_phi(vector<double> & phi, vector<int> & s, Param p,
+int metropolis_update_phi(vector<double> &phi, vector<int> &s, Param p,
 			  double & delta_mag_phi, int iter) {
   int  s_old;
-  /* int x; */
   uniform_real_distribution<double> unif;
   int delta_mag = 0;
   int accept = 0;
   int tries = 0;
-  //static int iter = 0;
   /* static double delta_max = 10.; */
   /* static double delta_min = 0.0; */
   
   static double delta_phi = 1.5;
   
   delta_mag_phi = 0.;
-
+  
 #pragma omp parallel for
   for (int i = 0; i < p.latVol; i++) {
     
-    if (s[i] * phi[i] < 0) printf("ERROR s and phi NOT aligned ! \n");
+    if (s[i] * phi[i] < 0) {
+      printf("ERROR s and phi NOT aligned! (MUP)\n");
+      exit(0);
+    }
     
     double DeltaE = 0.0;
     double phi_new = phi[i] + delta_phi * (2.0*unif(rng) - 1.0);
     
-#if 0
-    // Put into test.h later
-    printf("\n Entering metropolis for i = %d \n", i);
-    double KE = 0.0;
-    double PE = 0.0;
-    double DeltaKE = 0.0;
-    double DeltaPE = 0.0;
-    double Energy = action_phi(phi, s, p, KE,  PE);
-    double DeltaEnergy = 0.0;
-    DeltaKE = KE;
-    DeltaPE = PE; 
-    printf(" Energy = %f \n",Energy);
-    
-    double phi_tmp = phi[i];
-    phi[i] = phi_new;
-    DeltaEnergy = action_phi(phi, s,  p, KE,  PE) - Energy;
-    phi[i] = phi_tmp;
-    
-    DeltaKE = KE - DeltaKE;
-    DeltaPE = PE - DeltaPE;
-    printf(" DeltaEnergy = %f DeltaKE = %f DeltaPE = %f  DeltaKE +DeltaPE = %f \n",
-	   DeltaEnergy, DeltaKE, DeltaPE, DeltaKE + DeltaPE);
-    
-#endif
+    if(p.verbosity) {
+      // Put into test.h later ? << FIXME
+      printf("\n Entering metropolis for i = %d \n", i);
+      double KE = 0.0;
+      double PE = 0.0;
+      double DeltaKE = 0.0;
+      double DeltaPE = 0.0;
+      double Energy = action_phi(phi, s, p, KE,  PE);
+      double DeltaEnergy = 0.0;
+      DeltaKE = KE;
+      DeltaPE = PE; 
+      printf(" Energy = %f \n",Energy);
+      
+      double phi_tmp = phi[i];
+      phi[i] = phi_new;
+      DeltaEnergy = action_phi(phi, s,  p, KE,  PE) - Energy;
+      phi[i] = phi_tmp;
+      
+      DeltaKE = KE - DeltaKE;
+      DeltaPE = PE - DeltaPE;
+      printf(" DeltaEnergy = %f DeltaKE = %f DeltaPE = %f  DeltaKE +DeltaPE = %f \n",
+	     DeltaEnergy, DeltaKE, DeltaPE, DeltaKE + DeltaPE);
+    }
     
     /**********  Potential Term  **************/
     
@@ -133,7 +133,7 @@ int metropolis_update_phi(vector<double> & phi, vector<int> & s, Param p,
 		    (phi[i]  - phi[ttm(i, p)]) * (phi[i]  - phi[ttm(i, p)]) );
 
     //cout<<"DeltaE = "<<DeltaE<<endl;
-    //    cout<<"i= "<< i <<"  "<< xp(i, p) <<"  " << xm(i, p) <<"  " << tp(i, p) <<"  " << tm(i, p) << endl;
+    //cout<<"i= "<< i <<"  "<< xp(i, p) <<"  " << xm(i, p) <<"  " << tp(i, p) <<"  " << tm(i, p) << endl;
     tries += 1;    
     if(DeltaE < 0.0)
       {
@@ -147,7 +147,7 @@ int metropolis_update_phi(vector<double> & phi, vector<int> & s, Param p,
       }
     else if ( unif(rng)  < exp(-DeltaE))
       {
-	//  cout<< " Acepted  " << endl;1
+	//  cout<< " Acepted  " << endl;
 	s_old = s[i];
 	delta_mag_phi += phi_new - phi[i];
 	phi[i] = phi_new;
@@ -159,7 +159,7 @@ int metropolis_update_phi(vector<double> & phi, vector<int> & s, Param p,
   
   
   /**** TUNING ACCEPTANCE *****/
-  if (iter > 1000) {
+  if (iter < p.n_therm) {
     if ((double) accept / (double) tries < .5) {
       delta_phi -= 0.01;
       /*  delta_max = delta_phi;
@@ -247,6 +247,77 @@ void correlators(double **corr, double **corr_ave, int corr_norm,
   
 }
 
+void autocorrelation(double *PhiAb_arr, double avePhiAbs, int meas) {
+
+}
+
+//Wolff Cluster Routines
+
+// declare functions to implement Wolff algorithm
+void growCluster(int i, vector<int> &s, int clusterSpin,
+		 bool *cluster, vector<double> &phi, Param p);
+
+void tryAdd(int i, vector<int> &s, int clusterSpin, bool *cluster,
+	    vector<double> &phi, Param p);
+
+void wolff_update_phi(vector<double> &phi, vector<int> &s, Param p,
+		      double &delta_mag_phi, int iter) {
+
+  bool *cluster = new bool[p.SurfaceVol];
+  for (int i = 0; i < p.SurfaceVol; i++)
+    cluster[i] = false;
+  
+  // choose a random spin and grow a cluster
+  int i = int(unif(rng) * p.SurfaceVol);
+  int clusterSpin = s[i];
+
+  //This function is recursive and will call itself
+  //until all four attempts (+-x, +-t) to add to the
+  //cluster have failed.
+  growCluster(i, s, clusterSpin, cluster, phi, p);  
+  delete[] cluster;
+  
+}
+
+void growCluster(int i, vector<int> &s, int clusterSpin,
+		 bool *cluster, vector<double> &phi, Param p) {
+
+  // Mark the spin as belonging to the cluster and flip it
+  cluster[i] = true;
+  s[i] *= -1;
+  phi[i] *= -1;
+  
+  // 1 - e^(-2J/kT)
+  double addProb;
+  // ferromagnetic coupling
+  double J = +1;
+
+  // if the neighbor spin does not belong to the
+  // cluster, then try to add it to the cluster
+  if(!cluster[xm(i,p)]) {
+    addProb = 1 - exp(-2*J*phi[i]*phi[xm(i,p)]);
+    if(s[xm(i,p)] == clusterSpin && unif(rng) < addProb)
+      growCluster(xm(i,p), s, clusterSpin, cluster, phi, p);
+  }
+  
+  if(!cluster[xp(i,p)]) {
+    addProb = 1 - exp(-2*J*phi[i]*phi[xp(i,p)]);
+    if(s[xp(i,p)] == clusterSpin && unif(rng) < addProb)
+      growCluster(xp(i,p), s, clusterSpin, cluster, phi, p);
+  }
+  
+  if(!cluster[tp(i,p)]) {
+    addProb = 1 - exp(-2*J*phi[i]*phi[tp(i,p)]);
+    if(s[tp(i,p)] == clusterSpin && unif(rng) < addProb)
+      growCluster(tp(i,p), s, clusterSpin, cluster, phi, p);
+  }
+  if(!cluster[ttm(i,p)]) {
+    addProb = 1 - exp(-2*J*phi[i]*phi[ttm(i,p)]);
+    if(s[ttm(i,p)] == clusterSpin && unif(rng) < addProb)
+      growCluster(ttm(i,p), s, clusterSpin, cluster, phi, p);
+  }
+  
+}
 
 #if 0
 
@@ -334,33 +405,33 @@ void make_sw_clusters_phi(double *phi, int *s, Param p) {
   }
 
   // PERIODIC:
-    for (i = 0; i < p.g->nv; i++) {
-      j = i + p.latVol - p.g->nv;
-       x = i % p.g->nv;
-      /* BEGIN: add_bond(s, i, j, p) ; */
-     /* bonds++ ; */
-      if (s[i] == s[j] && ISING_RANDOM() < 1. -
-          exp(-2. * p.beta * p.g->Karea[x] * fabs(phi[i] * phi[j]))) {
-        /* p.perq_bond[bonds-1] = 1 ; */
-        i_root = find(i, p);
-        j_root = find(j, p);
-        if (j_root < i_root) {
-          p.cluster[i_root] = j_root;
-          p.NumClusters--;
-        } else if (j_root > i_root) {
-          p.cluster[j_root] = i_root;
-          p.NumClusters--;
-        }
+  for (i = 0; i < p.g->nv; i++) {
+    j = i + p.latVol - p.g->nv;
+    x = i % p.g->nv;
+    /* BEGIN: add_bond(s, i, j, p) ; */
+    /* bonds++ ; */
+    if (s[i] == s[j] && ISING_RANDOM() < 1. -
+	exp(-2. * p.beta * p.g->Karea[x] * fabs(phi[i] * phi[j]))) {
+      /* p.perq_bond[bonds-1] = 1 ; */
+      i_root = find(i, p);
+      j_root = find(j, p);
+      if (j_root < i_root) {
+	p.cluster[i_root] = j_root;
+	p.NumClusters--;
+      } else if (j_root > i_root) {
+	p.cluster[j_root] = i_root;
+	p.NumClusters--;
       }
-      /* END: add_bond(s, i, j, p) ; */
     }
- 
+    /* END: add_bond(s, i, j, p) ; */
+  }
+  
   return;
 }
 
 int flatten_sw_clusters(Param p) {
   int i, lead, number_cluster = 0, root, trail;
-
+  
   for (i = 0; i < p->latVol; i++) {
     if (p->cluster[i] == i) {
       number_cluster++;
@@ -379,24 +450,22 @@ int flatten_sw_clusters(Param p) {
   return number_cluster;
 }
 
-int swendsen_wang_update(double phi, int *s, Param p)
-{
-  int num_sw_clusters = 0;
+int swendsen_wang_update(double phi, int *s, Param p) {
 
+  int num_sw_clusters = 0;
+  
   make_sw_clusters_phi(phi,s, p);
 
   num_sw_clusters = flatten_sw_clusters(p);
-
+  
   flip_sw_clusters(phi,s, p);
-
+  
   return num_sw_clusters;
 }
 
 
 
-void
-flip_sw_clusters_phi(double *phi, int *s, Param p)
-{
+void flip_sw_clusters_phi(double *phi, int *s, Param p) {
   int i;
   int *flip = NULL;
 

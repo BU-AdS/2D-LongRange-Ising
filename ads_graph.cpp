@@ -129,14 +129,16 @@ int main(int argc, char **argv) {
   //Test against    ./2d_phi4 -0.7 0.5 32 16384 16384
   //compare with Dave Schaich's code
   p.S1 = endNode(p.Levels,p) - endNode(p.Levels-1,p);
-  p.Lt = 4*p.S1;
+  p.Lt = p.R*p.S1;
   //p.S1 = 32;
   //p.Lt = 128;
   p.SurfaceVol = p.S1 * p.Lt;
   
-  //Debug against Shaich code  mu^2 = -0.7 lambda = 0.5 Size = 32  "^-0.7,0.5" 32-50.csv
+  //Debug against Shaich code  mu^2 = -0.7 lambda = 0.5 Size = 32  "^-0.7,0.5" 32-50.
   //Table I  in  paper by David Schaich, Will Loinaz https://arxiv.org/abs/0902.0045
   
+  //double **phi_cyl = (double*)
+    
   vector<double> phi_cyl(p.SurfaceVol,0.0);
   vector<int> s(p.SurfaceVol,0.0);
   p.latVol = p.SurfaceVol;
@@ -192,6 +194,7 @@ int main(int argc, char **argv) {
   double avePhi2  = 0.0;
   double avePhi4  = 0.0;
   double MagPhi   = 0.0;
+  double binderPr = 0.0;
   
   double rhoVol  = 1.0/(double)p.SurfaceVol;
   double rhoVol2 = rhoVol*rhoVol;
@@ -208,12 +211,16 @@ int main(int argc, char **argv) {
     for(int j=0; j<p.Lt/2; j++)
       corr_ave[i][j] = 0.0;
   
-  int idx = 1;
+  int idx = 0;
+  double norm;
   
   for(int iter = 0;iter < p.n_skip*p.n_meas; iter++) {
     
+    if((iter+1)%p.n_wolff == 0)
+      wolff_update_phi(phi_cyl, s, p, delta_mag_phi, iter);
+    
     metropolis_update_phi(phi_cyl, s, p, delta_mag_phi, iter);
-        
+    
     if((iter+1) % p.n_skip == 0) {
       
       tmpE     = action_phi(phi_cyl, s, p, KE, PE);
@@ -235,9 +242,11 @@ int main(int argc, char **argv) {
       Phi_arr[idx]   = MagPhi;
       Phi2_arr[idx]  = MagPhi*MagPhi;
       Phi4_arr[idx]  = MagPhi*MagPhi*MagPhi*MagPhi;
-
+      
+      idx++;
+      
       cout<<setprecision(8);
-      double norm = 1.0/(idx);
+      norm = 1.0/(idx);
       
       cout<<"Measurement "<<(iter+1)/p.n_skip<<" Sweep "<<iter+1<<endl;
       cout<<"Ave Energy= "<<aveE*norm<<endl;
@@ -247,16 +256,27 @@ int main(int argc, char **argv) {
       cout<<"Ave phi^4 = "<<avePhi4*norm<<endl;
       cout<<"Suscep    = "<<(avePhi2*norm-pow(avePhiAb*norm,2))/rhoVol<<endl;
       cout<<"Spec Heat = "<<(aveE2*norm-pow(aveE*norm,2))/rhoVol<<endl;
-      cout<<"Binder    = "<<1.0-avePhi4/(3.0*avePhi2*avePhi2*norm)<<endl;
+      cout<<"Binder    = "<<1.0-avePhi4/(3.0*avePhi2*avePhi2*norm);
+      cout<<" delta(%) = "<<100*(1.0 - binderPr/(1.0-avePhi4/(3.0*avePhi2*avePhi2*norm)))<<endl;
+      binderPr = 1.0-avePhi4/(3.0*avePhi2*avePhi2*norm);
 
-      //correlators(corr_run, corr_ave, idx, phi_cyl, avePhi*norm, p);
-      //corr_eigs(corr_run, p);
-
-      visualiser(phi_cyl, avePhiAb*norm, p);      
+      //visualiser(phi_cyl, avePhiAb*norm, p);
+      correlators(corr_run, corr_ave, idx, phi_cyl, avePhi*norm, p);      
       
-      idx++;
+      if(idx%50 == 0) corr_eigs(corr_run, p);
+      
     }
   }
+  sprintf(p.fname, "./data_dump/correlators.dat");
+  FILE *fp1;
+  fp1=fopen(p.fname, "a");
+  for(int i=0; i<p.Lt/2; i++) fprintf(fp1, "%d %.8e\n", i, corr_ave[0][i]);
+  fclose(fp1);
+	  
+  autocorrelation(PhiAb_arr, avePhiAb, p.n_meas);
+  
+  correlators(corr_run, corr_ave, idx, phi_cyl, avePhi*norm, p);
+  corr_eigs(corr_run, p);
   
   free(corr_run);
   free(corr_ave);

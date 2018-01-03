@@ -14,8 +14,8 @@ VERBOSITY='q'
 
 Q=8
 MAX_ITER=100000
-TOL=1e-20
-TIMESLICES=360
+TOL=1e-10
+TIMESLICES=10
 MSQR=0.72
 LEVELS=2
 SRC_POS=-1
@@ -26,9 +26,10 @@ N_SHIFT=1
 
 #Ensure these values are sensible!
 #Currently set for testing only.
-N_THERM=50
+N_THERM=50000
 N_MEAS=1000
-N_SKIP=5
+N_SKIP=1000
+N_WOLFF=50
 MUSQR=0.72
 LAMBDA=0.5
 
@@ -40,7 +41,7 @@ mkdir data_dump
 COMMAND="./adsrun ${BC} ${CENTRE} ${VERBOSITY} \
 	 	  ${MAX_ITER} ${TOL} ${TIMESLICES} ${MSQR} ${delta_MSQR} \
 	 	  ${LEVELS} ${SRC_POS} ${g_MSQR} ${g_LATT} ${Q} ${N_SHIFT} \
-		  ${N_THERM} ${N_MEAS} ${N_SKIP} ${MUSQR} ${LAMBDA} "
+		  ${N_THERM} ${N_MEAS} ${N_SKIP} ${N_WOLFF} ${MUSQR} ${LAMBDA} "
 
 echo ${COMMAND}
 

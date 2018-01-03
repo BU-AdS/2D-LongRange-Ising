@@ -21,7 +21,6 @@ class Param{
   int t = 1;
   Float msqr = 0.1;
   Float C_msqr = 1.0;
-  Float C_lambda = 1.0;
   
   Float N_latt = 1.0;
   int n_shift = 1;
@@ -36,6 +35,7 @@ class Param{
 
   int Lt = 32;
   int S1 = 32;
+  int R  = 4;
   int SurfaceVol = 0;
   int latVol = 0;
   double lambda = 1.0;
@@ -44,7 +44,9 @@ class Param{
   int n_therm=100000;
   int n_meas=100;
   int n_skip=100;
-    
+  int n_wolff=5;
+
+  
   int *cluster ;    // Swendsen Wang Data Struture
   int *stack ;     // Wolf Data Struture
   int NumClusters ;
@@ -126,8 +128,9 @@ class Param{
     n_therm = atoi(argv[15]);
     n_meas  = atoi(argv[16]);
     n_skip  = atoi(argv[17]);
-    musqr   = atof(argv[18]);
-    lambda  = atof(argv[19]);
+    n_wolff = atoi(argv[18]);
+    musqr   = atof(argv[19]);
+    lambda  = atof(argv[20]);
     
   }
 };
@@ -739,7 +742,7 @@ void DataDump(vector<Vertex> NodeList, Float *phi, Param p, int level, int t_ran
   }
 }
 
-void visualiser(vector<double> phi_cyl, double barr, Param p) {
+void visualiser(vector<double> phi_cyl, double barr, Param p) {  
   
   for(int i=0; i<p.S1; i++) {
     for(int j=0; j<p.Lt; j++) {
@@ -751,7 +754,7 @@ void visualiser(vector<double> phi_cyl, double barr, Param p) {
     }
     cout<<endl;
   }
-  usleep(250000);
+  //usleep(250000);
 }
 
 /********************************************
