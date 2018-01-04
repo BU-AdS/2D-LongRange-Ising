@@ -5,10 +5,8 @@
 
 using namespace std;
 
-typedef vector<Vertex> Graph;
-
 //- Construct the nearest neighbour table
-void BuildGraph(Graph &NodeList, Param P){
+void BuildGraph(vector<Vertex> &NodeList, Param P){
 
   int q = P.q;
   int Levels = P.Levels;
@@ -19,10 +17,11 @@ void BuildGraph(Graph &NodeList, Param P){
 
     //Level 0 spatial: trivial
     NodeList[0].pos = 0;
+    NodeList[0].fwdLinks = q;
     for(int mu=1; mu<q+1; mu++) {
       NodeList[0].nn[mu-1] = mu;
     }
-
+    
     // CONVENTION: The link on the same level, going from node n to (n-1)
     //             is the 0th entry in the neighbour table. The next entries
     //             are the links going to the next higher level. The next

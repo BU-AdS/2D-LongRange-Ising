@@ -137,15 +137,30 @@ class Param{
 
 class Vertex{
  public:
+  //If the pos value is -1, it is not connected
+  //to the graph.
   int pos = -1;
+  
+  //Neighbours for up to q=9 and 2 temporal directions.
   int nn[11] = {0,0,0,0,0,0,0,0,0,0,0};
+
+  //How many forward links (important in the
+  //buildGraph() function.
   int fwdLinks;
+
+  //Positon on the poincare disk.
   complex<Float> z;
+
+  //The temporal weight (z dependent.)
   double temporal_weight = 1.0;
+
+  //Field value at ths vertex.
+  double phi = 0.0;
+  
 };
 
 
-typedef vector<Vertex> Graph;
+//typedef vector<Vertex> Graph;
 
 complex<Float> T(complex<Float> z,  complex<Float> w);
 complex<Float> R(complex<Float> z, complex<Float> omega);
@@ -166,7 +181,7 @@ Float greens2D(complex<Float> z, complex<Float> w);
 Float greensM2D(complex<Float> z, complex<Float> w, Param p);
 complex<Float> newVertex(complex<Float> z,complex<Float> z0,int k, int q);
 
-void radiusCheck(Graph &NodeList, Param P);
+void radiusCheck(vector<Vertex> &NodeList, Param P);
 void PrintNodeTables(const vector<Vertex> NodeList, Param P);
 
 //- Edge length from center z = 0
@@ -242,7 +257,7 @@ long unsigned int endNode(int lev, Param P) {
 }
 
 //- Get the z coordinates of every node on the Poincare disk 
-void GetComplexPositions(Graph &NodeList, Param& P){
+void GetComplexPositions(vector<Vertex> &NodeList, Param& P){
 
   int q = P.q;
   int Levels = P.Levels;
@@ -322,7 +337,7 @@ void GetComplexPositions(Graph &NodeList, Param& P){
 //- For each node n, with a link to another node,
 //  it checks that the neighbour table on the linked
 //  node contains the original node n as a neighbour.
-void connectivityCheck(Graph &NodeList, Param P){
+void connectivityCheck(vector<Vertex> &NodeList, Param P){
 
   int q = P.q;
   int Levels = P.Levels;
@@ -365,7 +380,7 @@ void connectivityCheck(Graph &NodeList, Param P){
 
 //Truncate the graph according to the hyperbolic radius
 //condition |z| < s.
-void hypRadGraph(Graph &NodeList, Param &P){
+void hypRadGraph(vector<Vertex> &NodeList, Param &P){
 
   int q = P.q;
   int Levels = P.Levels;
@@ -432,7 +447,7 @@ void hypRadGraph(Graph &NodeList, Param &P){
 }
 
 //Print the hyperbolic and poincare radii
-void radiusCheck(Graph &NodeList, Param P){
+void radiusCheck(vector<Vertex> &NodeList, Param P){
 
   Float hyp_rad_ave = 0.0;
   Float poi_rad_ave = 0.0;

@@ -17,7 +17,9 @@ uniform_real_distribution<double> unif;
 #include <cg.h>
 #include <cg_multishift.h>
 #include <eigen.h>
-#include <update.h>
+#include <update_2dAdS.h>
+#include <update_2dSqr.h>
+
 
 int main(int argc, char **argv) {
 
@@ -92,11 +94,10 @@ int main(int argc, char **argv) {
     phi[i] = new Float[TotNumber];
     for(int j=0; j<TotNumber; j++) phi[i][j] = 0.0;
   }
-  Float* b   = new Float[TotNumber];
+  Float* b = new Float[TotNumber];
   for(int i=0; i<TotNumber; i++) b[i] = 0.0;
   
-  b[p.src_pos] = 1.0;  
-
+  b[p.src_pos] = 1.0;
   Minv_phi(phi[0], b, NodeList, p);
   //Minv_phi_ms(phi, b, NodeList, p);
     
@@ -128,8 +129,8 @@ int main(int argc, char **argv) {
   //p.S1 =  endNode( p.Levels,q) - endNode( p.Levels-1,q);
   //Test against    ./2d_phi4 -0.7 0.5 32 16384 16384
   //compare with Dave Schaich's code
-  p.S1 = endNode(p.Levels,p) - endNode(p.Levels-1,p);
-  p.Lt = p.R*p.S1;
+  p.S1 = endNode(p.Levels,p);
+  p.Lt = p.t;
   //p.S1 = 32;
   //p.Lt = 32;
   p.SurfaceVol = p.S1 * p.Lt;
@@ -153,6 +154,7 @@ int main(int argc, char **argv) {
   
   for(int i = 0;i < p.SurfaceVol; i++) {
     phi_cyl[i] = 2.0*unif(rng) - 1.0;
+    NodeList[i].phi = phi_cyl[i];
     s[i] = (phi_cyl[i] > 0) ? 1:-1;
     mag_phi += phi_cyl[i];
   }
@@ -160,16 +162,20 @@ int main(int argc, char **argv) {
   cout<<"p.Levels = "<<p.Levels<<" Lattice Size "<<p.S1<<" x "<<p.Lt<<" = ";
   cout<<p.Lt*p.S1<<" Initial Mag = "<<mag_phi<<endl;
 
-  Etot = action_phi(phi_cyl, s, p, KE, PE);
+  //Etot = action_phi(phi_cyl, s, p, KE, PE);
+  Etot = action_phi_AdS(NodeList, s, p, KE, PE);
 
   cout<<"K = "<<KE<<" U = "<<PE<<" K + U = "<<KE+PE<<endl;
   cout<<"Etot = "<<Etot<<endl;
   cout<<"Etot - (K+U) = "<<Etot-(KE+PE)<<endl;
   
   for(int iter = 0;iter < p.n_therm; iter++) {
-    if((iter+1)%p.n_wolff == 0)
-      wolff_update_phi(phi_cyl, s, p, delta_mag_phi, iter);
-    metropolis_update_phi(phi_cyl, s, p, delta_mag_phi, iter);
+    if((iter+1)%p.n_wolff == 0) {
+      //wolff_update_phi(phi_cyl, s, p, delta_mag_phi, iter);
+      wolff_update_phi_AdS(NodeList, s, p, delta_mag_phi, iter);
+    }
+    //metropolis_update_phi(phi_cyl, s, p, delta_mag_phi, iter);
+    metropolis_update_phi_AdS(NodeList, s, p, delta_mag_phi, iter);
     if((iter+1)%p.n_skip == 0) cout<<"Therm sweep "<<iter+1<<endl;
   }
   
@@ -218,19 +224,23 @@ int main(int argc, char **argv) {
   
   for(int iter = 0;iter < p.n_skip*p.n_meas; iter++) {
     
-    if((iter+1)%p.n_wolff == 0)
-      wolff_update_phi(phi_cyl, s, p, delta_mag_phi, iter);
+    if((iter+1)%p.n_wolff == 0) {
+      //wolff_update_phi(phi_cyl, s, p, delta_mag_phi, iter);
+      wolff_update_phi_AdS(NodeList, s, p, delta_mag_phi, iter);
+    }
     
-    metropolis_update_phi(phi_cyl, s, p, delta_mag_phi, iter);
+    //metropolis_update_phi(phi_cyl, s, p, delta_mag_phi, iter);
+    metropolis_update_phi_AdS(NodeList, s, p, delta_mag_phi, iter);
     
     if((iter+1) % p.n_skip == 0) {
       
-      tmpE     = action_phi(phi_cyl, s, p, KE, PE);
+      //tmpE     = action_phi(phi_cyl, s, p, KE, PE);
+      tmpE     = action_phi_AdS(NodeList, s, p, KE, PE);
       aveE    += rhoVol*tmpE;
       aveE2   += rhoVol2*tmpE*tmpE;
       
       MagPhi = 0.0;
-      for(int i = 0;i < p.SurfaceVol; i++) MagPhi += phi_cyl[i];    
+      for(int i = 0;i < p.SurfaceVol; i++) MagPhi += NodeList[i].phi;
       MagPhi *= rhoVol;
       
       avePhiAb  += abs(MagPhi);

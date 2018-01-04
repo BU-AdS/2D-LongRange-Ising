@@ -22,7 +22,6 @@ void Mphi(Float *phi, const Float *phi0,
   
   //loop over nodes on all disks     
   for(int i = 0; i < T*TotNumber; i++) { 
-    
     if(NodeList[i].pos != -1) { 
       
       //mass term 
@@ -49,7 +48,7 @@ void Mphi(Float *phi, const Float *phi0,
       //Temporal links 
       for(int mu = q; mu < q+T_offset; mu++) { 
 	phi[i] += (phi0[i] - phi0[NodeList[i].nn[mu]])/(NodeList[i].temporal_weight); 
-      } 
+      }     
     } 
   } 
 } 
