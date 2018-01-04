@@ -1,5 +1,5 @@
-#ifndef UPDATE_H
-#define UPDATE_H
+#ifndef UPDATE_2DSQR_H
+#define UPDATE_2DSQR_H
 
 #include <limits.h>
 #include <math.h>
@@ -44,7 +44,7 @@ double action_phi(vector<double> &phi, vector<int> &s, Param p, double & KE,  do
   
   for (i = 0; i < p.latVol; i++)
     if (s[i] * phi[i] < 0)
-      printf("ERROR s and phi NOT aligned ! \n");
+      printf("ERROR s and phi NOT aligned (AP) ! \n");
   
   //Shaich parameter  p.lambda = 4 lambda_Schaich
   // p.musqr =  2*musqr_Schaich + 4
@@ -273,7 +273,7 @@ void wolff_update_phi(vector<double> &phi, vector<int> &s, Param p,
   //This function is recursive and will call itself
   //until all four attempts in the lattice direactions
   // (+x, -x, +t, -t) have failed to ncrease the cluster.  
-  growCluster(i, s, clusterSpin, cluster, phi, p);
+  clusterAdd(i, s, clusterSpin, cluster, phi, p);
   
   int size = 0;
   for(int i=0; i<p.SurfaceVol; i++) if(cluster[i] == true) size++;
