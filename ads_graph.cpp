@@ -8,7 +8,7 @@
 #include <unistd.h>
 
 using namespace std;
-mt19937_64 rng(137);
+mt19937_64 rng(138);
 uniform_real_distribution<double> unif;
 #define Float long double
 
@@ -58,6 +58,8 @@ int main(int argc, char **argv) {
   //hypRadGraph(NodeList, p);
   //PrintNodeTables(NodeList, p);
   //radiusCheck(NodeList, p);
+
+  /*
   
   //If the specified source position is < 0, place the point source
   //on the outer circumference.
@@ -86,8 +88,7 @@ int main(int argc, char **argv) {
   // Multishift CG //
   //---------------//
 
-  cout<<"SOURCE = "<<p.src_pos<<endl;
-  
+  cout<<"SOURCE = "<<p.src_pos<<endl;  
   int n_shift = p.n_shift;
   Float** phi = new Float*[n_shift];
   for(int i=0; i<n_shift; i++) {
@@ -110,7 +111,8 @@ int main(int argc, char **argv) {
   for(int i=0; i<n_shift; i++) delete[] phi[i];
   delete[] phi;
   delete[] b;
-
+  */
+  
   /*
     Jobs to do
     incorporate the the internal DoF.
@@ -120,43 +122,34 @@ int main(int argc, char **argv) {
 
     find the factor that brings the kinetic term to the surface term.
     
-    Kinetic term = Cosh(t) - cos(phi)
-
-   */
+    Kinetic term = Cosh(t) - cos(phi)    
+  */
 
   
-  /*****************  Monte Carlo Update *********************/
+  //-------------  Monte Carlo Update  ----------------//
   //p.S1 =  endNode( p.Levels,q) - endNode( p.Levels-1,q);
   //Test against    ./2d_phi4 -0.7 0.5 32 16384 16384
   //compare with Dave Schaich's code
-  p.S1 = endNode(p.Levels,p);
-  p.Lt = p.t;
   //p.S1 = 32;
   //p.Lt = 32;
-  p.SurfaceVol = p.S1 * p.Lt;
   
-  //Debug against Shaich code  mu^2 = -0.7 lambda = 0.5 Size = 32  "^-0.7,0.5" 32-50.
-  //Table I  in  paper by David Schaich, Will Loinaz https://arxiv.org/abs/0902.0045
+  p.S1 = endNode(p.Levels,p)+1;
+  p.Lt = p.t;
+  p.latVol = p.S1 * p.Lt;
+
+  p.SurfaceVol = endNode(p.Levels,p) - endNode(p.Levels-1,p);
   
-  //double **phi_cyl = (double*)
-    
-  vector<double> phi_cyl(p.SurfaceVol,0.0);
-  vector<int> s(p.SurfaceVol,0.0);
-  p.latVol = p.SurfaceVol;
-  
-  // p.cluster = (int *) malloc( p.latVol * sizeof (int));  //Swendsen Wang Data Structure
-  // p.stack = (int *) malloc(p.latVol * sizeof (int));    //Wolff Data Structure
-    
   double KE = 0.0, PE = 0.0;
   double Etot = 0.0;
   double mag_phi = 0.0;
   double delta_mag_phi = 0.0;
+
+  vector<int> s(p.latVol,0.0);
   
-  for(int i = 0;i < p.SurfaceVol; i++) {
-    phi_cyl[i] = 2.0*unif(rng) - 1.0;
-    NodeList[i].phi = phi_cyl[i];
-    s[i] = (phi_cyl[i] > 0) ? 1:-1;
-    mag_phi += phi_cyl[i];
+  for(int i = 0;i < p.latVol; i++) {
+    NodeList[i].phi = 2.0*unif(rng) - 1.0;
+    s[i] = (NodeList[i].phi > 0) ? 1:-1;
+    mag_phi += NodeList[i].phi;
   }
   
   cout<<"p.Levels = "<<p.Levels<<" Lattice Size "<<p.S1<<" x "<<p.Lt<<" = ";
@@ -204,20 +197,24 @@ int main(int argc, char **argv) {
   double MagPhi   = 0.0;
   double binderPr = 0.0;
   
-  double rhoVol  = 1.0/(double)p.SurfaceVol;
+  double rhoVol  = 1.0/(double)p.latVol;
   double rhoVol2 = rhoVol*rhoVol;
 
-  //*theta* coordinate
   double **corr_run = (double**)malloc((p.S1/2)*sizeof(double*));
   double **corr_ave = (double**)malloc((p.S1/2)*sizeof(double*));
-  //*temporal* coordinate
   for(int i=0; i<p.S1/2; i++) {
     corr_run[i] = (double*)malloc((p.Lt/2)*sizeof(double));
     corr_ave[i] = (double*)malloc((p.Lt/2)*sizeof(double));
   }
   for(int i=0; i<p.S1/2; i++)
-    for(int j=0; j<p.Lt/2; j++)
+    for(int j=0; j<p.Lt/2; j++) 
       corr_ave[i][j] = 0.0;
+
+  double **phi_sq_arr = (double**)malloc(p.SurfaceVol*sizeof(double*));
+  for(int i=0; i<p.SurfaceVol; i++) {
+    phi_sq_arr[i] = (double*)malloc(p.Lt*sizeof(double));
+    for(int j=0; j<p.Lt; j++) phi_sq_arr[i][j] = 0.0;
+  }
   
   int idx = 0;
   double norm;
@@ -233,14 +230,18 @@ int main(int argc, char **argv) {
     metropolis_update_phi_AdS(NodeList, s, p, delta_mag_phi, iter);
     
     if((iter+1) % p.n_skip == 0) {
+
+      for(int i = endNode(p.Levels-1,p)+1;i < p.S1; i++)
+	for(int j=0; j<p.Lt; j++)
+	  phi_sq_arr[i - (endNode(p.Levels-1,p)+1)][j] += NodeList[i + p.S1*j].phi*NodeList[i + p.S1*j].phi;
       
       //tmpE     = action_phi(phi_cyl, s, p, KE, PE);
       tmpE     = action_phi_AdS(NodeList, s, p, KE, PE);
       aveE    += rhoVol*tmpE;
       aveE2   += rhoVol2*tmpE*tmpE;
-      
+
       MagPhi = 0.0;
-      for(int i = 0;i < p.SurfaceVol; i++) MagPhi += NodeList[i].phi;
+      for(int i = 0;i < p.latVol; i++) MagPhi += NodeList[i].phi;
       MagPhi *= rhoVol;
       
       avePhiAb  += abs(MagPhi);
@@ -273,9 +274,14 @@ int main(int argc, char **argv) {
       binderPr = 1.0-avePhi4/(3.0*avePhi2*avePhi2*norm);
 
       //visualiser(phi_cyl, avePhiAb*norm, p);
-      correlators(corr_run, corr_ave, idx, phi_cyl, avePhi*norm, p);      
+      //visualiser_phi2(phi_cyl, avePhi2*norm, p);
+
+      visualiser_AdS(NodeList, avePhiAb*norm, p);
+      //visualiser_phi2_AdS(phi_sq_arr, avePhi2, p);
       
-      if(idx%50 == 0) corr_eigs(corr_run, p);
+      //correlators(corr_run, corr_ave, idx, phi_cyl, avePhi*norm, p);      
+      
+      //if(idx%50 == 0) corr_eigs(corr_run, p);
       
     }
   }
@@ -287,11 +293,11 @@ int main(int argc, char **argv) {
 	  
   autocorrelation(PhiAb_arr, avePhiAb, p.n_meas);
   
-  correlators(corr_run, corr_ave, idx, phi_cyl, avePhi*norm, p);
-  corr_eigs(corr_run, p);
+  //correlators(corr_run, corr_ave, idx, phi_cyl, avePhi*norm, p);
+  //corr_eigs(corr_run, p);
   
   free(corr_run);
   free(corr_ave);
-  
+ 
   return 0;
 }

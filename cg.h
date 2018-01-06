@@ -47,7 +47,7 @@ void Mphi(Float *phi, const Float *phi0,
       
       //Temporal links 
       for(int mu = q; mu < q+T_offset; mu++) { 
-	phi[i] += (phi0[i] - phi0[NodeList[i].nn[mu]])/(NodeList[i].temporal_weight); 
+	phi[i] += (phi0[i] - phi0[NodeList[i].nn[mu]])*(NodeList[i].temporal_weight); 
       }     
     } 
   } 

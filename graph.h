@@ -100,7 +100,9 @@ void BuildGraph(vector<Vertex> &NodeList, Param P){
 	  }
 	}
 	x += NodeList[n].fwdLinks-1;
-	
+
+	//If this is a boundary node, correct the fwdLinks to be zero.
+	if(l == Levels) NodeList[n].fwdLinks = 0;	
 	//fix link q-1 on start node
 	NodeList[endNode(l-1,P)+1].nn[q-1]=endNode(l-1,P);
 	//fix link q-2 on start node

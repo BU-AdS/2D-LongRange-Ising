@@ -15,23 +15,23 @@ VERBOSITY='q'
 Q=8
 MAX_ITER=100000
 TOL=1e-10
-TIMESLICES=40
-MSQR=0.721
+TIMESLICES=160
+MSQR=1.0
 LEVELS=2
 SRC_POS=-1
 g_MSQR=1.0
 g_LATT=1.0
-delta_MSQR=0.01
+delta_MSQR=0.00
 N_SHIFT=1
 
 #Ensure these values are sensible!
 #Currently set for testing only.
-N_THERM=100000
+N_THERM=50000
 N_MEAS=1000
-N_SKIP=1000
+N_SKIP=5000
 N_WOLFF=20
-MUSQR=0.0
-LAMBDA=1.0
+MUSQR=-0.1
+LAMBDA=0.3
 
 make
 
@@ -46,3 +46,7 @@ COMMAND="./adsrun ${BC} ${CENTRE} ${VERBOSITY} \
 echo ${COMMAND}
 
 ${COMMAND}
+
+# mu=-0.010, lambda=0.010, mass=0.16742524
+# mu=-0.015, lambda=0.015, mass=1.545
+# mu=-0.020, lambda=0.020, mass=200.5

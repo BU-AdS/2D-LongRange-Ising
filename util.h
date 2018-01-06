@@ -281,7 +281,7 @@ void GetComplexPositions(vector<Vertex> &NodeList, Param& P){
 	for(int k=0; k<q; k++) {
 	  if(NodeList[n].nn[k] != -1) {
 	    NodeList[NodeList[n].nn[k]].z = newVertex(NodeList[NodeList[n].nn[0]].z, NodeList[n].z, k, q);
-	    NodeList[NodeList[n].nn[k]].temporal_weight = (1+pow(abs(NodeList[NodeList[n].nn[k]].z),2))/(1-pow(abs(NodeList[NodeList[n].nn[k]].z),2));
+	    NodeList[NodeList[n].nn[k]].temporal_weight = 1.0/(1+pow(abs(NodeList[NodeList[n].nn[k]].z),2))/(1-pow(abs(NodeList[NodeList[n].nn[k]].z),2));
 	  }
 	}
       }
@@ -320,7 +320,7 @@ void GetComplexPositions(vector<Vertex> &NodeList, Param& P){
 	for(int k=0; k<q; k++) {
 	  if(NodeList[n].nn[k] != -1) {
 	    NodeList[NodeList[n].nn[k]].z = newVertex(NodeList[NodeList[n].nn[0]].z, NodeList[n].z, k, q);
-	    NodeList[NodeList[n].nn[k]].temporal_weight = (1+pow(abs(NodeList[NodeList[n].nn[k]].z),2))/(1-pow(abs(NodeList[NodeList[n].nn[k]].z),2));
+	    NodeList[NodeList[n].nn[k]].temporal_weight = 1.0/(1+pow(abs(NodeList[NodeList[n].nn[k]].z),2))/(1-pow(abs(NodeList[NodeList[n].nn[k]].z),2));
 	  }
 	}
       }
@@ -328,9 +328,12 @@ void GetComplexPositions(vector<Vertex> &NodeList, Param& P){
   }
 
   if(P.t > 1) {
-    //Copy all 2D complex positions along the cylinder
+    //Copy all 2D complex positions and weights along the cylinder
     for(long unsigned int n=0; n<endNode(P.Levels,P)+1; n++) 
-      for(int t=1; t<P.t; t++) NodeList[n + T_offset*t].z = NodeList[n].z;
+      for(int t=1; t<P.t; t++) {
+	NodeList[n + T_offset*t].z = NodeList[n].z;
+	NodeList[n + T_offset*t].temporal_weight = NodeList[n].temporal_weight;
+      }
   }
 }
 
@@ -686,7 +689,7 @@ void DataDump(vector<Vertex> NodeList, Float *phi, Param p, int level, int t_ran
   complex<Float> src = NodeList[j].z;
   
   //Loop over timeslices
-  for(int t=12; t<T/2; t++) {
+  for(int t=0; t<T/2; t++) {
     T_offset = (endNode(p.Levels,p) + 1) * t;
 
     //Loop over circumference levels
@@ -731,7 +734,7 @@ void DataDump(vector<Vertex> NodeList, Float *phi, Param p, int level, int t_ran
 	  if( i != j && (abs(theta) > M_PI/2) ) {
 	    fprintf(fp1, "%d %d %.8e %.8Le %.8e %.8e %.8e\n",
 		    //1 Timeslice, 2 H2 pos
-		    t, i,
+		    t, (int)k,
 		    
 		    //3 source/sink angle
 		    (double)theta,
@@ -771,6 +774,65 @@ void visualiser(vector<double> phi_cyl, double barr, Param p) {
   }
   //usleep(250000);
 }
+
+void visualiser_AdS(vector<Vertex> NodeList, double barr, Param p) {  
+
+  cout<<endl<<"Level "<<0<<endl;
+  for(int j=0; j<p.Lt; j++) {
+    int i = 0;
+    if(NodeList[i + (p.S1)*j].phi <= -1.5*barr) cout<<"\033[1;41m \033[0m";
+    if(-1.5*barr < NodeList[i + p.S1*j].phi && NodeList[i + p.S1*j].phi <= -0.5*barr) cout<<"\033[1;43m \033[0m";
+    if(-0.5*barr < NodeList[i + p.S1*j].phi && NodeList[i + p.S1*j].phi <=  0.5*barr) cout<<"\033[1;42m \033[0m";
+    if( 0.5*barr < NodeList[i + p.S1*j].phi && NodeList[i + p.S1*j].phi <=  1.5*barr) cout<<"\033[1;46m \033[0m";
+    if( 1.5*barr < NodeList[i + p.S1*j].phi) cout<<"\033[1;44m \033[0m";
+  }
+  cout<<endl;
+  for(int l=1; l<p.Levels+1; l++) {
+    cout<<"Level "<<l<<endl;
+    for(int i=endNode(l-1,p)+1; i<endNode(l,p)+1; i++) {
+      for(int j=0; j<p.Lt; j++) {
+	if(NodeList[i + (p.S1)*j].phi <= -1.5*barr) cout<<"\033[1;41m \033[0m";
+	if(-1.5*barr < NodeList[i + p.S1*j].phi && NodeList[i + p.S1*j].phi <= -0.5*barr) cout<<"\033[1;43m \033[0m";
+	if(-0.5*barr < NodeList[i + p.S1*j].phi && NodeList[i + p.S1*j].phi <=  0.5*barr) cout<<"\033[1;42m \033[0m";
+	if( 0.5*barr < NodeList[i + p.S1*j].phi && NodeList[i + p.S1*j].phi <=  1.5*barr) cout<<"\033[1;46m \033[0m";
+	if( 1.5*barr < NodeList[i + p.S1*j].phi) cout<<"\033[1;44m \033[0m";
+      }
+      cout<<endl;
+    }
+  }
+}
+
+void visualiser_phi2(vector<double> phi_cyl, double barr, Param p) {  
+
+  double phi_sq;
+  
+  for(int i=endNode(p.Levels-1,p)+1; i<endNode(p.Levels,p)+1; i++) {
+    for(int j=0; j<p.Lt; j++) {
+      phi_sq = phi_cyl[i + p.S1*j];
+      if( phi_sq < 0.8*barr ) cout<<"\033[1;42m \033[0m";
+      if( 0.8*barr < phi_sq && phi_sq < 1.2*barr) cout<<"\033[1;46m \033[0m";
+      if( 1.2*barr < phi_sq ) cout<<"\033[1;44m \033[0m";
+    }
+    cout<<endl;
+  }
+  //usleep(250000);
+}
+
+//42,46,44
+void visualiser_phi2_AdS(double **phi_sq, double barr, Param p) {  
+
+  for(int i=0; i<p.SurfaceVol; i++) {  
+    for(int j=0; j<p.Lt; j++) {
+      if( phi_sq[i][j] < 0.99*barr ) cout<<"\033[1;42m \033[0m";
+      if( 0.99*barr < phi_sq[i][j] && phi_sq[i][j] < 1.01*barr) cout<<"\033[1;46m \033[0m";
+      if( 1.01*barr < phi_sq[i][j] ) cout<<"\033[1;44m \033[0m";
+    }
+    cout<<endl;
+  }
+  //usleep(250000);
+}
+
+
 
 /********************************************
 Basic Hyperbolic Algebra. 
