@@ -15,9 +15,9 @@ VERBOSITY='q'
 Q=8
 MAX_ITER=100000
 TOL=1e-10
-TIMESLICES=480
-MSQR=1.0
-LEVELS=3
+TIMESLICES=32
+MSQR=$1
+LEVELS=$4
 SRC_POS=-1
 g_MSQR=1.0
 g_LATT=1.0
@@ -26,17 +26,17 @@ N_SHIFT=1
 
 #Ensure these values are sensible!
 #Currently set for testing only.
-N_THERM=5000
-N_MEAS=100
-N_SKIP=500
+N_THERM=100000
+N_MEAS=250
+N_SKIP=5000
 N_WOLFF=20
-MUSQR=-0.1
-LAMBDA=0.5
+MUSQR=$2
+LAMBDA=$3
 
 make
 
-rm -rf data_dump
-mkdir data_dump
+mkdir run_${MSQR}_${MUSQR}_${LAMBDA}_${LEVELS}
+cp adsrun run_${MSQR}_${MUSQR}_${LAMBDA}_${LEVELS}/.
 
 COMMAND="./adsrun ${BC} ${CENTRE} ${VERBOSITY} \
 	 	  ${MAX_ITER} ${TOL} ${TIMESLICES} ${MSQR} ${delta_MSQR} \
@@ -45,22 +45,6 @@ COMMAND="./adsrun ${BC} ${CENTRE} ${VERBOSITY} \
 
 echo ${COMMAND}
 
-${COMMAND}
-
-#<phi(x) - <phi(x)>> * <phi(y) - <phi(y)>> = B / (|x-y|)**delta + D
-
-#Surface = T = 32 
-
-#M_{AdS}=1.0 \mu^2=-0.00 \lambda=1.00 unstable
-
-#M_{AdS}=1.0 \mu^2=-0.30 \lambda=1.00 permafrost!
-
-
-
-#M_{AdS}=1.0 \mu^2=-0.16 \lambda=1.00 critical binder = 0.25
-#B               = 0.0973079        +/- 0.001401     (1.44%)
-#delta           = 0.557269         +/- 0.01088      (1.953%)
-
-#M_{AdS}=1.0 \mu^2=-0.15 \lambda=1.00 critical binder = 0.21
-#B               = 0.0924327        +/- 0.001697     (1.836%)
-#delta           = 0.630542         +/- 0.01496      (2.372%)
+(cd run_${MSQR}_${MUSQR}_${LAMBDA}_${LEVELS};
+ mkdir data_dump;
+ ./${COMMAND} >& log.log &)

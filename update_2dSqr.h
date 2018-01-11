@@ -42,7 +42,7 @@ double action_phi(vector<double> &phi, vector<int> &s, Param p, double & KE,  do
   
   p.latVol = p.SurfaceVol;
   
-  for (i = 0; i < p.latVol; i++)
+  for (i = 0; i < p.surfaceVol; i++)
     if (s[i] * phi[i] < 0)
       printf("ERROR s and phi NOT aligned (AP) ! \n");
   
@@ -186,70 +186,6 @@ int metropolis_update_phi(vector<double> &phi, vector<int> &s, Param p,
   return delta_mag;
 }
 
-void correlators(double **corr, double **corr_ave, int corr_norm,
-		 vector<double> &phi, double avePhi, Param p) {
-  
-  int s_idx = 0;
-  int l_idx = 0;
-
-  //Each value of \delta t and \delta \theta
-  //must be normalised seperately.
-  int norm[p.S1/2][p.Lt/2];
-  for(int i=0; i<p.S1/2; i++)
-    for(int j=0; j<p.Lt/2; j++) {
-      norm[i][j] = 0;
-      corr[i][j] = 0.0;
-    }
-  
-  //loop over sink/source *theta*
-  for(int is=0; is<p.S1; is++)
-    for(int js=0; js<p.S1; js++) {
-
-      s_idx = abs(is-js);
-      if(s_idx >= p.S1/2) s_idx = p.S1 - s_idx - 1;
-      
-      //loop over sink/source *temporal*
-      for(int il=0; il<p.Lt; il++) 
-	for(int jl=0; jl<p.Lt; jl++) {
-	  
-	  l_idx = abs(il-jl);
-	  if(l_idx >= p.Lt/2) l_idx = p.Lt - l_idx - 1;
-
-	  //cout<<s_idx<<" "<<l_idx<<endl;
-	  
-	  corr[s_idx][l_idx] += (phi[is + il*p.S1] - avePhi) * (phi[js + jl*p.S1] - avePhi);
-	  norm[s_idx][l_idx]++;	  
-	}
-    }
-
-  //Normalise, add to running average
-  for(int i=0; i<p.S1/2; i++)
-    for(int j=0; j<p.Lt/2; j++) {
-      corr[i][j] /= norm[i][j];
-      corr_ave[i][j] += corr[i][j];
-    }
-
-  //Corr dump to stdout and collect running average.
-  if(p.verbosity) cout<<setprecision(4);      
-  if(p.verbosity) cout<<"Corr Sample: "<<endl;
-  for(int i=0; i<p.S1/2; i++) {
-    if(p.verbosity) cout<<"theta "<<2*M_PI*i/(double)(p.S1)<<":";
-    for(int j=0; j<p.Lt/2; j++) {
-      if(p.verbosity) cout<<" "<<corr_ave[i][j]/corr_norm;
-      corr[i][j] = corr_ave[i][j]/corr_norm;
-    }
-    if(p.verbosity) cout<<endl;
-  }
-  
-  //corr now contains the current running average correlation matrix.
-  //If desired, one can perfrom an eigendecomposition on this matrix, called
-  //from here or from main.
-  
-}
-
-void autocorrelation(double *PhiAb_arr, double avePhiAbs, int meas) {
-
-}
 
 //------------------------// 
 // Wolff Cluster Routines //
@@ -269,9 +205,16 @@ void wolff_update_phi(vector<double> &phi, vector<int> &s, Param p,
   // choose a random spin and grow a cluster
   int i = int(unif(rng) * p.SurfaceVol);
   int clusterSpin = s[i];
-
+  //Here we flip the spin of this node because the
+  //Cluster add routines flip the spin automatically.
+  //Hence the spin starts of as +/-, we flip the spin
+  //to -/+, and the true spin +/- is restotred in the
+  //course of the algorithm.
+  s[i] *= -1;
+  phi *= -1;
+  
   //This function is recursive and will call itself
-  //until all four attempts in the lattice direactions
+  //until all four attempts in the lattice directions
   // (+x, -x, +t, -t) have failed to ncrease the cluster.  
   clusterAdd(i, s, clusterSpin, cluster, phi, p);
   

@@ -34,9 +34,9 @@ class Param{
   char fname[256];
 
   int Lt = 32;
-  int S1 = 32;
+  int AdSVol = 32;
   int R  = 9;
-  int SurfaceVol = 0;
+  int surfaceVol = 0;
   int latVol = 0;
   double lambda = 1.0;
   double musqr  = 1.0;
@@ -46,11 +46,6 @@ class Param{
   int n_skip=100;
   int n_wolff=5;
 
-  
-  int *cluster ;    // Swendsen Wang Data Struture
-  int *stack ;     // Wolf Data Struture
-  int NumClusters ;
-  
   void print(){
     cout<<"Parameter status:"<<endl;
     cout<<"Triangulation = "<<q<<endl;
@@ -762,13 +757,13 @@ void DataDump(vector<Vertex> NodeList, Float *phi, Param p, int level, int t_ran
 
 void visualiser(vector<double> phi_cyl, double barr, Param p) {  
   
-  for(int i=0; i<p.S1; i++) {
+  for(int i=0; i<p.AdSVol; i++) {
     for(int j=0; j<p.Lt; j++) {
-      if(phi_cyl[i + p.S1*j] < -1.5*barr) cout<<"\033[1;41m \033[0m";
-      if(-1.5*barr < phi_cyl[i + p.S1*j] && phi_cyl[i + p.S1*j] < -0.5*barr) cout<<"\033[1;43m \033[0m";
-      if(-0.5*barr < phi_cyl[i + p.S1*j] && phi_cyl[i + p.S1*j] <  0.5*barr) cout<<"\033[1;42m \033[0m";
-      if( 0.5*barr < phi_cyl[i + p.S1*j] && phi_cyl[i + p.S1*j] <  1.5*barr) cout<<"\033[1;46m \033[0m";
-      if( 1.5*barr < phi_cyl[i + p.S1*j]) cout<<"\033[1;44m \033[0m";
+      if(phi_cyl[i + p.AdSVol*j] < -1.5*barr) cout<<"\033[1;41m \033[0m";
+      if(-1.5*barr < phi_cyl[i + p.AdSVol*j] && phi_cyl[i + p.AdSVol*j] < -0.5*barr) cout<<"\033[1;43m \033[0m";
+      if(-0.5*barr < phi_cyl[i + p.AdSVol*j] && phi_cyl[i + p.AdSVol*j] <  0.5*barr) cout<<"\033[1;42m \033[0m";
+      if( 0.5*barr < phi_cyl[i + p.AdSVol*j] && phi_cyl[i + p.AdSVol*j] <  1.5*barr) cout<<"\033[1;46m \033[0m";
+      if( 1.5*barr < phi_cyl[i + p.AdSVol*j]) cout<<"\033[1;44m \033[0m";
     }
     cout<<endl;
   }
@@ -780,22 +775,22 @@ void visualiser_AdS(vector<Vertex> NodeList, double barr, Param p) {
   cout<<endl<<"Level "<<0<<endl;
   for(int j=0; j<p.Lt; j++) {
     int i = 0;
-    if(NodeList[i + (p.S1)*j].phi <= -1.5*barr) cout<<"\033[1;41m \033[0m";
-    if(-1.5*barr < NodeList[i + p.S1*j].phi && NodeList[i + p.S1*j].phi <= -0.5*barr) cout<<"\033[1;43m \033[0m";
-    if(-0.5*barr < NodeList[i + p.S1*j].phi && NodeList[i + p.S1*j].phi <=  0.5*barr) cout<<"\033[1;42m \033[0m";
-    if( 0.5*barr < NodeList[i + p.S1*j].phi && NodeList[i + p.S1*j].phi <=  1.5*barr) cout<<"\033[1;46m \033[0m";
-    if( 1.5*barr < NodeList[i + p.S1*j].phi) cout<<"\033[1;44m \033[0m";
+    if(NodeList[i + (p.AdSVol)*j].phi <= -1.5*barr) cout<<"\033[1;41m \033[0m";
+    if(-1.5*barr < NodeList[i + p.AdSVol*j].phi && NodeList[i + p.AdSVol*j].phi <= -0.5*barr) cout<<"\033[1;43m \033[0m";
+    if(-0.5*barr < NodeList[i + p.AdSVol*j].phi && NodeList[i + p.AdSVol*j].phi <=  0.5*barr) cout<<"\033[1;42m \033[0m";
+    if( 0.5*barr < NodeList[i + p.AdSVol*j].phi && NodeList[i + p.AdSVol*j].phi <=  1.5*barr) cout<<"\033[1;46m \033[0m";
+    if( 1.5*barr < NodeList[i + p.AdSVol*j].phi) cout<<"\033[1;44m \033[0m";
   }
   cout<<endl;
   for(int l=1; l<p.Levels+1; l++) {
     cout<<"Level "<<l<<endl;
     for(int i=endNode(l-1,p)+1; i<endNode(l,p)+1; i++) {
       for(int j=0; j<p.Lt; j++) {
-	if(NodeList[i + (p.S1)*j].phi <= -1.5*barr) cout<<"\033[1;41m \033[0m";
-	if(-1.5*barr < NodeList[i + p.S1*j].phi && NodeList[i + p.S1*j].phi <= -0.5*barr) cout<<"\033[1;43m \033[0m";
-	if(-0.5*barr < NodeList[i + p.S1*j].phi && NodeList[i + p.S1*j].phi <=  0.5*barr) cout<<"\033[1;42m \033[0m";
-	if( 0.5*barr < NodeList[i + p.S1*j].phi && NodeList[i + p.S1*j].phi <=  1.5*barr) cout<<"\033[1;46m \033[0m";
-	if( 1.5*barr < NodeList[i + p.S1*j].phi) cout<<"\033[1;44m \033[0m";
+	if(NodeList[i + (p.AdSVol)*j].phi <= -1.5*barr) cout<<"\033[1;41m \033[0m";
+	if(-1.5*barr < NodeList[i + p.AdSVol*j].phi && NodeList[i + p.AdSVol*j].phi <= -0.5*barr) cout<<"\033[1;43m \033[0m";
+	if(-0.5*barr < NodeList[i + p.AdSVol*j].phi && NodeList[i + p.AdSVol*j].phi <=  0.5*barr) cout<<"\033[1;42m \033[0m";
+	if( 0.5*barr < NodeList[i + p.AdSVol*j].phi && NodeList[i + p.AdSVol*j].phi <=  1.5*barr) cout<<"\033[1;46m \033[0m";
+	if( 1.5*barr < NodeList[i + p.AdSVol*j].phi) cout<<"\033[1;44m \033[0m";
       }
       cout<<endl;
     }
@@ -808,7 +803,7 @@ void visualiser_phi2(vector<double> phi_cyl, double barr, Param p) {
   
   for(int i=endNode(p.Levels-1,p)+1; i<endNode(p.Levels,p)+1; i++) {
     for(int j=0; j<p.Lt; j++) {
-      phi_sq = phi_cyl[i + p.S1*j];
+      phi_sq = phi_cyl[i + p.AdSVol*j];
       if( phi_sq < 0.8*barr ) cout<<"\033[1;42m \033[0m";
       if( 0.8*barr < phi_sq && phi_sq < 1.2*barr) cout<<"\033[1;46m \033[0m";
       if( 1.2*barr < phi_sq ) cout<<"\033[1;44m \033[0m";
@@ -821,7 +816,7 @@ void visualiser_phi2(vector<double> phi_cyl, double barr, Param p) {
 //42,46,44
 void visualiser_phi2_AdS(double **phi_sq, double barr, Param p) {  
 
-  for(int i=0; i<p.SurfaceVol; i++) {  
+  for(int i=0; i<p.surfaceVol; i++) {  
     for(int j=0; j<p.Lt; j++) {
       if( phi_sq[i][j] < 0.99*barr ) cout<<"\033[1;42m \033[0m";
       if( 0.99*barr < phi_sq[i][j] && phi_sq[i][j] < 1.01*barr) cout<<"\033[1;46m \033[0m";
@@ -831,6 +826,84 @@ void visualiser_phi2_AdS(double **phi_sq, double barr, Param p) {
   }
   //usleep(250000);
 }
+
+void correlators(double **corr, double **corr_ave, int corr_norm,
+		 vector<Vertex> NodeList, double avePhi, Param p) {
+  
+  int s_idx = 0;
+  int t_idx = 0;
+
+  int s_size = p.surfaceVol;
+  int t_size = p.Lt;
+
+  int offset = endNode(p.Levels-1,p)+1;
+  int disk   = p.AdSVol;
+  
+  //Each value of \delta t and \delta \theta
+  //must be normalised seperately.
+  int norm[s_size/2][t_size/2];
+  for(int i=0; i<s_size/2; i++)
+    for(int j=0; j<t_size/2; j++) {
+      norm[i][j] = 0;
+      corr[i][j] = 0.0;
+    }
+  
+  //loop over sink/source *theta*
+  for(int is=0; is<s_size; is++)
+    for(int js=0; js<s_size; js++) {
+      
+      s_idx = abs(is-js);
+      if(s_idx >= s_size/2) s_idx = s_size - s_idx - 1;
+      
+      //loop over sink/source *temporal*
+      for(int il=0; il<t_size; il++) 
+	for(int jl=0; jl<t_size; jl++) {
+	  
+	  t_idx = abs(il-jl);
+	  if(t_idx >= t_size/2) t_idx = t_size - t_idx - 1;
+	  
+	  corr[s_idx][t_idx] += ((NodeList[offset + is + il*disk].phi - avePhi) *
+				 (NodeList[offset + js + jl*disk].phi - avePhi));
+	  norm[s_idx][t_idx]++;
+	}
+    }
+  
+  //Normalise, add to running average
+  for(int i=0; i<s_size/2; i++)
+    for(int j=0; j<t_size/2; j++) {
+      corr[i][j] /= norm[i][j];
+      corr_ave[i][j] += corr[i][j];
+    }
+
+  //Corr dump to stdout and collect running average.
+  if(p.verbosity) cout<<setprecision(4);      
+  if(p.verbosity) cout<<"Corr Sample: "<<endl;
+  for(int i=0; i<s_size/2; i++) {
+    if(p.verbosity) cout<<"theta "<<2*M_PI*i/(double)(s_size)<<":";
+    for(int j=0; j<t_size/2; j++) {
+      if(p.verbosity) cout<<" "<<corr_ave[i][j]/corr_norm;
+      corr[i][j] = corr_ave[i][j]/corr_norm;
+    }
+    if(p.verbosity) cout<<endl;
+  }
+
+  if(!p.verbosity) {
+    cout<<setprecision(4);      
+    cout<<"Corr Sample:";
+    for(int j=0; j<t_size/2; j++) {
+      cout<<" "<<corr[0][j];
+    }
+    cout<<endl;
+  }
+  
+  //**corr now contains the current, normalised, running average correlation
+  //matrix.  
+}
+
+void autocorrelation(double *PhiAb_arr, double avePhiAbs, int meas) {
+  
+}
+
 
 
 
@@ -846,7 +919,7 @@ Determined by x = a \pm r at y = 0
               x = a, y = r
 
 
- RL(a,r, u) = a + r^2/(conj(u) - a)
+RL(a,r, u) = a + r^2/(conj(u) - a)
 
 Preserves the line and swap a  to infty.
 

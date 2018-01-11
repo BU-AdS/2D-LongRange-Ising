@@ -151,9 +151,9 @@ int Mphi_ev(vector<Vertex> NodeList, Param p) {
 
 void corr_eigs(double **corr, Param p) {
 
-  MatrixXd A(p.S1/2,p.S1/2);;
-  for(int i=0; i<p.S1/2; i++)
-    for(int j=0; j<p.S1/2; j++)
+  MatrixXd A(p.AdSVol/2,p.AdSVol/2);;
+  for(int i=0; i<p.AdSVol/2; i++)
+    for(int j=0; j<p.AdSVol/2; j++)
       A(i,j) = corr[i][j];
 
   EigenSolver<MatrixXd> solve(A);
