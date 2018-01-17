@@ -813,7 +813,7 @@ void visualiser_phi2(vector<double> phi_cyl, double barr, Param p) {
   //usleep(250000);
 }
 
-void visualiser_phi2_AdS(double **phi_sq, Param p) {
+void visualiser_phi2_AdS(double **phi_sq, Param p, int iter) {
 
   double barr_t[p.surfaceVol];
   double barr = 0.0;
@@ -833,8 +833,7 @@ void visualiser_phi2_AdS(double **phi_sq, Param p) {
       if( phi_sq[i][j] < barr ) cout<<"\033[1;41m \033[0m";
       if( barr < phi_sq[i][j] ) cout<<"\033[1;44m \033[0m";
     }
-    cout<<" phi_sq_ave[s="<<i<<"] = "<<barr_t[i]<<endl;
-    cout<<endl;
+    cout<<" phi_sq_ave[s="<<i<<"] = "<<barr_t[i]/(iter+1)<<endl;
   }
 }
 

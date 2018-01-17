@@ -174,7 +174,7 @@ void runMonteCarloAdS(vector<Vertex> NodeList, Param p) {
 
       //Visualisation tools
       visualiser_AdS(NodeList, avePhiAb*norm, p);
-      visualiser_phi2_AdS(phi_sq_arr, p);      
+      visualiser_phi2_AdS(phi_sq_arr, p, idx);      
 
       //Calculate correlaton functions and update the average.
       correlators(corr_tmp, corr_ave, idx, NodeList, avePhi*norm, p);
