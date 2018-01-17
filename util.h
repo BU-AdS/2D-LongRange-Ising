@@ -817,14 +817,14 @@ void visualiser_phi2_AdS(double **phi_sq, Param p) {
 
   double barr_t[p.surfaceVol];
   double barr = 0.0;
-
+  
   for(int i=0; i<p.surfaceVol; i++) {
-    barr[i] = 0.0;
+    barr_t[i] = 0.0;
     for(int j=0; j<p.Lt; j++) {
-      barr[i] += phi_sq[i][j];
+      barr_t[i] += phi_sq[i][j];
     }
-    barr[i] /= p.Lt;
-    barr    += barr[i];
+    barr_t[i] /= p.Lt;
+    barr      += barr_t[i];
   }
   barr /= p.surfaceVol;
 
