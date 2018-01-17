@@ -27,7 +27,7 @@ N_SHIFT=1
 #Ensure these values are sensible!
 #Currently set for testing only.
 N_THERM=100000
-N_MEAS=250
+N_MEAS=5000
 N_SKIP=5000
 N_WOLFF=20
 MUSQR=-5.1

@@ -1,14 +1,18 @@
-# BU-AdS 2D-AdS production code base                    30th November 2017
+# BU-AdS 2D-AdS production code base                    17th January 2018
 
-This library is a C++ implementation of a 2D phi**4 theory on AdS_{2}. It has
-the following functionalities for the Laplace operator:
+This library is a C++ implementation of a 2D phi**4 theory with long range
+interactions mediated by a copy of AdS_{2} at each time slice. It has
+the following functionalities for the Laplace operator on the space:
 
-1. Lattice action
-2. CG inverter (propagator)
-3. Eigensolver
-4. Various hypergeometric and debug utilities
+1. CG inverter (propagator)
+2. Eigensolver
+3. Various hypergeometric and debug utilities
 
-Stay tuned for the addition of a cluster algorithm for simulations.
+In addition, we have implemented a Monte Carlo based algorithm to perform
+importance sampling. The algorithm uses Metropolis steps, with Wolff
+steps at a given interval. We also incluse some crude ASCII visualisers
+and simple routines to caculate correlation functions and observables
+of the Ising model.
 
 ## Dependencies
 
@@ -28,7 +32,7 @@ included options to `make clean` to clean the ojects created by
 
 Once the code is sucessfully compiled, a single executabe will be produced.
 One can run the execuatble with the default values defined in the Param 
-class ( found in `util.h`) by passing no command line arguments. Note that 
+class (found in `util.h`) or by passing no command line arguments. Note that 
 if you change the default values you must recompile the code. If you use 
 the command line to pass arguments, we suggest you make use of a shell 
 script to run the executable, as we have shown in the example file 
