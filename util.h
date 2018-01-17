@@ -813,18 +813,29 @@ void visualiser_phi2(vector<double> phi_cyl, double barr, Param p) {
   //usleep(250000);
 }
 
-//42,46,44
-void visualiser_phi2_AdS(double **phi_sq, double barr, Param p) {  
+void visualiser_phi2_AdS(double **phi_sq, Param p) {
 
-  for(int i=0; i<p.surfaceVol; i++) {  
+  double barr_t[p.surfaceVol];
+  double barr = 0.0;
+
+  for(int i=0; i<p.surfaceVol; i++) {
+    barr[i] = 0.0;
     for(int j=0; j<p.Lt; j++) {
-      if( phi_sq[i][j] < 0.99*barr ) cout<<"\033[1;42m \033[0m";
-      if( 0.99*barr < phi_sq[i][j] && phi_sq[i][j] < 1.01*barr) cout<<"\033[1;46m \033[0m";
-      if( 1.01*barr < phi_sq[i][j] ) cout<<"\033[1;44m \033[0m";
+      barr[i] += phi_sq[i][j];
     }
+    barr[i] /= p.Lt;
+    barr    += barr[i];
+  }
+  barr /= p.surfaceVol;
+
+  for(int i=0; i<p.surfaceVol; i++) {
+    for(int j=0; j<p.Lt; j++) {
+      if( phi_sq[i][j] < barr ) cout<<"\033[1;41m \033[0m";
+      if( barr < phi_sq[i][j] ) cout<<"\033[1;44m \033[0m";
+    }
+    cout<<" phi_sq_ave[s="<<i<<"] = "<<barr_t[i]<<endl;
     cout<<endl;
   }
-  //usleep(250000);
 }
 
 void correlators(double **corr, double **corr_ave, int corr_norm,
