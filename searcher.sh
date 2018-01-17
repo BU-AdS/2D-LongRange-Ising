@@ -15,7 +15,7 @@ VERBOSITY='q'
 Q=8
 MAX_ITER=100000
 TOL=1e-10
-TIMESLICES=32
+TIMESLICES=120
 MSQR=$1
 LEVELS=$4
 SRC_POS=-1
@@ -27,7 +27,7 @@ N_SHIFT=1
 #Ensure these values are sensible!
 #Currently set for testing only.
 N_THERM=100000
-N_MEAS=250
+N_MEAS=500
 N_SKIP=5000
 N_WOLFF=20
 MUSQR=$2

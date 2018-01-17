@@ -11,21 +11,21 @@ class Param{
 
  public:
 
-  int q = 7;
+  int q = 8;
   
   bool bc = true;       //if true, use Dirichlet. If false, use Neumann
   bool Vcentre = true;  //if true, place vertex at centre. If false, use circumcentre.
   bool verbosity = false;  //if true, print all data. If false, print summary.
   int MaxIter = 100000;
   Float tol = pow(10,-6);
-  int t = 1;
-  Float msqr = 0.1;
+  int t = 32;
+  Float msqr = 4.0;
   Float C_msqr = 1.0;
   
   Float N_latt = 1.0;
   int n_shift = 1;
   Float delta_msqr = 0.01;
-  int Levels = 3;
+  int Levels = 2;
   int src_pos = -1;
   Float hyp_rad = 5.0;
   int r_min_pos = 0;
@@ -39,12 +39,12 @@ class Param{
   int surfaceVol = 0;
   int latVol = 0;
   double lambda = 1.0;
-  double musqr  = 1.0;
+  double musqr  = -1.2;
 
-  int n_therm=100000;
+  int n_therm=50000;
   int n_meas=100;
-  int n_skip=100;
-  int n_wolff=5;
+  int n_skip=1000;
+  int n_wolff=20;
 
   void print(){
     cout<<"Parameter status:"<<endl;
@@ -853,19 +853,23 @@ void correlators(double **corr, double **corr_ave, int corr_norm,
     for(int js=0; js<s_size; js++) {
       
       s_idx = abs(is-js);
-      if(s_idx >= s_size/2) s_idx = s_size - s_idx - 1;
+      if(s_idx != s_size/2) {
+	if(s_idx >= s_size/2) s_idx = s_size - s_idx - 1;
       
-      //loop over sink/source *temporal*
-      for(int il=0; il<t_size; il++) 
-	for(int jl=0; jl<t_size; jl++) {
-	  
-	  t_idx = abs(il-jl);
-	  if(t_idx >= t_size/2) t_idx = t_size - t_idx - 1;
-	  
-	  corr[s_idx][t_idx] += ((NodeList[offset + is + il*disk].phi - avePhi) *
-				 (NodeList[offset + js + jl*disk].phi - avePhi));
-	  norm[s_idx][t_idx]++;
-	}
+	//loop over sink/source *temporal*
+	for(int il=0; il<t_size; il++) 
+	  for(int jl=0; jl<t_size; jl++) {
+	    
+	    t_idx = abs(il-jl);
+	    if(t_idx != t_size/2) {
+	      if(t_idx >= t_size/2) t_idx = t_size - t_idx - 1;
+	      
+	      corr[s_idx][t_idx] += ((NodeList[offset + is + il*disk].phi - avePhi) *
+				     (NodeList[offset + js + jl*disk].phi - avePhi));
+	      norm[s_idx][t_idx]++;
+	    }
+	  }
+      }
     }
   
   //Normalise, add to running average

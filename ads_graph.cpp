@@ -8,7 +8,10 @@
 #include <unistd.h>
 
 using namespace std;
-mt19937_64 rng(138);
+
+int seed = clock();
+
+mt19937_64 rng(seed);
 uniform_real_distribution<double> unif;
 #define Float long double
 
@@ -88,14 +91,16 @@ void runMonteCarloAdS(vector<Vertex> NodeList, Param p) {
   double avePhi2  = 0.0;
   double avePhi4  = 0.0;
   double MagPhi   = 0.0;
-  double binderPr = 0.0;
 
   //Density of lattice sites
   double rhoVol  = 1.0/(double)p.latVol;
   double rhoVol2 = rhoVol*rhoVol;
 
   //correlation function arrays. One keeps the running average,
-  //one is temporary to pass around single measurent values.  
+  //one is temporary to pass around single measurent values.
+  //int s_max = p.surfaceVol/2;
+  //if(p.surfaceVol/2 % 2 != 0) s_max =  
+ 
   double **corr_tmp = (double**)malloc((p.surfaceVol/2)*sizeof(double*));
   double **corr_ave = (double**)malloc((p.surfaceVol/2)*sizeof(double*));
   for(int i=0; i<p.surfaceVol/2; i++) {
@@ -119,8 +124,7 @@ void runMonteCarloAdS(vector<Vertex> NodeList, Param p) {
     
     if((iter+1)%p.n_wolff == 0 && p.n_wolff != 0) {
       wolff_update_phi_AdS(NodeList, s, p, delta_mag_phi, iter);
-    }
-    
+    }    
     metropolis_update_phi_AdS(NodeList, s, p, delta_mag_phi, iter);
 
     //Take measurements.
@@ -166,16 +170,14 @@ void runMonteCarloAdS(vector<Vertex> NodeList, Param p) {
       cout<<"Ave phi^4 = "<<avePhi4*norm<<endl;
       cout<<"Suscep    = "<<(avePhi2*norm-pow(avePhiAb*norm,2))/rhoVol<<endl;
       cout<<"Spec Heat = "<<(aveE2*norm-pow(aveE*norm,2))/rhoVol<<endl;
-      cout<<"Binder    = "<<1.0-avePhi4/(3.0*avePhi2*avePhi2*norm);
-      cout<<" delta(%) = "<<100*(1.0 - binderPr/(1.0-avePhi4/(3.0*avePhi2*avePhi2*norm)))<<endl;
-      binderPr = 1.0-avePhi4/(3.0*avePhi2*avePhi2*norm);
+      cout<<"Binder    = "<<1.0-avePhi4/(3.0*avePhi2*avePhi2*norm)<<endl;
 
       //Visualisation tools
-      //visualiser_AdS(NodeList, avePhiAb*norm, p);
+      visualiser_AdS(NodeList, avePhiAb*norm, p);
       //visualiser_phi2_AdS(phi_sq_arr, avePhi2, p);      
 
       //Calculate correlaton functions and update the average.
-      correlators(corr_tmp, corr_ave, idx, NodeList, avePhi*norm, p);      
+      correlators(corr_tmp, corr_ave, idx, NodeList, avePhi*norm, p);
       sprintf(p.fname, "./data_dump/correlators.dat");
       FILE *fp1;
       fp1=fopen(p.fname, "w");
@@ -215,13 +217,15 @@ int main(int argc, char **argv) {
   //Total number of nodes in the graph.
   int TotNumber = (endNode(p.Levels,p) + 1) * p.t;
 
+  cout<<"Total nodes = "<<TotNumber<<endl;
+
   //Object to hold index positions of vertices
   vector<Vertex> NodeList(TotNumber);
 
   //-1 in NodeList indicates that node n has no connections.
   //This is used during construction to indicate if the node is yet
   //to be populated. During truncation, nodes to be removed are
-  //assined a position of -1, and all connections to that node are
+  //assigned a position of -1, and all connections to that node are
   //removed.
   for(int n = 0; n <TotNumber;n++)
     for(int mu = 0; mu < p.q+2; mu++) 

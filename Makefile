@@ -3,15 +3,15 @@
 #============================================================
 
 #Your path to Eigen
-EIGEN=/usr/local/include/eigen3/Eigen
+EIGEN=/share/pkg/eigen/3.3.4/install/include/eigen3
 
 TARGET	    = adsrun
 C_SOURCES   = ads_graph.cpp 
 C_OBJS      = ads_graph.o  
-MY_INCLUDES = graph.h util.h cg.h cg_multishift.h eigen.h graph.h update_2DAdS.h
+MY_INCLUDES = graph.h util.h cg.h cg_multishift.h eigen.h graph.h update_2dAdS.h
 
-CCX = g++ -std=c++11
-CXXFLAGS = -O2 -g -Wall -std=c++11 -I${EIGEN} -I. -Wall -Wno-sign-compare
+CCX = g++ 
+CXXFLAGS = -O2 -g -Wall -std=c++11 -fopenmp -I${EIGEN} -I. -Wall -Wno-sign-compare -Wno-int-in-bool-context -Wno-unused-but-set-variable
 
 #============================================================
 all: $(TARGET)
