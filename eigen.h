@@ -17,28 +17,28 @@
 // Borrow dense matrix eigenvalue routines.
 #include <Eigen/Dense>
 
-using namespace std; 
 using namespace Eigen;
+using namespace std; 
 
 // This is just for convenience. By default, all matrices
 // in Eigen are column major. You can replace "Dynamic"
 // with a specific number to template just one size.
 // You can also ust use "MatrixXd".
-typedef Matrix<Float, Dynamic, Dynamic, ColMajor> dMatrix;
+typedef Matrix<double, Dynamic, Dynamic, ColMajor> dMatrix;
 
 int Mphi_ev(vector<Vertex> NodeList, Param p) {
-  Float *in_real;
-  Float *out_real;
+  double *in_real;
+  double *out_real;
   int Levels = p.Levels;
   int N = p.t*(endNode(Levels,p)+1);
-  Float *phi  = (Float*)malloc(N*sizeof(Float));
-  Float *phi0 = (Float*)malloc(N*sizeof(Float));
+  double *phi  = (double*)malloc(N*sizeof(double));
+  double *phi0 = (double*)malloc(N*sizeof(double));
   // Set output precision to be long.
   cout << setprecision(10);
 
   // Allocate.
-  in_real = new Float[N];
-  out_real = new Float[N];
+  in_real = new double[N];
+  out_real = new double[N];
 
   // Zero out.
   for (int i = 0; i < N; i++)
@@ -79,7 +79,7 @@ int Mphi_ev(vector<Vertex> NodeList, Param p) {
     // If your data layout supports it, you can also pass
     // "mptr" directly as your "output vector" when you call
     // your mat-vec.
-    Float* mptr = &(mat_real(i*N));
+    double* mptr = &(mat_real(i*N));
     
     for (int j = 0; j < N; j++) mptr[j] = out_real[j];
     

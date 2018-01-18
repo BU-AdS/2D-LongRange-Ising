@@ -5,50 +5,50 @@
 using std::sqrt;
 using std::abs;
 
-void cg_multishift(Float **phi, Float *phi0, int n_shift, int size,
-		   int resid_freq_check, int max_iter, Float eps,
-		   Float* shifts, vector<Vertex> NodeList,
+void cg_multishift(double **phi, double *phi0, int n_shift, int size,
+		   int resid_freq_check, int max_iter, double eps,
+		   double* shifts, vector<Vertex> NodeList,
 		   Param param);
 
 // v1 = 0
-void zero_vector(Float* v1, const int size)
+void zero_vector(double* v1, const int size)
 {
   for (int i = 0; i < size; i++)
     v1[i] = 0.0;
 }
 
 // v1 = v2
-void copy_vector(Float* v1, Float* v2, const int size)
+void copy_vector(double* v1, double* v2, const int size)
 {
   for (int i = 0; i < size; i++)
     v1[i] = v2[i];
 }
 
 // v2 += alpha v1
-void caxpy(const Float alpha, Float* v1, Float* v2, const int size)
+void caxpy(const double alpha, double* v1, double* v2, const int size)
 {
   for (int i = 0; i < size; i++)
     v2[i] += alpha*v1[i];
 }
 
 // v2 = v1 + alpha * v2
-void cxpay(Float* v1, const Float alpha, Float* v2, const int size)
+void cxpay(double* v1, const double alpha, double* v2, const int size)
 {
   for (int i = 0; i < size; i++)
     v2[i] = v1[i] + alpha*v2[i];
 }
 
 // v2 = alpha v1 + beta v2
-void caxpby(const Float alpha, Float* v1, const Float beta, Float* v2, const int size)
+void caxpby(const double alpha, double* v1, const double beta, double* v2, const int size)
 {
   for (int i = 0; i < size; i++)
     v2[i] = alpha*v1[i] + beta*v2[i];
 }
 
 // v1 dot v2
-Float dot(Float* v1, Float* v2, const int size)
+double dot(double* v1, double* v2, const int size)
 {
-  Float dv = 0.0;
+  double dv = 0.0;
   for (int i = 0; i < size; i++)
     dv += v1[i]*v2[i];
 
@@ -56,9 +56,9 @@ Float dot(Float* v1, Float* v2, const int size)
 }
 
 // ||v1||^2
-Float norm2sq(Float* v1, const int size)
+double norm2sq(double* v1, const int size)
 {
-  Float dv = 0.0;
+  double dv = 0.0;
   for (int i = 0; i < size; i++)
     dv += v1[i]*v1[i];
 
@@ -66,9 +66,9 @@ Float norm2sq(Float* v1, const int size)
 }
 
 // ||v1 - v2||^2
-Float diffnorm2sq(Float* v1, Float* v2, const int size)
+double diffnorm2sq(double* v1, double* v2, const int size)
 {
-  Float dv = 0.0;
+  double dv = 0.0;
   for (int i = 0; i < size; i++)
     dv += (v1[i]-v2[i])*(v1[i]-v2[i]);
 
@@ -76,16 +76,16 @@ Float diffnorm2sq(Float* v1, Float* v2, const int size)
 }
 
 //Wrapper for AdS code.
-void Minv_phi_ms(Float **phi, Float *phi0, vector<Vertex> NodeList, Param p){
+void Minv_phi_ms(double **phi, double *phi0, vector<Vertex> NodeList, Param p){
 
   int n_shift = p.n_shift;
   int size = (endNode(p.Levels,p) + 1) * p.t;
   int resid_freq_check = 10;
   int max_iter = p.MaxIter;
-  Float msqr = p.msqr;
-  Float delta_msqr = p.delta_msqr;
-  Float eps = p.tol;
-  Float *shifts = (Float*)malloc(n_shift*sizeof(Float));
+  double msqr = p.msqr;
+  double delta_msqr = p.delta_msqr;
+  double eps = p.tol;
+  double *shifts = (double*)malloc(n_shift*sizeof(double));
   for(int i=0; i<n_shift; i++) shifts[i] = p.C_msqr*msqr + i*delta_msqr;
 
   cg_multishift(phi, phi0, n_shift, size, resid_freq_check,
@@ -101,34 +101,34 @@ void Minv_phi_ms(Float **phi, Float *phi0, vector<Vertex> NodeList, Param p){
 // (worst-conditioned solve), set worst_first = true. 
 // resid_freq_check is how often to check the residual of other solutions.
 // This lets us stop iterating on converged systems. 
-void cg_multishift(Float **phi, Float *phi0, int n_shift, int size,
-		   int resid_freq_check, int max_iter, Float eps,
-		   Float* shifts, vector<Vertex> NodeList,
+void cg_multishift(double **phi, double *phi0, int n_shift, int size,
+		   int resid_freq_check, int max_iter, double eps,
+		   double* shifts, vector<Vertex> NodeList,
 		   Param param) {
   
   // Initialize vectors.
-  Float *r, *p, *Ap;
-  Float **p_s;
-  Float alpha, beta, beta_prev, rsq, rsqNew, bsqrt, tmp; 
-  Float *alpha_s, *beta_s, *zeta_s, *zeta_s_prev;
+  double *r, *p, *Ap;
+  double **p_s;
+  double alpha, beta, beta_prev, rsq, rsqNew, bsqrt, tmp; 
+  double *alpha_s, *beta_s, *zeta_s, *zeta_s_prev;
   int k,i,n;
   int n_shift_rem = n_shift; // number of systems to still iterate on. 
 
   // Allocate memory.
-  alpha_s = new Float[n_shift];
-  beta_s = new Float[n_shift];
-  zeta_s = new Float[n_shift];
-  zeta_s_prev = new Float[n_shift];
+  alpha_s = new double[n_shift];
+  beta_s = new double[n_shift];
+  zeta_s = new double[n_shift];
+  zeta_s_prev = new double[n_shift];
   
-  p_s = new Float*[n_shift];
+  p_s = new double*[n_shift];
   for (n = 0; n < n_shift; n++)
   {
-    p_s[n] = new Float[size];
+    p_s[n] = new double[size];
   }
 
-  r = new Float[size];
-  p = new Float[size];
-  Ap = new Float[size];
+  r = new double[size];
+  p = new double[size];
+  Ap = new double[size];
 
   // Initialize values.
   rsq = 0.0; rsqNew = 0.0; bsqrt = 0.0; k=0;

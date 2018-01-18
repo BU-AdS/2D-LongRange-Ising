@@ -2,18 +2,17 @@
 #define CG_H 
 #include <complex> 
 #include <cstring> 
-//#include <util.h> 
 
 using namespace std; 
 
-void Mphi(Float *phi, const Float *phi0, 
+void Mphi(double *phi, const double *phi0, 
 	  const vector<Vertex> NodeList, Param P) { 
 
   int Levels = P.Levels; 
   int q = P.q; 
   int T = P.t; 
-  Float msqr = P.msqr; 
-  Float C_msqr = P.C_msqr; 
+  double msqr = P.msqr; 
+  double C_msqr = P.C_msqr; 
   
   bool bc = P.bc; 
   int TotNumber = endNode(Levels,P)+1; 
@@ -53,7 +52,7 @@ void Mphi(Float *phi, const Float *phi0,
   } 
 } 
 
-Float Minv_phi(Float *phi, Float *b, 
+double Minv_phi(double *phi, double *b, 
 	       const vector<Vertex> NodeList, Param P) { 
   // CG solutions to Mphi = b  
   //  see http://en.wikipedia.org/wiki/Conjugate_gradient_method 
@@ -61,12 +60,12 @@ Float Minv_phi(Float *phi, Float *b,
   int diskN = endNode(Levels,P) + 1; 
   int TotNumber = P.t*diskN; 
   
-  Float *res, *resNew, *pvec, *Mpvec, *pvec_tmp;   
-  res      = new Float[TotNumber]; 
-  resNew   = new Float[TotNumber]; 
-  pvec     = new Float[TotNumber]; 
-  Mpvec    = new Float[TotNumber]; 
-  pvec_tmp = new Float[TotNumber]; 
+  double *res, *resNew, *pvec, *Mpvec, *pvec_tmp;   
+  res      = new double[TotNumber]; 
+  resNew   = new double[TotNumber]; 
+  pvec     = new double[TotNumber]; 
+  Mpvec    = new double[TotNumber]; 
+  pvec_tmp = new double[TotNumber]; 
 
   for(int i=0; i<TotNumber; i++) { 
     res[i]      = 0.0; 
@@ -77,8 +76,8 @@ Float Minv_phi(Float *phi, Float *b,
     //cout<<"phi "<<phi[i]<<" b "<<b[i]<<endl; 
   } 
   
-  Float alpha = 0.0, beta = 0.0, denom = 0.0; 
-  Float rsq = 0.0, rsqNew = 0.0, bsqrt = 0.0, truersq = 0.0; 
+  double alpha = 0.0, beta = 0.0, denom = 0.0; 
+  double rsq = 0.0, rsqNew = 0.0, bsqrt = 0.0, truersq = 0.0; 
   int  i; 
   
   for(i = 0; i<TotNumber; i++){ 
@@ -89,7 +88,7 @@ Float Minv_phi(Float *phi, Float *b,
   bsqrt = sqrt(bsqrt); 
   
   int maxIter = P.MaxIter; 
-  Float resEpsilon = P.tol; 
+  double resEpsilon = P.tol; 
   // iterate till convergence 
   rsqNew = 100.0; 
   int k = 0; 
