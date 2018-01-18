@@ -1,44 +1,35 @@
-.SUFFIXES:
-.SUFFIXES: .o .cpp
-#============================================================
-
 #Your path to Eigen
 EIGEN=/usr/local/include/eigen3/Eigen
 
-TARGET	    = adsrun
-C_SOURCES   = ads_graph.cpp 
-C_OBJS      = ads_graph.o  
-MY_INCLUDES = graph.h util.h cg.h cg_multishift.h eigen.h graph.h update_2dAdS.h
+TARGET	 = adsrun
+SOURCES  = main.cpp update.cpp util.cpp
+OBJS     = main.o update.o util.o
+INCLUDES = util.h graph.h cg.h cg_multishift.h update.h eigen.h
 
-CCX = g++ 
-CXXFLAGS = -O2 -g -Wall -std=c++11 -I${EIGEN} -I. -Wall -Wno-sign-compare -Wno-int-in-bool-context -Wno-unused-but-set-variable
+CXX = g++ 
+CXXFLAGS = -O2 -g -Wall -std=c++14 -I${EIGEN} -I. -Wall -Wno-sign-compare -Wno-int-in-bool-context -Wno-unused-but-set-variable
 
+LIB_FLAGS=''
 #============================================================
 all: $(TARGET)
 
-#ads_graph.o: graph.h util.h cg.h cg_multishift.h eigen.h graph.h update_2DAdS.h
+${TARGET}: ${OBJS}
+	$(CXX) $(CXXFLAGS) -o $(TARGET) $(OBJS) $(LIB_FLAGS)
 
-ads_graph.o: $(MY_INCLUDES)
+main.o: main.cpp $(INCLUDES) 
+	${CXX} ${CXXFLAGS} -c main.cpp
 
-.o:.cpp	$(MY_INCLUDES)
-	$(CCX) -c $(CXXFLAGS) $<
+update.o: update.cpp $(INCLUDES) 
+	${CXX} ${CXXFLAGS} -c update.cpp 
 
-$(TARGET) : $(C_OBJS)
-	$(CCX) $(CXXFLAGS)  $^ $(LIBDIRS)  -o $@
+util.o: util.cpp $(INCLUDES) 
+	${CXX} ${CXXFLAGS} -c util.cpp
 
-# Implicit rules: $@ = target name, $< = first prerequisite name, $^ = name of all prerequisites
-#============================================================
 
-ALL_SOURCES = Makefile $(C_SOURCES) $(MY_INCLUDES) 
-
-NOTES =
-%= otherstuff.np 
+ALL_SOURCES = Makefile $(SOURCES) $(INCLUDES) 
 
 clean:
-	rm -f $(TARGET) $(C_OBJS) core *.~*~
+	rm -f $(TARGET) $(OBJS) core *.~*~
 
 tar: $(ALL_SOURCES) $(NOTES)
 	tar cvf $(TARGET).tar $(ALL_SOURCES) $(NOTES)
-
-$(TARGET).ps: $(ALL SOURCES)
-	enscript -pcode.ps $(ALL_SOURCES)
