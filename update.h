@@ -9,7 +9,7 @@
 #include "util.h"
 
 void clusterAddSqr(int i, std::vector<int> &s, int clusterSpin,
-		   bool *cluster, std::vector<double> &phi_arr, Param p);
+		   bool *site_cluster, std::vector<double> &phi_arr, Param p);
 
 void clusterAddSqr(int i, std::vector<int> &s, int clusterSpin,
 		   bool *cluster, std::vector<double> &phi_arr, Param p);
@@ -20,7 +20,7 @@ void wolffUpdatePhiSqr(std::vector<double> &phi_arr, std::vector<int> &s, Param 
 double actionPhiSqr(std::vector<double> &phi_arr, std::vector<int> &s, Param p,
 		    double & KE, double & PE);
 
-int metropolisUpdatePhiSqr(std::vector<double> &phi_arr, std::vector<int> &s, Param p,
+int metropolisUpdatePhiSqr(std::vector<double> &phi_arr, std::vector<int> &s, Param &p,
 			   double & delta_mag_phi, int iter);
 
 
@@ -36,7 +36,7 @@ void wolffUpdatePhiAdS(std::vector<Vertex> &NodeList, std::vector<int> &s, Param
 double actionPhiAdS(std::vector<Vertex> &NodeList, std::vector<int> &s, Param p,
 		    double & KE, double & PE);
 
-int metropolisUpdatePhiAdS(std::vector<Vertex> &NodeList, std::vector<int> &s, Param p,
+int metropolisUpdatePhiAdS(std::vector<Vertex> &NodeList, std::vector<int> &s, Param &p,
 			   double & delta_mag_phi, int iter);
 
 void runMonteCarloAdS(std::vector<Vertex> &NodeList, Param p);

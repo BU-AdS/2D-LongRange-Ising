@@ -39,40 +39,50 @@ void Param::init(int argc, char **argv) {
   } else if(verbose == "Q" || verbose == "q") {
     verbosity = false;
   } else {
-    cout<<"Invalid Verbosity conditions given. Use verbose/quiet"<<endl;
+    cout<<"Invalid Verbosity conditions given. Use v/q for verbose/quiet"<<endl;
+    exit(0);
+  }
+
+  std::string latType(argv[4]);
+  if ( (latType == "sq" || latType == "SQ") || latType == "Sq"){
+    lattice = true;
+  } else if(latType == "ads" || latType == "AdS") {
+    lattice = false;
+  } else {
+    cout<<"Invalid Lattice type given. Please use sq/AdS for square/AdS lattices."<<endl;
     exit(0);
   }
   
-  MaxIter    = atoi(argv[4]);
-  tol        = atof(argv[5]);
-  t          = atoi(argv[6]);
-  msqr       = atof(argv[7]);
-  delta_msqr = atof(argv[8]);
-  Levels     = atoi(argv[9]);
-  src_pos    = atoi(argv[10]);
+  MaxIter    = atoi(argv[5]);
+  tol        = atof(argv[6]);
+  t          = atoi(argv[7]);
+  msqr       = atof(argv[8]);
+  delta_msqr = atof(argv[9]);
+  Levels     = atoi(argv[10]);
+  src_pos    = atoi(argv[11]);
   
   //if(atof(argv[11]) == 0) C_msqr = -0.0126762/msqr + 0.0689398*msqr + 2.02509;
-  if(atof(argv[11]) == 0) {
+  if(atof(argv[12]) == 0) {
     if(t > 1) C_msqr = (1.57557326 + 1.56565549/msqr);
     else C_msqr = -0.0126762/msqr + 0.0689398*msqr + 2.02509;
   }
-  else C_msqr = atof(argv[11]);
+  else C_msqr = atof(argv[12]);
   
   //if(atof(argv[12]) == 0) N_latt = 0.294452/(msqr + 0.766901) + 0.0788137;
-  if(atof(argv[12]) == 0) N_latt = 0.294452/(msqr + 0.766901) + 0.0788137;
-  else N_latt = atof(argv[12]);
+  if(atof(argv[13]) == 0) N_latt = 0.294452/(msqr + 0.766901) + 0.0788137;
+  else N_latt = atof(argv[13]);
   
-  q = atoi(argv[13]);
-  n_shift = atoi(argv[14]);
+  q = atoi(argv[14]);
+  n_shift = atoi(argv[15]);
   
   //MC params
   
-  n_therm = atoi(argv[15]);
-  n_meas  = atoi(argv[16]);
-  n_skip  = atoi(argv[17]);
-  n_wolff = atoi(argv[18]);
-  musqr   = atof(argv[19]);
-  lambda  = atof(argv[20]);  
+  n_therm = atoi(argv[16]);
+  n_meas  = atoi(argv[17]);
+  n_skip  = atoi(argv[18]);
+  n_wolff = atoi(argv[19]);
+  musqr   = atof(argv[20]);
+  lambda  = atof(argv[21]);  
 }
 
 void Param::print() {
@@ -185,7 +195,7 @@ void GetComplexPositions(std::vector<Vertex> &NodeList, Param& P){
 	for(int k=0; k<q; k++) {
 	  if(NodeList[n].nn[k] != -1) {
 	    NodeList[NodeList[n].nn[k]].z = newVertex(NodeList[NodeList[n].nn[0]].z, NodeList[n].z, k, q);
-	    NodeList[NodeList[n].nn[k]].temporal_weight = 1.0/(1+pow(abs(NodeList[NodeList[n].nn[k]].z),2))/(1-pow(abs(NodeList[NodeList[n].nn[k]].z),2));
+	    NodeList[NodeList[n].nn[k]].temporal_weight = 1.0/ ((1+pow(abs(NodeList[NodeList[n].nn[k]].z),2))/(1-pow(abs(NodeList[NodeList[n].nn[k]].z),2)));
 	  }
 	}
       }
@@ -224,7 +234,7 @@ void GetComplexPositions(std::vector<Vertex> &NodeList, Param& P){
 	for(int k=0; k<q; k++) {
 	  if(NodeList[n].nn[k] != -1) {
 	    NodeList[NodeList[n].nn[k]].z = newVertex(NodeList[NodeList[n].nn[0]].z, NodeList[n].z, k, q);
-	    NodeList[NodeList[n].nn[k]].temporal_weight = 1.0/(1+pow(abs(NodeList[NodeList[n].nn[k]].z),2))/(1-pow(abs(NodeList[NodeList[n].nn[k]].z),2));
+	    NodeList[NodeList[n].nn[k]].temporal_weight = 1.0/ ((1+pow(abs(NodeList[NodeList[n].nn[k]].z),2)) / (1-pow(abs(NodeList[NodeList[n].nn[k]].z),2)));
 	  }
 	}
       }

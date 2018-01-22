@@ -58,8 +58,8 @@ int main(int argc, char **argv) {
   //Get the z-coords and temporal weighting
   GetComplexPositions(NodeList, p);
     
-  runMonteCarloAdS(NodeList, p);
-  //runMonteCarloSqr(NodeList, p);
+  if(p.lattice == true) runMonteCarloSqr(NodeList, p);
+  else runMonteCarloAdS(NodeList, p);
 
   /*
   //If the specified source position is < 0, place the point source

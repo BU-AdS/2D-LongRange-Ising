@@ -12,9 +12,10 @@ class Param{
 
   int q = 8;
   
-  bool bc = true;       //if true, use Dirichlet. If false, use Neumann
-  bool Vcentre = true;  //if true, place vertex at centre. If false, use circumcentre.
-  bool verbosity = false;  //if true, print all data. If false, print summary.
+  bool bc        = true;  //if true, use Dirichlet. If false, use Neumann
+  bool Vcentre   = true;  //if true, place vertex at centre. If false, use circumcentre.
+  bool verbosity = false; //if true, print all data. If false, print summary.
+  bool lattice   = false; //if true, use a square lattice. If false, use the AdS space too.
   int MaxIter = 100000;
   double tol = pow(10,-6);
   int t = 32;

@@ -12,11 +12,14 @@ CENTRE='v'
 #v=verbose,q=quiet
 VERBOSITY='q'
 
-Q=8
+#sq=Square Lattice, ads=AdS Lattice
+LATTICE='ads'
+
+Q=7
 MAX_ITER=100000
 TOL=1e-10
-TIMESLICES=120
-MSQR=4.00
+TIMESLICES=56
+MSQR=0.1
 LEVELS=3
 SRC_POS=-1
 g_MSQR=1.0
@@ -29,16 +32,16 @@ N_SHIFT=1
 N_THERM=100000
 N_MEAS=5000
 N_SKIP=5000
-N_WOLFF=1000
-MUSQR=-5.13
-LAMBDA=1.0
+N_WOLFF=3
+MUSQR=-0.50371
+LAMBDA=0.25
 
 make
 
 rm -rf data_dump
 mkdir data_dump
 
-COMMAND="./adsrun ${BC} ${CENTRE} ${VERBOSITY} \
+COMMAND="./adsrun ${BC} ${CENTRE} ${VERBOSITY} ${LATTICE} \
 	 	  ${MAX_ITER} ${TOL} ${TIMESLICES} ${MSQR} ${delta_MSQR} \
 	 	  ${LEVELS} ${SRC_POS} ${g_MSQR} ${g_LATT} ${Q} ${N_SHIFT} \
 		  ${N_THERM} ${N_MEAS} ${N_SKIP} ${N_WOLFF} ${MUSQR} ${LAMBDA} "

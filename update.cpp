@@ -72,16 +72,16 @@ double actionPhiSqr(vector<double> &phi_arr, vector<int> &s, Param p,
   return PE + KE;
 }
 
+int accept = 0;
+int tries  = 0;
 
-int metropolisUpdatePhiSqr(vector<double> &phi_arr, vector<int> &s, Param p,
-			   double & delta_mag_phi, int iter) {
+int metropolisUpdatePhiSqr(vector<double> &phi_arr, vector<int> &s, Param &p,
+			   double &delta_mag_phi, int iter) {
 
   delta_mag_phi = 0.0;
   
   int s_old     = 0;
   int delta_mag = 0;
-  int accept    = 0;
-  int tries     = 0;
   
   double phi_new = 0.0;
   double phi_new_sq = 0.0;
@@ -114,11 +114,6 @@ int metropolisUpdatePhiSqr(vector<double> &phi_arr, vector<int> &s, Param p,
     DeltaE += 1.0 * (phi-phi_new)*(phi_arr[xp(i, p)] + phi_arr[xm(i, p)] +
 				   phi_arr[tp(i, p)] + phi_arr[ttm(i, p)]);
     
-    //DeltaE += 0.5 * (phi_new_sq-phi_sq + 2*phi_arr[xp(i, p)]*(phi-phi_new));
-    //DeltaE += 0.5 * (phi_new_sq-phi_sq + 2*phi_arr[xm(i, p)]*(phi-phi_new));
-    //DeltaE += 0.5 * (phi_new_sq-phi_sq + 2*phi_arr[tp(i, p)]*(phi-phi_new));
-    //DeltaE += 0.5 * (phi_new_sq-phi_sq + 2*phi_arr[ttm(i, p)]*(phi-phi_new));
-
     tries++;
     
     if(DeltaE < 0.0) {
@@ -142,17 +137,17 @@ int metropolisUpdatePhiSqr(vector<double> &phi_arr, vector<int> &s, Param p,
   }// end loop over lattice volume 
   
   // TUNING ACCEPTANCE 
-  if (iter < p.n_therm/2) {
+  if (iter < p.n_therm/2 && iter % 500 == 0) {    
     if ((double) accept / (double) tries < 0.5) {
-      p.delta_phi -= 0.01;
+      p.delta_phi -= 0.001;
     } else {
-      p.delta_phi += 0.01;
+      p.delta_phi += 0.001;
     }
   }
 
-  if( (iter+1)%p.n_therm == 0 ) {
-    cout<<"At Thermalisation, the Acceptance rate is "<<(double)accept/(double)tries<<endl;
-    cout<<"and delta_phi is "<<p.delta_phi<<endl;
+  if( iter < p.n_therm ) {
+    //cout<<"At iter "<<iter<<" the Acceptance rate is "<<(double)accept/(double)tries<<endl;
+    //cout<<"and delta_phi is "<<p.delta_phi<<endl;
   }
   return delta_mag;
 }
@@ -166,19 +161,15 @@ int wc_ave = 0;
 int wc_size = 0;
 int wc_calls = 0;
 
-// declare functions to implement Wolff algorithm
-void clusterAddSqr(int i, vector<int> &s, int clusterSpin,
-		   bool *cluster, vector<double> &phi, Param p);
-
 void wolffUpdatePhiSqr(vector<double> &phi, vector<int> &s, Param p,
 		       double &delta_mag_phi, int iter) {
 
   wc_calls++;
-  
-  bool *cluster = new bool[p.surfaceVol];
+
+  bool *site_cluster = new bool[p.surfaceVol];
   for (int i = 0; i < p.surfaceVol; i++)
-    cluster[i] = false;
-  
+    site_cluster[i] = false;
+
   // choose a random spin and grow a cluster
   int i = int(unif(rng) * p.surfaceVol);
   int clusterSpin = s[i];
@@ -187,66 +178,80 @@ void wolffUpdatePhiSqr(vector<double> &phi, vector<int> &s, Param p,
   //until all four attempts in the lattice directions
   // (+x, -x, +t, -t) have failed to ncrease the cluster.
   wc_size = 1;
-  clusterAddSqr(i, s, clusterSpin, cluster, phi, p);
+  clusterAddSqr(i, s, clusterSpin, site_cluster, phi, p);
   
   wc_ave += wc_size;
-  
-  if( (iter+1) % p.n_skip == 0) {
+
+  if( (iter+1)%(p.n_skip) == 0 && iter < p.n_therm) {
     setprecision(4);
-    cout<<"Ave. cluster size at iter "<<iter+1<<" = "<<(1.0*wc_ave/wc_calls)<<endl;
-  }  
-  delete[] cluster;    
+    cout<<"Ave. cluster size at iter "<<iter+1<<" = "<<wc_ave<<"/"<<wc_calls<<" = "<<1.0*wc_ave/wc_calls<<endl;
+    //cout<<"S/T cluster growth ratio at iter "<<iter+1<<" = "<<1.0*wc_s_size/wc_ave<<":"<<1.0*wc_t_size/wc_ave<<endl;
+  }
+  
+  delete[] site_cluster;    
 }
 
 void clusterAddSqr(int i, vector<int> &s, int clusterSpin,
-		   bool *cluster, vector<double> &phi, Param p) {
+		   bool *site_cluster, vector<double> &phi, Param p) {
   
-  // Mark the spin as belonging to the cluster and flip it
-  cluster[i] = true;
+  // The site belongs to the cluster, so flip it.
+  site_cluster[i] = true;
   s[i] *= -1;
   phi[i] *= -1;
 
   // ferromagnetic coupling
-  double J = 1.0;
+  const double J = 1.0;
   
-  // if the neighbor spin does not already belong to the
-  // cluster, then try to add it to the cluster
-  if(!cluster[xm(i,p)]) {
-    if(s[xm(i,p)] == clusterSpin &&
-       unif(rng) < 1 - exp(-2.0*J*phi[i]*phi[xm(i,p)])) {
+  // - If the (aligned) neighbor spin does not already belong to the
+  // cluster, then try to add it to the cluster.
+  // - If the site has already been added, then we may skip the test.
+
+  //Backward in X
+  if(!site_cluster[ xm(i,p) ] && s[xm(i,p)] == clusterSpin) {
+    if (unif(rng) < 1 - exp(2*J*phi[i]*phi[xm(i,p)])) {
       wc_size++;
       //cout<<"->xm";
-      clusterAddSqr(xm(i,p), s, clusterSpin, cluster, phi, p);
+      clusterAddSqr(xm(i,p), s, clusterSpin, site_cluster, phi, p);
     }
   }
-  
-  if(!cluster[xp(i,p)]) {
-    if(s[xp(i,p)] == clusterSpin &&
-       unif(rng) < 1 - exp(2*J*phi[i]*phi[xp(i,p)])) {
+
+  //Forward in X
+  if(!site_cluster[ xp(i,p) ] && s[xp(i,p)] == clusterSpin) {
+    if(unif(rng) < 1 - exp(2*J*phi[i]*phi[xp(i,p)])) {
       wc_size++;
       //cout<<"->xp";
-      clusterAddSqr(xp(i,p), s, clusterSpin, cluster, phi, p);
+      clusterAddSqr(xp(i,p), s, clusterSpin, site_cluster, phi, p);
     }
   }
-  
-  if(!cluster[tp(i,p)]) {
-    if(s[tp(i,p)] == clusterSpin &&
-       unif(rng) < 1 - exp(2*J*phi[i]*phi[tp(i,p)])) {
+
+  //Forward in T
+  if(!site_cluster[ tp(i,p) ] && s[tp(i,p)] == clusterSpin) {
+    if(unif(rng) < 1 - exp(2*J*phi[i]*phi[tp(i,p)])) {
       wc_size++;
       //cout<<"->tp";
-      clusterAddSqr(tp(i,p), s, clusterSpin, cluster, phi, p);
+      clusterAddSqr(tp(i,p), s, clusterSpin, site_cluster, phi, p);
     }
   }
-  
-  if(!cluster[ttm(i,p)]) {
-    if(s[ttm(i,p)] == clusterSpin &&
-       unif(rng) < 1 - exp(2*J*phi[i]*phi[ttm(i,p)])) {
+
+  //Backard in T 
+  if(!site_cluster[ ttm(i,p) ] && s[ttm(i,p)] == clusterSpin) {  
+    if(unif(rng) < 1 - exp(2*J*phi[i]*phi[ttm(i,p)])) {
       wc_size++;
       //cout<<"->tm";
-      clusterAddSqr(ttm(i,p), s, clusterSpin, cluster, phi, p);
+      clusterAddSqr(ttm(i,p), s, clusterSpin, site_cluster, phi, p);
     }
   }  
 }
+
+
+
+
+
+
+
+
+int wc_t_size = 0;
+int wc_s_size = 0;
 
 double actionPhiAdS(vector<Vertex> &NodeList, vector<int> &s, Param p,
 		    double &KE,  double &PE) {
@@ -298,7 +303,7 @@ double actionPhiAdS(vector<Vertex> &NodeList, vector<int> &s, Param p,
 }
 
 int metropolisUpdatePhiAdS(vector<Vertex> &NodeList, vector<int> &s,
-			   Param p, double & delta_mag_phi, int iter) {
+			   Param &p, double &delta_mag_phi, int iter) {
   
   delta_mag_phi = 0.0;
   uniform_real_distribution<double> unif(0.0,1.0);
@@ -338,7 +343,7 @@ int metropolisUpdatePhiAdS(vector<Vertex> &NodeList, vector<int> &s,
       DeltaE += 0.25*p.lambda*(phi_new_sq*phi_new_sq - phi_sq*phi_sq);
       DeltaE += 0.50*p.musqr *(phi_new_sq            - phi_sq);
     }
-    DeltaE += 0.5*p.msqr*(phi_new_sq - phi_sq);
+    DeltaE += 0.50*p.msqr*(phi_new_sq - phi_sq);
     
     
     //KE
@@ -381,10 +386,11 @@ int metropolisUpdatePhiAdS(vector<Vertex> &NodeList, vector<int> &s,
     }
   }
 
-  if( (iter+1)%p.n_therm == 0 ) {
-    cout<<"At Thermalisation, the Acceptance rate is "<<(double)accept/(double)tries<<endl;
-    cout<<"and delta_phi is "<<p.delta_phi<<endl;
+  if( iter < p.n_therm && (iter+1)%(100*p.n_wolff) == 0 ) {
+    //cout<<"At iter "<<iter<<" the Acceptance rate is "<<(double)accept/(double)tries<<endl;
+    //cout<<"and delta_phi is "<<p.delta_phi<<endl;
   }
+  
   return delta_mag;
 }
 
@@ -409,12 +415,12 @@ void wolffUpdatePhiAdS(vector<Vertex> &NodeList, vector<int> &s, Param p,
 
   wc_ave += wc_size;
 
-  //cout<<"iter="<<iter+1<<endl;
-
-  if( (iter+1) % p.n_skip == 0) {
+  if( (iter+1)%(p.n_skip) == 0 && iter < p.n_therm) {
     setprecision(4);
-    cout<<"Ave. cluster size at iter "<<iter+1<<" = "<<(1.0*wc_ave/wc_calls)<<endl;
-  }  
+    cout<<"Ave. cluster size at iter "<<iter+1<<" = "<<wc_ave<<"/"<<wc_calls<<" = "<<1.0*wc_ave/wc_calls<<endl;
+    //cout<<"S/T cluster growth ratio at iter "<<iter+1<<" = "<<1.0*wc_s_size/wc_ave<<":"<<1.0*wc_t_size/wc_ave<<endl;
+  }
+  
   delete[] cluster;    
 }
 
@@ -427,7 +433,7 @@ void clusterAddAdS(int i, vector<int> &s, int cSpin,
   NodeList[i].phi *= -1;
   
   // ferromagnetic coupling
-  double J = +1.0;
+  const double J = +1.0;
   double t_weight = 1.0;
   
   // if the neighbor spin does not already belong to the
@@ -445,6 +451,8 @@ void clusterAddAdS(int i, vector<int> &s, int cSpin,
 	if(s[NodeList[nn_q].pos] == cSpin &&
 	   unif(rng) < 1 - exp(2*J*t_weight*NodeList[i].phi*NodeList[nn_q].phi)) {
 	  wc_size++;
+	  //if(q<p.q)  wc_s_size++;
+	  //if(q>=p.q) wc_t_size++;	  
 	  clusterAddAdS(NodeList[nn_q].pos, s, cSpin, cluster, NodeList, p);
 	}
       }
@@ -483,13 +491,13 @@ void runMonteCarloAdS(vector<Vertex> &NodeList, Param p) {
   cout<<"Etot - (K+U) = "<<Etot-(KE+PE)<<endl;
 
   //Thermalisation
+  
   for(int iter = 0;iter < p.n_therm; iter++) {
     //if p.n_wolff is set to zero, no Wolff steps occur.
     if((iter+1)%p.n_wolff == 0 && p.n_wolff != 0) {
-      wolffUpdatePhiAdS(NodeList, s, p, delta_mag_phi, iter);
+      metropolisUpdatePhiAdS(NodeList, s, p, delta_mag_phi, iter);
     }
-
-    metropolisUpdatePhiAdS(NodeList, s, p, delta_mag_phi, iter);
+    wolffUpdatePhiAdS(NodeList, s, p, delta_mag_phi, iter);
 
     if((iter+1)%p.n_skip == 0) cout<<"Therm sweep "<<iter+1<<endl;
   }
@@ -545,16 +553,15 @@ void runMonteCarloAdS(vector<Vertex> &NodeList, Param p) {
   int idx = 0;
   double norm;
   
-  for(int iter = 0;iter < p.n_skip*p.n_meas; iter++) {
+  for(int iter = p.n_therm; iter < p.n_therm + p.n_skip*p.n_meas; iter++) {
     
-    if((iter+1)%p.n_wolff == 0 && p.n_wolff != 0) {
-      wolffUpdatePhiAdS(NodeList, s, p, delta_mag_phi, iter);
-    }    
-    metropolisUpdatePhiAdS(NodeList, s, p, delta_mag_phi, iter);
-
+    if((iter+1)%p.n_wolff == 0 && p.n_wolff != 0)
+      metropolisUpdatePhiAdS(NodeList, s, p, delta_mag_phi, iter);
+    else wolffUpdatePhiAdS(NodeList, s, p, delta_mag_phi, iter);
+    
     //Take measurements.
     if((iter+1) % p.n_skip == 0) {
-
+      
       int offset = endNode(p.Levels-1,p) + 1;
       for(int i = 0;i < p.surfaceVol; i++) {
 	for(int j=0; j<p.Lt; j++) 
@@ -598,8 +605,8 @@ void runMonteCarloAdS(vector<Vertex> &NodeList, Param p) {
       cout<<"Binder    = "<<1.0-avePhi4/(3.0*avePhi2*avePhi2*norm)<<endl;
 
       //Visualisation tools
-      visualiserAdS(NodeList, avePhiAb*norm, p);
-      visualiserPhi2(phi_sq_arr, p, idx);      
+      //visualiserAdS(NodeList, avePhiAb*norm, p);
+      //visualiserPhi2(phi_sq_arr, p, idx);      
 
       //Calculate correlaton functions and update the average.
       correlatorsAdS(corr_tmp, corr_ave, idx, NodeList, avePhi*norm, p);
@@ -659,10 +666,9 @@ void runMonteCarloSqr(vector<Vertex> &NodeList, Param p) {
   for(int iter = 0;iter < p.n_therm; iter++) {
     //if p.n_wolff is set to zero, no Wolff steps occur.
     if((iter+1)%p.n_wolff == 0 && p.n_wolff != 0) {
-      wolffUpdatePhiSqr(phi, s, p, delta_mag_phi, iter);
+      metropolisUpdatePhiSqr(phi, s, p, delta_mag_phi, iter);
     }
-
-    metropolisUpdatePhiSqr(phi, s, p, delta_mag_phi, iter);
+    wolffUpdatePhiSqr(phi, s, p, delta_mag_phi, iter);
 
     if((iter+1)%p.n_skip == 0) cout<<"Therm sweep "<<iter+1<<endl;
   }
@@ -719,12 +725,13 @@ void runMonteCarloSqr(vector<Vertex> &NodeList, Param p) {
   int idx = 0;
   double norm;
   
-  for(int iter = 0;iter < p.n_skip*p.n_meas; iter++) {
+  for(int iter = p.n_therm; iter < p.n_therm + p.n_skip*p.n_meas; iter++) {
     
     if((iter+1)%p.n_wolff == 0 && p.n_wolff != 0) {
-      wolffUpdatePhiSqr(phi, s, p, delta_mag_phi, iter);
-    }    
-    metropolisUpdatePhiSqr(phi, s, p, delta_mag_phi, iter);
+      metropolisUpdatePhiSqr(phi, s, p, delta_mag_phi, iter);
+    }
+    wolffUpdatePhiSqr(phi, s, p, delta_mag_phi, iter);
+    
     
     //Take measurements.
     if((iter+1) % p.n_skip == 0) {
@@ -771,8 +778,8 @@ void runMonteCarloSqr(vector<Vertex> &NodeList, Param p) {
       cout<<"Binder    = "<<1.0-avePhi4/(3.0*avePhi2*avePhi2*norm)<<endl;
 
       //Visualisation tools
-      visualiserSqr(phi, avePhiAb*norm, p);
-      visualiserPhi2(phi_sq_arr, p, idx);      
+      //visualiserSqr(phi, avePhiAb*norm, p);
+      //visualiserPhi2(phi_sq_arr, p, idx);      
 
       //Calculate correlaton functions and update the average.
       correlatorsSqr(corr_tmp, corr_ave, idx, phi, avePhi*norm, p);
