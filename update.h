@@ -8,38 +8,39 @@
 #include <vector>
 #include "util.h"
 
-void clusterAddSqr(int i, std::vector<int> &s, int clusterSpin,
-		   bool *site_cluster, std::vector<double> &phi_arr, Param p);
+//Square lattice
+void clusterAddSqr(int i, int *s, int clusterSpin,
+		   bool *site_cluster, double *phi_arr, Param p);
 
-void clusterAddSqr(int i, std::vector<int> &s, int clusterSpin,
-		   bool *cluster, std::vector<double> &phi_arr, Param p);
+void wolffUpdateSqr(double *phi_arr, int *s, Param p,
+		    double &delta_mag_phi, int iter);
 
-void wolffUpdatePhiSqr(std::vector<double> &phi_arr, std::vector<int> &s, Param p,
-		       double &delta_mag_phi, int iter);
+int metropolisUpdateSqr(double *phi_arr, int *s, 
+			Param &p, double & delta_mag_phi, int iter);
 
-double actionPhiSqr(std::vector<double> &phi_arr, std::vector<int> &s, Param p,
-		    double & KE, double & PE);
+double actionSqr(double *phi_arr, int *s, 
+		 Param p, double & KE, double & PE);
 
-int metropolisUpdatePhiSqr(std::vector<double> &phi_arr, std::vector<int> &s, Param &p,
-			   double & delta_mag_phi, int iter);
+void thermaliseSqr(double *phi, int *s, Param P, double &delta_mag_phi);
+
+//AdS lattice
+void clusterAddAdS(int i, int *s, int clusterSpin, bool *site_cluster, 
+		   std::vector<Vertex> &NodeList, Param p);
+
+void wolffUpdateAdS(std::vector<Vertex> &NodeList, int *s, 
+		    Param p, double &delta_mag_phi, int iter);
+
+int metropolisUpdateAdS(std::vector<Vertex> &NodeList, int *s,
+			Param &p, double & delta_mag_phi, int iter);
+
+double actionAdS(std::vector<Vertex> &NodeList, int *s, 
+		 Param p, double & KE, double & PE);
+
+void thermaliseAdS(std::vector<Vertex> &NodeList, int *s, Param p, 
+		   double &delta_mag_phi);
+
+void runMonteCarlo(std::vector<Vertex> &NodeList, Param p);
 
 
-void clusterAddAdS(int i, std::vector<int> &s, int clusterSpin,
-		   bool *cluster, std::vector<Vertex> &NodeList, Param p);
-
-void clusterAddAdS(int i, std::vector<int> &s, int clusterSpin,
-		   bool *cluster, std::vector<Vertex> &NodeList, Param p);
-
-void wolffUpdatePhiAdS(std::vector<Vertex> &NodeList, std::vector<int> &s, Param p,
-		       double &delta_mag_phi, int iter);
-
-double actionPhiAdS(std::vector<Vertex> &NodeList, std::vector<int> &s, Param p,
-		    double & KE, double & PE);
-
-int metropolisUpdatePhiAdS(std::vector<Vertex> &NodeList, std::vector<int> &s, Param &p,
-			   double & delta_mag_phi, int iter);
-
-void runMonteCarloAdS(std::vector<Vertex> &NodeList, Param p);
-void runMonteCarloSqr(std::vector<Vertex> &NodeList, Param p);
 
 #endif

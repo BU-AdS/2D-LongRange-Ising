@@ -61,28 +61,26 @@ void Param::init(int argc, char **argv) {
   Levels     = atoi(argv[10]);
   src_pos    = atoi(argv[11]);
   
-  //if(atof(argv[11]) == 0) C_msqr = -0.0126762/msqr + 0.0689398*msqr + 2.02509;
   if(atof(argv[12]) == 0) {
     if(t > 1) C_msqr = (1.57557326 + 1.56565549/msqr);
     else C_msqr = -0.0126762/msqr + 0.0689398*msqr + 2.02509;
   }
   else C_msqr = atof(argv[12]);
   
-  //if(atof(argv[12]) == 0) N_latt = 0.294452/(msqr + 0.766901) + 0.0788137;
   if(atof(argv[13]) == 0) N_latt = 0.294452/(msqr + 0.766901) + 0.0788137;
   else N_latt = atof(argv[13]);
   
   q = atoi(argv[14]);
   n_shift = atoi(argv[15]);
   
-  //MC params
-  
+  //MC params  
   n_therm = atoi(argv[16]);
   n_meas  = atoi(argv[17]);
   n_skip  = atoi(argv[18]);
   n_wolff = atoi(argv[19]);
   musqr   = atof(argv[20]);
   lambda  = atof(argv[21]);  
+  
 }
 
 void Param::print() {
@@ -100,14 +98,14 @@ void Param::print() {
   cout<<"Levels = "<<Levels<<endl;
   cout<<"Mass squared scaling = "<<C_msqr<<endl;
   cout<<"Lattice normalisation = "<<N_latt<<endl;
-}
 
+}
 
 //Using the formula c(n) = (q-4)*c(n-1) - c(n-2) where c is the
 //number of nodes on circumference at level n, we can construct
 //the address of the end node on a given level for triangulation q:
 //EN(lev,q) = SUM c(n) n=0..level
-long unsigned int endNode(int lev, Param P) { 
+long unsigned int endNode(int lev, Param &P) { 
   
   int q = P.q;
   
@@ -170,8 +168,9 @@ long unsigned int endNode(int lev, Param P) {
   }
 }
 
+
 //- Get the z coordinates of every node on the Poincare disk 
-void GetComplexPositions(std::vector<Vertex> &NodeList, Param& P){
+void getComplexPositions(std::vector<Vertex> &NodeList, Param& P){
 
   int q = P.q;
   int Levels = P.Levels;
@@ -195,7 +194,7 @@ void GetComplexPositions(std::vector<Vertex> &NodeList, Param& P){
 	for(int k=0; k<q; k++) {
 	  if(NodeList[n].nn[k] != -1) {
 	    NodeList[NodeList[n].nn[k]].z = newVertex(NodeList[NodeList[n].nn[0]].z, NodeList[n].z, k, q);
-	    NodeList[NodeList[n].nn[k]].temporal_weight = 1.0/ ((1+pow(abs(NodeList[NodeList[n].nn[k]].z),2))/(1-pow(abs(NodeList[NodeList[n].nn[k]].z),2)));
+	    NodeList[NodeList[n].nn[k]].temporal_weight = 1.0/((1+pow(abs(NodeList[NodeList[n].nn[k]].z),2))/(1-pow(abs(NodeList[NodeList[n].nn[k]].z),2)));
 	  }
 	}
       }
@@ -476,7 +475,7 @@ void PrintComplexPositions(const vector<Vertex> NodeList, Param P) {
 }
 
 
-void CheckArea(const vector<Vertex> NodeList, Param P) {
+void checkArea(const vector<Vertex> NodeList, Param P) {
 
   double length_01 = 0.0;
   double length_02 = 0.0;
@@ -525,7 +524,7 @@ void CheckArea(const vector<Vertex> NodeList, Param P) {
 
 }
 
-void CheckEdgeLength(const vector<Vertex> NodeList, Param P) {
+void checkEdgeLength(const vector<Vertex> NodeList, Param P) {
   
   int q = P.q;
   int Levels = P.Levels;
@@ -585,7 +584,7 @@ void CheckEdgeLength(const vector<Vertex> NodeList, Param P) {
 }
 
 //Data file for lattice/analytical propagator data,
-void DataDump(vector<Vertex> NodeList, double *phi, Param p, int level, int t_range, int shift) {
+void dataDump(vector<Vertex> NodeList, double *phi, Param p, int level, int t_range, int shift) {
 
   long unsigned int TotNumber = (endNode(p.Levels,p) + 1) * p.t;
   double norm = 0.0;
@@ -741,8 +740,8 @@ void visualiserPhi2(double **phi_sq, Param p, int iter) {
 }
 
 
-void correlatorsAdS(double **corr, double **corr_ave, int corr_norm,
-		    vector<Vertex> NodeList, double avePhi, Param p) {
+void correlators(double **corr, double **corr_ave, int corr_norm,
+		 vector<Vertex> NodeList, double avePhi, Param p) {
   int s_idx = 0;
   int t_idx = 0;
 
@@ -818,8 +817,8 @@ void correlatorsAdS(double **corr, double **corr_ave, int corr_norm,
 }
 
 
-void correlatorsSqr(double **corr, double **corr_ave, int corr_norm,
-		    vector<double> phi, double avePhi, Param p) {
+void correlators(double **corr, double **corr_ave, int corr_norm,
+		 double *phi, double avePhi, Param p) {
   
   int s_idx = 0;
   int t_idx = 0;

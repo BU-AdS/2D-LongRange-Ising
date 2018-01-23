@@ -15,11 +15,11 @@ class Param{
   bool bc        = true;  //if true, use Dirichlet. If false, use Neumann
   bool Vcentre   = true;  //if true, place vertex at centre. If false, use circumcentre.
   bool verbosity = false; //if true, print all data. If false, print summary.
-  bool lattice   = false; //if true, use a square lattice. If false, use the AdS space too.
+  bool lattice   = false;  //if true, use a square lattice. If false, use the AdS space too.
   int MaxIter = 100000;
   double tol = pow(10,-6);
   int t = 32;
-  double msqr = 4.0;
+  double msqr = 0.059;
   double C_msqr = 1.0;
   
   double N_latt = 1.0;
@@ -33,19 +33,19 @@ class Param{
   
   char fname[256];
 
-  int S1 = 32;
-  int Lt = 32;
-  int AdSVol = 32;
-  int R  = 9;
+  int S1 = 0;
+  int Lt = 0;
+  int AdSVol = 0;
+  int R = 9;
   int surfaceVol = 0;
   int latVol = 0;
   double lambda = 1.0;
-  double musqr  = -1.2;
+  double musqr  = -1.275;
 
-  int n_therm=50000;
-  int n_meas=100;
+  int n_therm=100000;
+  int n_meas=1000;
   int n_skip=1000;
-  int n_wolff=20;
+  int n_wolff=8;
   double delta_phi = 1.5;
 
   void print();
@@ -84,10 +84,10 @@ class Vertex{
 //number of nodes on circumference at level n, we can construct
 //the address of the end node on a given level for triangulation q:
 //EN(lev,q) = SUM c(n) n=0..level
-long unsigned int endNode(int lev, Param P);
+long unsigned int endNode(int lev, Param &P);
 
 //Get the z coordinates of every node on the Poincare disk 
-void GetComplexPositions(std::vector<Vertex> &NodeList, Param& P);
+void getComplexPositions(std::vector<Vertex> &NodeList, Param& P);
 
 //For each node n, with a link to another node,
 //it checks that the neighbour table on the linked
@@ -102,10 +102,10 @@ void hypRadGraph(std::vector<Vertex> &NodeList, Param &P);
 void radiusCheck(std::vector<Vertex> &NodeList, Param P);
 
 //Checks the area of each hyperbolc trangle in the graph
-void CheckArea(const std::vector<Vertex> NodeList, Param P);
+void checkArea(const std::vector<Vertex> NodeList, Param P);
 
 //Checks that every edge length is the same(ish)
-void CheckEdgeLength(const std::vector<Vertex> NodeList, Param P);
+void checkEdgeLength(const std::vector<Vertex> NodeList, Param P);
 
 // Functions to print, dump, or visualise data.
 //----------------------------------------------
@@ -113,7 +113,7 @@ void PrintNodeTables(const std::vector<Vertex> NodeList, Param P);
 void PrintComplexPositions(const std::vector<Vertex> NodeList, Param P);
 
 //One-Size-Fits-All data file for lattice/analytical propagator data.
-void DataDump(std::vector<Vertex> NodeList, double *phi, Param p, int level,
+void dataDump(std::vector<Vertex> NodeList, double *phi, Param p, int level,
 	      int t_range, int shift);
 
 void visualiserSqr(std::vector<double> phi_cyl, double barr, Param p);
@@ -122,10 +122,11 @@ void visualiserPhi2(double **phi_cyl, Param p, int iter);
 
 // Functions to process data in the fly
 //---------------------------------------
-void correlatorsAdS(double **corr, double **corr_ave, int corr_norm,
-		    std::vector<Vertex> NodeList, double avePhi, Param p);
-void correlatorsSqr(double **corr, double **corr_ave, int corr_norm,
-		    std::vector<double> phi, double avePhi, Param p);
+void correlators(double **corr, double **corr_ave, int corr_norm,
+		 std::vector<Vertex> NodeList, double avePhi, Param p);
+
+void correlators(double **corr, double **corr_ave, int corr_norm,
+		 double *phi, double avePhi, Param p);
 
 void autocorrelation(double *PhiAb_arr, double avePhiAbs, int meas);
 

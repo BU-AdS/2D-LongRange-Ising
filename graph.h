@@ -6,7 +6,7 @@
 using namespace std;
 
 //- Construct the nearest neighbour table
-void BuildGraph(vector<Vertex> &NodeList, Param P){
+void buildGraph(vector<Vertex> &NodeList, Param P){
   
   int q = P.q;
   int Levels = P.Levels;
