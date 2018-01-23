@@ -2,8 +2,8 @@
 EIGEN=/usr/local/include/eigen3/Eigen
 
 TARGET	 = adsrun
-SOURCES  = main.cpp update.cpp util.cpp
-OBJS     = main.o update.o util.o
+SOURCES  = main.cpp update.cpp util.cpp cg.cpp
+OBJS     = main.o update.o util.o cg.o
 INCLUDES = util.h graph.h cg.h cg_multishift.h update.h eigen.h
 
 CXX = g++ 
@@ -24,6 +24,9 @@ update.o: update.cpp $(INCLUDES)
 
 util.o: util.cpp $(INCLUDES) 
 	${CXX} ${CXXFLAGS} -c util.cpp
+
+cg.o: cg.cpp $(INCLUDES) 
+	${CXX} ${CXXFLAGS} -c cg.cpp
 
 
 ALL_SOURCES = Makefile $(SOURCES) $(INCLUDES) 
