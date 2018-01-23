@@ -31,7 +31,7 @@ void Mphi(double *phi, const double *phi0,
     if(NodeList[i].pos != -1) { 
       
       //mass term 
-      phi[i] = 2*C_msqr*msqr*phi0[i];     
+      phi[i] = C_msqr*msqr*phi0[i];     
 
       //links 
       for(int mu = 0; mu < q; mu++) { 
@@ -80,7 +80,6 @@ double Minv_phi(double *phi, double *b,
     pvec[i]     = 0.0;   
     Mpvec[i]    = 0.0; 
     pvec_tmp[i] = 0.0; 
-    //cout<<"phi "<<phi[i]<<" b "<<b[i]<<endl; 
   } 
   
   double alpha = 0.0, beta = 0.0, denom = 0.0; 
@@ -96,7 +95,7 @@ double Minv_phi(double *phi, double *b,
   
   int maxIter = P.MaxIter; 
   double resEpsilon = P.tol; 
-  // iterate till convergence 
+  // iterate until convergence 
   rsqNew = 100.0; 
   int k = 0; 
   
@@ -109,7 +108,7 @@ double Minv_phi(double *phi, double *b,
 	rsq += res[i]*res[i]; 
       } 
     } 
-    cout << endl << "In CG at iteration = "<< k << " Montonicity "<<(beta  < 1.0 ? "True" : "False")<<" Residue Squared  = " << rsq <<endl;
+    //if(k%10 == 0) cout<< "In CG at iteration = "<< k << " Montonicity "<<(beta  < 1.0 ? "True" : "False")<<" Residue Squared  = " << rsq <<endl;
 
     //Mat-Vec operation
     Mphi(Mpvec, pvec, NodeList, P);  
@@ -186,11 +185,25 @@ void oneLoopCorrection(std::vector<Vertex> &NodeList, Param& p){
     for(int j=0; j<latVol; j++) phi[i][j] = 0.0;
   }
   double* b = new double[latVol];  
-  for(int i=0; i<sources; i++) { 
-    for(int i=0; i<latVol; i++) b[i] = 0.0; 
-    b[endNode(p.Levels-1,p) + 1 + i] = 1.0;    
+  for(int s=0; s<sources; s++) { 
+    for(int i=0; i<latVol; i++) {
+      b[i] = 0.0;
+      phi[0][i] = 0.0;
+    }
+    b[endNode(p.Levels-1,p) + 1 + s] = 1.0;    
     Minv_phi(phi[0], b, NodeList, p);
+    cout<<phi[0][endNode(p.Levels-1,p) + 1 + s]<<endl;
+    NodeList[endNode(p.Levels-1,p) + 1 + s].oneLoopCorr = phi[0][endNode(p.Levels-1,p) + 1 + s];
   }
+
+  //Propagate the one loop correction through the lattice.
+  int pos = endNode(p.Levels-1,p) + 1;
+  for(int i=0; i<p.t; i++) 
+    for(int q=0; q<p.q; q++)     
+      for(int s=0; s<sources; s++) 
+	NodeList[pos + s + q*sources + i*p.AdSVol].oneLoopCorr = NodeList[pos + s].oneLoopCorr;
+  
+  
   //Minv_phi_ms(phi, b, NodeList, p);
   //DataDump(NodeList, phi[i], p, p.Levels, p.t/2, i);
 

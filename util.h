@@ -65,38 +65,26 @@ class Vertex{
   //buildGraph() function.
   int fwdLinks;
 
-  //Positon on the poincare disk.
+  //Positon on the Poincare disk.
   std::complex<double> z;
 
   //The temporal weight (z dependent.)
   double temporal_weight = 1.0;
 
+  //M(x,x)^{-1} value at ths vertex.
+  double oneLoopCorr = 0.0;
+  
   //Field value at ths vertex.
   double phi = 0.0;
   
 };
 
 
-// Functions to calculate node/graph properties.
-//----------------------------------------------
-
 //Using the formula c(n) = (q-4)*c(n-1) - c(n-2) where c is the
 //number of nodes on circumference at level n, we can construct
 //the address of the end node on a given level for triangulation q:
 //EN(lev,q) = SUM c(n) n=0..level
 long unsigned int endNode(int lev, Param &P);
-
-//Get the z coordinates of every node on the Poincare disk 
-void getComplexPositions(std::vector<Vertex> &NodeList, Param& P);
-
-//For each node n, with a link to another node,
-//it checks that the neighbour table on the linked
-//node contains the original node n as a neighbour.
-void connectivityCheck(std::vector<Vertex> &NodeList, Param P);
-
-//Truncate the graph according to the hyperbolic radius
-//condition |z| < s.
-void hypRadGraph(std::vector<Vertex> &NodeList, Param &P);
 
 //Print the hyperbolic and poincare radii
 void radiusCheck(std::vector<Vertex> &NodeList, Param P);
@@ -107,83 +95,8 @@ void checkArea(const std::vector<Vertex> NodeList, Param P);
 //Checks that every edge length is the same(ish)
 void checkEdgeLength(const std::vector<Vertex> NodeList, Param P);
 
-// Functions to print, dump, or visualise data.
-//----------------------------------------------
-void PrintNodeTables(const std::vector<Vertex> NodeList, Param P);
-void PrintComplexPositions(const std::vector<Vertex> NodeList, Param P);
-
-//One-Size-Fits-All data file for lattice/analytical propagator data.
-void dataDump(std::vector<Vertex> NodeList, double *phi, Param p, int level,
-	      int t_range, int shift);
-
-void visualiserSqr(std::vector<double> phi_cyl, double barr, Param p);
-void visualiserAdS(std::vector<Vertex> NodeList, double barr, Param p);
-void visualiserPhi2(double **phi_cyl, Param p, int iter);
-
-// Functions to process data in the fly
-//---------------------------------------
-void correlators(double **corr, double **corr_ave, int corr_norm,
-		 std::vector<Vertex> NodeList, double avePhi, Param p);
-
-void correlators(double **corr, double **corr_ave, int corr_norm,
-		 double *phi, double avePhi, Param p);
-
-void autocorrelation(double *PhiAb_arr, double avePhiAbs, int meas);
-
-
-
-
-/*
-  Basic Hyperbolic Algebra. 
-
-  Moebius Transforms 
-
-  Hyperbolic reflection for geodesic in UHP
-
-  Given Line: (x-a)^2 + y^2 = r^2 
-  Determined by x = a \pm r at y = 0
-  x = a, y = r
-
-
-  RL(a,r, u) = a + r^2/(conj(u) - a)
-
-  Preserves the line and swap a  to infty.
-
-  Map to Disc: z = D(u) =  (u -I)/(1 -I * u) with u = x + i y
-  Map to UHP   u = U(z) = (z + I)/(1 + I * z);
-
-  Find UHP circle that hits  +/- theta_0 on  Disc
-
-  |z - A|^2 = R^2  
-  |z|^2 - |z| |A| cos(theta) + |A|^2 = R^2
-  boundary 1 - |A| cos (theta) + |A|^2 = R^2
-  pick A = real. when a = 0 with map
-
-  Need 3 point to define the mobius. Circle to Circle. 
-*/
-  
-std::complex<double> T(std::complex<double> z,  std::complex<double> w);
-std::complex<double> R(std::complex<double> z, std::complex<double> omega);
-std::complex<double> flip(std::complex<double> z, std::complex<double> z1, std::complex<double> z2);
-double s(std::complex<double> z);
-double r(double s );
-double d12(std::complex<double> z1, std::complex<double> z2);
-double sigma(std::complex<double> z1, std::complex<double> z2, int t);
-double s3p(int q);
-double area3q(int q);
-double areaGeneral(Param P, double A, double B, double C);
-double centralRad(double s);
-std::complex<double> DisktoUHP(std::complex<double> z);
-std::complex<double> UHPtoDisk(std::complex<double> u);
-std::complex<double> inversion(std::complex<double> z0, double r);
-std::complex<double> squareInversion(std::complex<double>z0, double r1, double r2 );
-double greens2D(std::complex<double> z, std::complex<double> w);
-double greensM2D(std::complex<double> z, std::complex<double> w, Param p);
-std::complex<double> newVertex(std::complex<double> z,std::complex<double> z0,int k, int q);
-
-void radiusCheck(std::vector<Vertex> &NodeList, Param P);
-void PrintNodeTables(const std::vector<Vertex> NodeList, Param P);
-
 //- Edge length from center z = 0
 double edgeLength(int q); 
+
+
 #endif

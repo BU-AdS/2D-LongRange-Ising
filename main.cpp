@@ -28,7 +28,7 @@ int main(int argc, char **argv) {
   Param p;
   //Process Command line arguments
   if(argc > 1) p.init(argc, argv);
-
+  
   //Populate problem dependent data
   p.surfaceVol = (endNode(p.Levels,p) - endNode(p.Levels-1,p))*p.t;
   p.S1 = endNode(p.Levels,p) - endNode(p.Levels-1,p);
@@ -39,18 +39,16 @@ int main(int argc, char **argv) {
   }
   else p.latVol = p.AdSVol * p.Lt;
 
+  for(int i=1;i<10;i++) cout<<"Endnode("<<i<<") = "<<endNode(i,p)<<endl;
   if(p.lattice == true) cout<<"Total Square nodes = "<<p.surfaceVol<<endl;
-  else {
-    for(int i=1;i<10;i++) cout<<"Endnode("<<i<<") = "<<endNode(i,p)<<endl;
-    cout<<"Total AdS nodes = "<<p.latVol<<endl;
-  }
+  else cout<<"Total AdS nodes = "<<p.latVol<<endl;
   
   //Print paramters
   p.print();
-
-  //Object to hold index positions of vertices
+  
+  //Object to hold graph data
   vector<Vertex> NodeList(p.latVol);
-
+  
   //-1 in NodeList indicates that node n has no connections.
   //This is used during construction to indicate if the node is yet
   //to be populated. During truncation, nodes to be removed are
@@ -67,17 +65,10 @@ int main(int argc, char **argv) {
     getComplexPositions(NodeList, p);
     //Calculate the one loop corrections, store in NodeList.
     oneLoopCorrection(NodeList, p);
-
-    //Debug tools
-    //CheckEdgeLength(NodeList, p);
-    //CheckArea(NodeList, p);  
-    //PrintNodeTables(NodeList, p);
-    //PrintComplexPositions(NodeList, p);
-    //radiusCheck(NodeList, p);    
   }
-
+  
   runMonteCarlo(NodeList, p);
 
   return 0;
-
+  
 }

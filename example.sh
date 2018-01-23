@@ -17,9 +17,9 @@ LATTICE='ads'
 
 Q=7
 MAX_ITER=100000
-TOL=1e-10
+TOL=1e-30
 TIMESLICES=56
-MSQR=0.1
+MSQR=0.12
 LEVELS=3
 SRC_POS=-1
 g_MSQR=1.0
@@ -29,12 +29,12 @@ N_SHIFT=1
 
 #Ensure these values are sensible!
 #Currently set for testing only.
-N_THERM=100000
+N_THERM=500000
 N_MEAS=5000
 N_SKIP=5000
 N_WOLFF=3
-MUSQR=-0.50371
-LAMBDA=0.25
+MUSQR=-1.272
+LAMBDA=1.0
 
 make
 
@@ -50,20 +50,3 @@ echo ${COMMAND}
 
 ${COMMAND}
 
-#<phi(x) - <phi(x)>> * <phi(y) - <phi(y)>> = B / (|x-y|)**delta + D
-
-#Surface = T = 32 
-
-#M_{AdS}=1.0 \mu^2=-0.00 \lambda=1.00 unstable
-
-#M_{AdS}=1.0 \mu^2=-0.30 \lambda=1.00 permafrost!
-
-
-
-#M_{AdS}=1.0 \mu^2=-0.16 \lambda=1.00 critical binder = 0.25
-#B               = 0.0973079        +/- 0.001401     (1.44%)
-#delta           = 0.557269         +/- 0.01088      (1.953%)
-
-#M_{AdS}=1.0 \mu^2=-0.15 \lambda=1.00 critical binder = 0.21
-#B               = 0.0924327        +/- 0.001697     (1.836%)
-#delta           = 0.630542         +/- 0.01496      (2.372%)

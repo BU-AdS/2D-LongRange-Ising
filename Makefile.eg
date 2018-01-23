@@ -2,14 +2,13 @@
 EIGEN=/usr/local/include/eigen3/Eigen
 
 TARGET	 = adsrun
-SOURCES  = main.cpp update.cpp util.cpp cg.cpp
-OBJS     = main.o update.o util.o cg.o
+SOURCES  = main.cpp update.cpp util.cpp cg.cpp hyp_util.cpp graph.cpp data_io.cpp data_proc.cpp
+OBJS     = main.o update.o util.o cg.o hyp_util.o graph.o data_io.o data_proc.o
 INCLUDES = util.h graph.h cg.h cg_multishift.h update.h eigen.h
 
 CXX = g++ 
 CXXFLAGS = -O2 -g -Wall -std=c++14 -I${EIGEN} -I. -Wall -Wno-sign-compare -Wno-int-in-bool-context -Wno-unused-but-set-variable
 
-LIB_FLAGS=''
 #============================================================
 all: $(TARGET)
 
@@ -22,8 +21,20 @@ main.o: main.cpp $(INCLUDES)
 update.o: update.cpp $(INCLUDES) 
 	${CXX} ${CXXFLAGS} -c update.cpp 
 
+graph.o: graph.cpp $(INCLUDES) 
+	${CXX} ${CXXFLAGS} -c graph.cpp
+
 util.o: util.cpp $(INCLUDES) 
 	${CXX} ${CXXFLAGS} -c util.cpp
+
+hyp_util.o: hyp_util.cpp $(INCLUDES) 
+	${CXX} ${CXXFLAGS} -c hyp_util.cpp
+
+data_io.o: data_io.cpp $(INCLUDES) 
+	${CXX} ${CXXFLAGS} -c data_io.cpp
+
+data_proc.o: data_proc.cpp $(INCLUDES) 
+	${CXX} ${CXXFLAGS} -c data_proc.cpp
 
 cg.o: cg.cpp $(INCLUDES) 
 	${CXX} ${CXXFLAGS} -c cg.cpp

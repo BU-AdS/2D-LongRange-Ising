@@ -7,10 +7,10 @@
 #include <cstring>
 #include <random>
 #include <unistd.h>
-#include <malloc.h>
 
 #include "update.h"
 #include "util.h"
+#include "data_proc.h"
 
 using namespace std;
 
@@ -43,6 +43,13 @@ inline int ttm(int i, Param p){
   return i % p.S1 + p.S1 * ((i / p.S1 - 1 + p.Lt) % p.Lt);
 }
 
+// declare variables to implement Wolff algorithm
+int wc_ave = 0;
+int wc_size = 0;
+int wc_calls = 0;
+int wc_t_size = 0;
+int wc_s_size = 0;
+
 double actionSqr(double *phi_arr, int *s, Param p,
 		 double & KE, double & PE) {  
   
@@ -50,6 +57,8 @@ double actionSqr(double *phi_arr, int *s, Param p,
   PE = 0.0;
   double phi_sq;
   double phi;
+  double lambda_p = p.lambda/4;
+  double musqr_p  = p.musqr/2;
   
   for (int i = 0; i < p.latVol; i++)
     if (s[i] * phi_arr[i] < 0)
@@ -60,8 +69,8 @@ double actionSqr(double *phi_arr, int *s, Param p,
     phi = phi_arr[i];
     phi_sq = phi*phi;
     
-    PE += 0.25 * p.lambda * phi_sq*phi_sq;
-    PE += 0.50 * p.musqr  * phi_sq;
+    PE += lambda_p * phi_sq*phi_sq;
+    PE += musqr_p  * phi_sq;
   }
   
   // KE terms 
@@ -88,7 +97,9 @@ int metropolisUpdateSqr(double *phi_arr, int *s, Param &p,
   double phi_new_sq = 0.0;
   double phi = 0.0;
   double phi_sq = 0.0;
-
+  double lambda_p = p.lambda/4;
+  double musqr_p  = p.musqr/2;
+  
   double DeltaE = 0.0;
   
   for (int i = 0; i < p.latVol; i++) {
@@ -106,13 +117,12 @@ int metropolisUpdateSqr(double *phi_arr, int *s, Param &p,
     }
 
     //PE
-    DeltaE += 0.25*p.lambda*(phi_new_sq*phi_new_sq - phi_sq*phi_sq);
-    DeltaE += 0.50*p.musqr *(phi_new_sq            - phi_sq);
+    DeltaE += lambda_p*(phi_new_sq*phi_new_sq - phi_sq*phi_sq);
+    DeltaE += musqr_p *(phi_new_sq            - phi_sq);
     
     //KE
-
     DeltaE += 2.0 * (phi_new_sq-phi_sq);
-    DeltaE += 1.0 * (phi-phi_new)*(phi_arr[xp(i, p)] + phi_arr[xm(i, p)] +
+    DeltaE +=       (phi-phi_new)*(phi_arr[xp(i, p)] + phi_arr[xm(i, p)] +
 				   phi_arr[tp(i, p)] + phi_arr[ttm(i, p)]);
     
     tries++;
@@ -136,16 +146,22 @@ int metropolisUpdateSqr(double *phi_arr, int *s, Param &p,
       delta_mag += s[i] - s_old;
     }     
   }// end loop over lattice volume 
-  
+
   // TUNING ACCEPTANCE 
-  if (iter < p.n_therm/2 && iter % 500 == 0) {    
+  if (iter < p.n_therm/2 && (iter+1) % p.n_skip/10 == 0) {
     if ((double) accept / (double) tries < 0.5) {
       p.delta_phi -= 0.001;
     } else {
       p.delta_phi += 0.001;
     }
+    if(p.n_wolff*1.0*wc_ave/wc_calls < p.latVol && iter > 2*p.n_skip) {
+      p.n_wolff++;
+    } else {
+      p.n_wolff--;
+      if(p.n_wolff < 3) p.n_wolff++;
+    }
   }
-
+  
   if( iter < p.n_therm ) {
     //cout<<"At iter "<<iter<<" the Acceptance rate is "<<(double)accept/(double)tries<<endl;
     //cout<<"and delta_phi is "<<p.delta_phi<<endl;
@@ -153,16 +169,6 @@ int metropolisUpdateSqr(double *phi_arr, int *s, Param &p,
   return delta_mag;
 }
 
-
-//------------------------// 
-// Wolff Cluster Routines //
-//------------------------//
-// declare functions and variables to implement Wolff algorithm
-int wc_ave = 0;
-int wc_size = 0;
-int wc_calls = 0;
-int wc_t_size = 0;
-int wc_s_size = 0;
 
 void wolffUpdateSqr(double *phi, int *s, Param p,
 		    double &delta_mag_phi, int iter) {
@@ -187,6 +193,7 @@ void wolffUpdateSqr(double *phi, int *s, Param p,
 
   if( iter%p.n_skip == 0 && iter < p.n_therm) {
     setprecision(4);
+    cout<<"Using "<<p.n_wolff<<" Wolff hits."<<endl; 
     cout<<"Ave. cluster size at iter "<<iter<<" = "<<wc_ave<<"/"<<wc_calls<<" = "<<1.0*wc_ave/wc_calls<<endl;
     cout<<"S/T cluster growth ratio at iter "<<iter<<" = "<<1.0*wc_s_size/wc_ave<<":"<<1.0*wc_t_size/wc_ave<<endl;
   }
@@ -257,18 +264,16 @@ double actionAdS(vector<Vertex> &NodeList, int *s, Param p,
   
   KE = 0.0;
   PE = 0.0;
-
-  int interior = endNode(p.Levels-1,p);
-  int disk     = p.AdSVol;
   double phi_sq;
   double phi;
-
+  int interior = endNode(p.Levels-1,p);
+  int disk     = p.AdSVol;
+  
   for (int i = 0; i < p.latVol; i++)
     if (s[i] * NodeList[i].phi < 0)
       printf("ERROR s and phi NOT aligned ! (actionPhi AdS)\n");
   
   for (int i = 0; i < p.latVol; i++) {
-
     phi = NodeList[i].phi;
     phi_sq = phi*phi;
 
@@ -292,7 +297,7 @@ double actionAdS(vector<Vertex> &NodeList, int *s, Param p,
       KE += 0.5*((phi - NodeList[NodeList[i].nn[q]].phi)*
 		 (phi - NodeList[NodeList[i].nn[q]].phi)  );
     }    
-    //temporal (the qth neighbour is always the forward time link.
+    //temporal (the qth neighbour is always the forward time link)
     KE += 0.5*((phi - NodeList[NodeList[i].nn[p.q]].phi)*
 	       (phi - NodeList[NodeList[i].nn[p.q]].phi)*
 	       (NodeList[i].temporal_weight*NodeList[i].temporal_weight));
@@ -377,11 +382,17 @@ int metropolisUpdateAdS(vector<Vertex> &NodeList, int *s,
   }// end loop over lattice volume 
   
   // TUNING ACCEPTANCE 
-  if (iter < p.n_therm/2) {
+  if (iter < p.n_therm/2 && (iter+1) % p.n_skip/10 == 0) {
     if ((double) accept / (double) tries < 0.5) {
-      p.delta_phi -= 0.01;
+      p.delta_phi -= 0.001;
     } else {
-      p.delta_phi += 0.01;
+      p.delta_phi += 0.001;
+    }
+    if(p.n_wolff*1.0*wc_ave/wc_calls < p.latVol && iter > 2*p.n_skip) {
+      p.n_wolff++;
+    } else {
+      p.n_wolff--;
+      if(p.n_wolff < 3) p.n_wolff++;
     }
   }
 
@@ -416,6 +427,7 @@ void wolffUpdateAdS(vector<Vertex> &NodeList, int *s, Param p,
 
   if( iter%p.n_skip == 0 && iter < p.n_therm) {
     setprecision(4);
+    cout<<"Using "<<p.n_wolff<<" Wolff hits."<<endl; 
     cout<<"Ave. cluster size at iter "<<iter<<" = "<<wc_ave<<"/"<<wc_calls<<" = "<<1.0*wc_ave/wc_calls<<endl;
     cout<<"S/T cluster growth ratio at iter "<<iter<<" = "<<1.0*wc_s_size/wc_ave<<":"<<1.0*wc_t_size/wc_ave<<endl;
   }
@@ -645,12 +657,11 @@ void thermaliseSqr(double *phi, int *s,
 		   Param p, double &delta_mag_phi) {
   
   for(int iter = 0; iter < p.n_therm; iter++) {
-    if((iter+1)%p.n_wolff == 0 && p.n_wolff != 0) {
-      metropolisUpdateSqr(phi, s, p, delta_mag_phi, iter);
-    } else {
+    for(int i=0; i<p.n_wolff; i++) {
       wolffUpdateSqr(phi, s, p, delta_mag_phi, iter);
+      iter++;
     }
-    
+    metropolisUpdateSqr(phi, s, p, delta_mag_phi, iter);
     if((iter+1)%p.n_skip == 0) cout<<"Therm sweep "<<iter+1<<endl;
   }
 }
@@ -659,11 +670,11 @@ void thermaliseAdS(vector<Vertex> &NodeList, int *s,
 		   Param p, double &delta_mag_phi) {
   
   for(int iter = 0; iter < p.n_therm; iter++) {
-    if((iter+1)%p.n_wolff == 0 && p.n_wolff != 0) {
-      metropolisUpdateAdS(NodeList, s, p, delta_mag_phi, iter);
-    } else {
+    for(int i=0; i<p.n_wolff; i++) {
       wolffUpdateAdS(NodeList, s, p, delta_mag_phi, iter);
-    }    
+      iter++;
+    }
+    metropolisUpdateAdS(NodeList, s, p, delta_mag_phi, iter);    
     if((iter+1)%p.n_skip == 0) cout<<"Therm sweep "<<iter+1<<endl;
   }
 }
