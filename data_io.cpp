@@ -110,7 +110,7 @@ void PrintNodeTables(const vector<Vertex> NodeList, Param P) {
   int t_offset  = 0;
   T == 1 ? t_offset = 0 : t_offset = 2;
   
-  for(int t=0; t<1; t++) {
+  for(int t=0; t<T; t++) {
     int offset = t*( endNode(Levels,P) + 1 );    
     cout<<endl<<"lev = "<<0<<" T = "<<t<<endl;
     
@@ -124,7 +124,7 @@ void PrintNodeTables(const vector<Vertex> NodeList, Param P) {
 	for(int i = 0; i < q+t_offset; i++) cout<<NodeList[offset + n].nn[i]<< "  ";
       }
     }
-    for(int lev = Levels-1; lev < Levels+1; lev++)  {
+    for(int lev = 1; lev < Levels+1; lev++)  {
       cout<<endl<<"lev = "<<lev<<" T = "<<t<<endl;
       long unsigned int low = endNode(lev-1,P)+1;
       long unsigned int high= endNode(lev,P)+1;

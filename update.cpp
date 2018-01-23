@@ -21,25 +21,30 @@ extern uniform_real_distribution<double> unif;
 //Basic utilites
 // x = 0,1,..., p.S1-1  and
 // t = 0,1,..., p.Lt-1
-// i = x + p.S1*r so
-// x = i % p.S1  and
+// i = x + p.S1*t so
+// x = i % p.S1 and
 // t = i/p.S1 
 inline int xp(int i, Param p) {
+  //if( (i+1)%p.S1 == 0 ) return (i/p.S1)*p.S1;
+  //else return i+1;
   return (i + 1) % p.S1 + p.S1 * (i / p.S1);
 }
 
 inline int xm(int i, Param p) {
+  //if( i%p.S1 == 0 ) return (i/p.S1)*p.S1 + (p.S1-1);
+  //else return i-1;  
   return (i - 1 + p.S1) % p.S1 + p.S1 * (i / p.S1);
 }
 
-/* jump to next t shell */
 inline int tp(int i, Param p) {
+  //if(i/p.S1 == p.Lt-1) return (i - (p.Lt-1)*p.S1);
+  //else return i+p.S1;
   return i % p.S1 + p.S1 * ((i / p.S1 + 1) % p.Lt);
 }
 
-/* return to last t shell */
 inline int ttm(int i, Param p){
-  // Some compiler have tm as reserved!
+  //if(i/p.S1 == 0) return (i + (p.Lt-1)*p.S1);
+  //else return i-p.S1;
   return i % p.S1 + p.S1 * ((i / p.S1 - 1 + p.Lt) % p.Lt);
 }
 
@@ -154,7 +159,7 @@ int metropolisUpdateSqr(double *phi_arr, int *s, Param &p,
     } else {
       p.delta_phi += 0.001;
     }
-    if(p.n_wolff*1.0*wc_ave/wc_calls < p.latVol && iter > 2*p.n_skip) {
+    if(p.n_wolff*1.0*wc_ave/wc_calls < p.latVol && iter > p.n_skip) {
       p.n_wolff++;
     } else {
       p.n_wolff--;
@@ -215,13 +220,13 @@ void clusterAddSqr(int i, int *s, int cSpin,
   // cluster, then try to add it to the cluster.
   // - If the site has already been added, then we may skip the test.
 
-  //Backward in X
-  if(!cluster[ xm(i,p) ] && s[xm(i,p)] == cSpin) {
-    if (unif(rng) < 1 - exp(2*J*phi[i]*phi[xm(i,p)])) {
+  //Forward in T
+  if(!cluster[ tp(i,p) ] && s[tp(i,p)] == cSpin) {
+    if(unif(rng) < 1 - exp(2*J*phi[i]*phi[tp(i,p)])) {
       wc_size++;
-      wc_s_size++;
-      //cout<<"->xm";
-      clusterAddSqr(xm(i,p), s, cSpin, cluster, phi, p);
+      wc_t_size++;
+      //cout<<"->tp";
+      clusterAddSqr(tp(i,p), s, cSpin, cluster, phi, p);
     }
   }
 
@@ -235,16 +240,7 @@ void clusterAddSqr(int i, int *s, int cSpin,
     }
   }
 
-  //Forward in T
-  if(!cluster[ tp(i,p) ] && s[tp(i,p)] == cSpin) {
-    if(unif(rng) < 1 - exp(2*J*phi[i]*phi[tp(i,p)])) {
-      wc_size++;
-      wc_t_size++;
-      //cout<<"->tp";
-      clusterAddSqr(tp(i,p), s, cSpin, cluster, phi, p);
-    }
-  }
-
+  
   //Backard in T 
   if(!cluster[ ttm(i,p) ] && s[ttm(i,p)] == cSpin) {  
     if(unif(rng) < 1 - exp(2*J*phi[i]*phi[ttm(i,p)])) {
@@ -253,7 +249,18 @@ void clusterAddSqr(int i, int *s, int cSpin,
       //cout<<"->tm";
       clusterAddSqr(ttm(i,p), s, cSpin, cluster, phi, p);
     }
-  }  
+  }
+
+  //Backward in X
+  if(!cluster[ xm(i,p) ] && s[xm(i,p)] == cSpin) {
+    if (unif(rng) < 1 - exp(2*J*phi[i]*phi[xm(i,p)])) {
+      wc_size++;
+      wc_s_size++;
+      //cout<<"->xm";
+      clusterAddSqr(xm(i,p), s, cSpin, cluster, phi, p);
+    }
+  }
+ 
 }
 
 /////////////////////
@@ -388,7 +395,7 @@ int metropolisUpdateAdS(vector<Vertex> &NodeList, int *s,
     } else {
       p.delta_phi += 0.001;
     }
-    if(p.n_wolff*1.0*wc_ave/wc_calls < p.latVol && iter > 2*p.n_skip) {
+    if(p.n_wolff*1.0*wc_ave/wc_calls < p.latVol && iter > p.n_skip) {
       p.n_wolff++;
     } else {
       p.n_wolff--;
@@ -422,7 +429,7 @@ void wolffUpdateAdS(vector<Vertex> &NodeList, int *s, Param p,
   //have failed to increase the cluster.
   wc_size = 1;
   clusterAddAdS(i, s, cSpin, cluster, NodeList, p);
-  
+  //cout<<"wc_size="<<wc_size<<endl;
   wc_ave += wc_size;
 
   if( iter%p.n_skip == 0 && iter < p.n_therm) {
@@ -446,29 +453,40 @@ void clusterAddAdS(int i, int *s, int cSpin,
   // ferromagnetic coupling
   const double J = +1.0;
   double t_weight = 1.0;
+
+  double prob = 0.0;
+  double rand = 0.0;
   
   // if the neighbor spin does not already belong to the
   // cluster, then try to add it to the cluster
+  //cout<<"Base="<<i<<" ";
+  //for(int q=p.q+1; q >= 0; q--) {  
   for(int q=0; q<p.q+2; q++) {
     
     //qth nearest neighbour. If boundary node, nn_q = -1
-    int nn_q = NodeList[i].nn[q];    
+    int nn_q = NodeList[i].nn[q];
+    //cout<<nn_q<<" "<<NodeList[nn_q].pos<<" ";
+
     if(q >= p.q) t_weight = NodeList[i].temporal_weight;
     
     //Check if the candidate node is both not in the cluster, and not
     //beyond the boundary.    
     if(nn_q != -1) {
       if(!cluster[NodeList[nn_q].pos]) {
-	if(s[NodeList[nn_q].pos] == cSpin &&
-	   unif(rng) < 1 - exp(2*J*t_weight*NodeList[i].phi*NodeList[nn_q].phi)) {
+	rand = unif(rng);
+	prob = 1 - exp(2*J*t_weight*NodeList[i].phi*NodeList[nn_q].phi);
+	if(s[NodeList[nn_q].pos] == cSpin && prob < rand) {
+	  //cout<<prob<<" "<<rand<<" ";
 	  wc_size++;
 	  if(q<p.q)  wc_s_size++;
-	  if(q>=p.q) wc_t_size++;	  
+	  if(q>=p.q) wc_t_size++;
+	  //cout<<"->"<<q<<" ";
 	  clusterAddAdS(NodeList[nn_q].pos, s, cSpin, cluster, NodeList, p);
 	}
       }
     }
   }
+  //cout<<"End"<<endl;
 }
 
 
@@ -672,6 +690,7 @@ void thermaliseAdS(vector<Vertex> &NodeList, int *s,
   for(int iter = 0; iter < p.n_therm; iter++) {
     for(int i=0; i<p.n_wolff; i++) {
       wolffUpdateAdS(NodeList, s, p, delta_mag_phi, iter);
+      if((iter+1)%p.n_skip == 0) cout<<"Therm sweep "<<iter+1<<endl;
       iter++;
     }
     metropolisUpdateAdS(NodeList, s, p, delta_mag_phi, iter);    

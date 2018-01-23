@@ -15,6 +15,7 @@ mt19937_64 rng(seed);
 uniform_real_distribution<double> unif(0.0,1.0);
 
 #include "util.h"
+#include "data_io.h"
 #include "graph.h"
 #include "cg.h"
 #include "cg_multishift.h"
@@ -65,6 +66,9 @@ int main(int argc, char **argv) {
     getComplexPositions(NodeList, p);
     //Calculate the one loop corrections, store in NodeList.
     oneLoopCorrection(NodeList, p);
+
+    //PrintNodeTables(NodeList, p);
+    //connectivityCheck(NodeList, p);
   }
   
   runMonteCarlo(NodeList, p);
