@@ -18,7 +18,6 @@ uniform_real_distribution<double> unif(0.0,1.0);
 #include "data_io.h"
 #include "graph.h"
 #include "cg.h"
-#include "cg_multishift.h"
 #include "eigen.h"
 #include "update.h"
 
@@ -64,9 +63,10 @@ int main(int argc, char **argv) {
     buildGraph(NodeList, p);
     //Get the z-coords and temporal weighting
     getComplexPositions(NodeList, p);
+    //Get lattice/analytic scaling law
+    latticeScaling(NodeList, p);
     //Calculate the one loop corrections, store in NodeList.
     oneLoopCorrection(NodeList, p);
-
     //PrintNodeTables(NodeList, p);
     //connectivityCheck(NodeList, p);
   }
