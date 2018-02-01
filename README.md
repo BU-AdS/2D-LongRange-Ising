@@ -27,14 +27,14 @@ the 'Level' parameter, as in the example.sh file. It is the number of
 nodes on the outer level. The number of timeslices is set manually.
 We have hardcoded the model to be ferromagnetic.
 
-### Local
+#### Local
 
 The local routines are straight forward. One simply inputs the desired
 \mu^2 and \lambda parameters, and two sets of correlation function
 data will be produced. One on the temporal direction, and one purely
 spatial. The log file will keep a running tab of all the observables.
 
-### Non-local
+#### Non-local
 
 The non-local routines use and exact form of the Wolff algorithm as
 described here https://arxiv.org/abs/1401.6805 At present it is in
@@ -51,7 +51,7 @@ of `EGIEN`. Simply edit the Makefile to be your path to `EIGEN`. We
 recommend using version 3.3.4 which can be downloaded from
 http://bitbucket.org/eigen/eigen/get/3.3.4.tar.gz
 
-### GSL
+#### GSL
 The lattice tuning routines require linear regression routines, found
 in `GSL`. Edit the Makefile to be your path to `GSL`. This build is
 using v2.4: https://www.gnu.org/software/gsl/
