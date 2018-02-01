@@ -1,25 +1,32 @@
 #Your path to Eigen
 EIGEN=/usr/local/include/eigen3/Eigen
 
+#Your path to GSL
+GSL=/Users/deanhowarth/BU-AdS/gsl
+GSL_LIBS= -lgsl -lgslcblas -lm
+
 TARGET	 = adsrun
-SOURCES  = main.cpp update.cpp util.cpp cg.cpp hyp_util.cpp graph.cpp data_io.cpp data_proc.cpp
-OBJS     = main.o update.o util.o cg.o hyp_util.o graph.o data_io.o data_proc.o
-INCLUDES = util.h graph.h cg.h cg_multishift.h update.h eigen.h
+#SOURCES  = main.cpp update.cpp util.cpp cg.cpp hyp_util.cpp graph.cpp data_io.cpp data_proc.cpp
+#OBJS     = main.o update.o util.o cg.o hyp_util.o graph.o data_io.o data_proc.o
+#INCLUDES = util.h graph.h cg.h update.h eigen.h
+SOURCES  = main.cpp util.cpp cg.cpp hyp_util.cpp graph.cpp data_io.cpp data_proc.cpp monte_carlo_square_local.cpp monte_carlo_square_nonlocal.cpp monte_carlo_ads.cpp
+OBJS     = main.o util.o cg.o hyp_util.o graph.o data_io.o data_proc.o monte_carlo_square_local.o monte_carlo_square_nonlocal.o monte_carlo_ads.o
+INCLUDES = util.h graph.h cg.h eigen.h monte_carlo_ads.h monte_carlo_square_local.h monte_carlo_square_nonlocal.h
+LIBS= -L${GSL} ${GSL_LIBS}
+
+ERRS=-Wall -Wno-sign-compare -Wno-int-in-bool-context -Wno-unused-but-set-variable -Wno-unknown-warning-option
 
 CXX = g++ 
-CXXFLAGS = -O2 -g -Wall -std=c++11 -I${EIGEN} -I. -Wall -Wno-sign-compare -Wno-int-in-bool-context -Wno-unused-but-set-variable
+CXXFLAGS = -O2 -g -Wall -std=c++11 -I${EIGEN} -I. -I${GSL} ${ERRS}
 
 #============================================================
 all: $(TARGET)
 
 ${TARGET}: ${OBJS}
-	$(CXX) $(CXXFLAGS) -o $(TARGET) $(OBJS) $(LIB_FLAGS)
+	$(CXX) $(CXXFLAGS) -o $(TARGET) $(OBJS) $(LIBS)
 
 main.o: main.cpp $(INCLUDES) 
 	${CXX} ${CXXFLAGS} -c main.cpp
-
-update.o: update.cpp $(INCLUDES) 
-	${CXX} ${CXXFLAGS} -c update.cpp 
 
 graph.o: graph.cpp $(INCLUDES) 
 	${CXX} ${CXXFLAGS} -c graph.cpp
@@ -38,6 +45,16 @@ data_proc.o: data_proc.cpp $(INCLUDES)
 
 cg.o: cg.cpp $(INCLUDES) 
 	${CXX} ${CXXFLAGS} -c cg.cpp
+
+monte_carlo_square_nonlocal.o: monte_carlo_square_nonlocal.cpp $(INCLUDES) 
+	${CXX} ${CXXFLAGS} -c monte_carlo_square_nonlocal.cpp
+
+monte_carlo_square_local.o: monte_carlo_square_local.cpp $(INCLUDES) 
+	${CXX} ${CXXFLAGS} -c monte_carlo_square_local.cpp
+
+monte_carlo_ads.o: monte_carlo_ads.cpp $(INCLUDES) 
+	${CXX} ${CXXFLAGS} -c monte_carlo_ads.cpp 
+
 
 
 ALL_SOURCES = Makefile $(SOURCES) $(INCLUDES) 

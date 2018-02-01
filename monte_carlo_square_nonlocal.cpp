@@ -82,7 +82,7 @@ double actionSqNL(double *phi_arr, int *s, Param p,
     PE += musqr_p  * phi_sq;
     
     for(int j=0; j<p.latVol; j++) {
-      //here we are overcounting by a factor of two, hence the 0.25
+      //Here we are overcounting by a factor of two, hence the 0.25
       //coefficient.
       //FIXME
       KE += 0.25*(phi - phi_arr[j])*(phi - phi_arr[j])*LR_couplings[i+j*p.latVol]*LR_couplings[i+j*p.latVol];
@@ -131,15 +131,10 @@ int metropolisUpdateSqNL(double *phi_arr, int *s, Param &p,
     DeltaE += musqr_p *(phi_new_sq            - phi_sq);
     
     //KE
-    //DeltaE += 2.0 * (phi_new_sq-phi_sq);
-    //DeltaE +=       (phi-phi_new)*(phi_arr[xp(i, p)] + phi_arr[xm(i, p)] +
-    //phi_arr[tp(i, p)] + phi_arr[ttm(i, p)]);
-
-    //DeltaE += p.latVol/2 * (phi_new_sq-phi_sq);
     double pmpn = phi-phi_new;
-    double pnsmps = phi_new_sq-phi_sq;
+    double pnsmps = 0.5*phi_new_sq-phi_sq;
     for(int j=0; j<p.latVol; j++) {
-      DeltaE += (pmpn*phi_arr[j] + 0.5*pnsmps)*LR_couplings[i+j*p.latVol]*LR_couplings[i+j*p.latVol];
+      DeltaE += (pmpn*phi_arr[j] + pnsmps)*LR_couplings[i+j*p.latVol]*LR_couplings[i+j*p.latVol];
     }
     
     sqnl_tries++;
@@ -200,12 +195,12 @@ void wolffUpdateSqNL(double *phi, int *s, Param p,
     Acluster[i] = false;
   
   //Tracks which sites are potentially in the cluster.
-  //If an entry is greater than -1, it is a possibility.
   bool *Pcluster = new bool[p.latVol];
   for (int i = 0; i < p.latVol; i++)
     Pcluster[i] = false;
   
-  //Choose a random spin and  identfy the possible cluster
+  //Choose a random spin and identfy the possible cluster
+  //with a flood fill.
   int i = int(unif(rng) * p.latVol);
   int cSpin = s[i];
   clusterPossibleSqNL(i, s, cSpin, Pcluster, p);
@@ -222,12 +217,9 @@ void wolffUpdateSqNL(double *phi, int *s, Param p,
     }
   }
   
-  //for (int i = 0; i < sqnl_wc_poss; i++) cout<<Rcluster[i]<<" ";
-  
-  
   //This function is recursive and will call itself
   //until all attempts to increase the cluster size
-  //have failed.  
+  //have failed.
   sqnl_wc_size = 1;
   clusterAddSqNL(i, s, cSpin, Acluster, Rcluster, LR_couplings, phi, p);
 
@@ -269,7 +261,7 @@ void clusterPossibleSqNL(int i, int *s, int cSpin,
     clusterPossibleSqNL(xp(i,p), s, cSpin, Pcluster, p);
   }
   
-  //Backard in T 
+  //Backward in T 
   if(!Pcluster[ttm(i,p)] && s[ttm(i,p)] == cSpin) {  
     //cout<<"->tm";
     clusterPossibleSqNL(ttm(i,p), s, cSpin, Pcluster, p);
@@ -295,6 +287,7 @@ void clusterAddSqNL(int i, int *s, int cSpin, bool *Acluster,
   
   // ferromagnetic coupling
   const double J = 1.0;
+
   double prob = 0.0;
   double rand = 0.0;
   
@@ -340,7 +333,8 @@ void runMonteCarloSqNL(vector<Vertex> &NodeList, Param p) {
       if(r_y > p.Lt/2) r_y = p.Lt - r_y;
       
       if(i != j) LR_couplings[i + j*p.latVol] = pow(sqrt(r_x*r_x + r_y*r_y), -(2+sigma));
-      if( (i == 10 && j == 20) || (i==20 && j == 10)) cout<<i<<" "<<j<<" "<<LR_couplings[i + j*p.latVol]<<endl;
+      //Quick symmetry check...
+      //if( (i == 10 && j == 20) || (i==20 && j == 10)) cout<<i<<" "<<j<<" "<<LR_couplings[i + j*p.latVol]<<endl;
     }
   }
   
