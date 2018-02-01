@@ -50,7 +50,7 @@ http://bitbucket.org/eigen/eigen/get/3.3.4.tar.gz
 
 ### GSL
 The lattice tuning routines require linear regression routines, found
-in 'GSL'. Edit the Makefile to be your path to 'GSL'. This build is
+in `GSL`. Edit the Makefile to be your path to `GSL`. This build is
 using v2.4: https://www.gnu.org/software/gsl/
 
 ## Compilation
