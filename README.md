@@ -25,23 +25,26 @@ For cross-checking purposes, we have also included a 2D Ising
 routine, with Wolff cluster updates. The spatial extent is set by
 the 'Level' parameter, as in the example.sh file. It is the number of
 nodes on the outer level. The number of timeslices is set manually.
-One simply inputs the desired \mu^2 and \lambda parameters, and two
-sets of correlation function data will be produced. One on the temporal
-direction, and one purely spatial.
+We have hardcoded the model to be ferromagnetic.
 
 ### Local
 
-The local routines are straight forward.
+The local routines are straight forward. One simply inputs the desired
+\mu^2 and \lambda parameters, and two sets of correlation function
+data will be produced. One on the temporal direction, and one purely
+spatial. The log file will keep a running tab of all the observables.
 
 ### Non-local
 
 The non-local routines use and exact form of the Wolff algorithm as
 described here https://arxiv.org/abs/1401.6805 At present it is in
-a very slow serial form, but improvements will come.
+a very slow serial form, but improvements will come. One uses the
+command line input `sigma` to adjust the strength of the long range
+interaction, as in the paper.
 
 ## Dependencies
 
-### EIGEN
+#### EIGEN
 
 In order to compile the eigensolver routines, one must have access a copy
 of `EGIEN`. Simply edit the Makefile to be your path to `EIGEN`. We
