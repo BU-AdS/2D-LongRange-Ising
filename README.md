@@ -1,6 +1,6 @@
 # BU-AdS 2D-AdS production code base                    31st January 2018
 
-##AdS code
+## AdS code
 
 This library is a C++ implementation of a 2D phi**4 theory with long range
 interactions mediated by a copy of AdS_{2} at each time slice. It has
@@ -19,7 +19,7 @@ compute and store the lattice AdS scaling variables, need to scale the
 lattice AdS action against the analytic boundary-boundary propagator.
 One loop corrections can also be computed.
 
-##Local and non-local 2D Ising code
+## Local and non-local 2D Ising code
 
 For cross-checking purposes, we have also included a 2D Ising
 routine, with Wolff cluster updates. The spatial extent is set by
@@ -29,11 +29,11 @@ One simply inputs the desired \mu^2 and \lambda parameters, and two
 sets of correlation function data will be produced. One on the temporal
 direction, and one purely spatial.
 
-###Local
+### Local
 
 The local routines are straight forward.
 
-###Local
+### Non-local
 
 The non-local routines use and exact form of the Wolff algorithm as
 described here https://arxiv.org/abs/1401.6805 At present it is in
@@ -41,14 +41,14 @@ a very slow serial form, but improvements will come.
 
 ## Dependencies
 
-###EIGEN
+### EIGEN
 
 In order to compile the eigensolver routines, one must have access a copy
 of `EGIEN`. Simply edit the Makefile to be your path to `EIGEN`. We
 recommend using version 3.3.4 which can be downloaded from
 http://bitbucket.org/eigen/eigen/get/3.3.4.tar.gz
 
-###GSL
+### GSL
 The lattice tuning routines require linear regression routines, found
 in 'GSL'. Edit the Makefile to be your path to 'GSL'. This build is
 using v2.4: https://www.gnu.org/software/gsl/
