@@ -30,8 +30,8 @@ complex<double> flip(complex<double> z, complex<double> z1, complex<double> z2){
 }
 
 //Hyperbolic distance s, from origin to z
-double  s(complex<double> z){
-   return log(((double)1.0+abs(z))/((double)1.0-abs(z)));
+double s(complex<double> z){
+  return log(((double)1.0+abs(z))/((double)1.0-abs(z)));
 }
 
 //Poincare distance |z| from origin to s
@@ -41,13 +41,12 @@ double r(double s){
 
 //Geodesic distance from z1 to z2
 double d12(complex<double> z, complex<double> w) {
-  return log ( (abs((double)1.0-conj(z)*w) + abs(z-w))/(abs((double)1.0-conj(z)*w) - abs(z-w)));
-  
+  return log ( (abs((double)1.0-conj(z)*w) + abs(z-w))/(abs((double)1.0-conj(z)*w) - abs(z-w)));  
 }
 
 //Geodesic distance from z1,t1 to z2,t2
 double sigma(complex<double> z, complex<double> w, int delta_t) {
-
+  
   double theta = atan2( (w/z).imag() , (w/z).real() );
   double r = abs(z);
   double r_p = abs(w);  
@@ -94,7 +93,7 @@ complex<double> DisktoUHP(complex<double> z) {
   // z = -1 -i, 1, i maps to u =  -1, 0 1, infty
   return (z + I)/((double)1.0 + I * z);
 }
-//
+
 complex<double> UHPtoDisk(complex<double> u) {
   // u = 0, 1, infty  maps to -1 -i , 1, i  
   return (u - I)/((double)1.0 - I*u); 
@@ -110,7 +109,6 @@ complex<double> newVertex(complex<double> z,complex<double> z0, int k, int q) {
   //cout<<"New z = "<<-(a*z - w)/(conj(w)*z - conj(a))<<endl;
   return - (a*z - w)/(conj(w)*z - conj(a)); 
 }
-
 
 complex<double> inversion(complex<double> z0, double r) {
   // z_image conj(z0) = r^2

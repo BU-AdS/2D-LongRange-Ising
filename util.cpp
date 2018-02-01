@@ -44,13 +44,27 @@ void Param::init(int argc, char **argv) {
     exit(0);
   }
 
-  std::string latType(argv[4]);
-  if ( (latType == "sq" || latType == "SQ") || latType == "Sq"){
-    lattice = true;
-  } else if(latType == "ads" || latType == "AdS") {
-    lattice = false;
+  std::string latType_in(argv[4]);
+  
+  if (latType_in == "sq_local"  ||
+      latType_in == "SQ_LOCAL"  ||
+      latType_in == "Sq_Local") {
+    latType = SQ_LOCAL;
+    
+  } else if(latType_in == "sq_nonlocal" ||
+	    latType_in == "SQ_NONLOCAL" ||
+	    latType_in == "Sq_NonLocal") {
+    latType = SQ_NONLOCAL;
+    
+  } else if(latType_in == "ads" ||
+	    latType_in == "AdS") {
+    latType = ADS;
+    
   } else {
-    cout<<"Invalid Lattice type given. Please use sq/AdS for square/AdS lattices."<<endl;
+    cout<<"Invalid Lattice type given. Options are "<<endl;
+    cout<<"SQ_LOCAL: square lattice with local interacton"<<endl;
+    cout<<"SQ_NONLOCAL: square lattice with non-local interacton"<<endl;
+    cout<<"ADS: lattice with non-local interacton via AdS space"<<endl;
     exit(0);
   }
   
@@ -80,7 +94,10 @@ void Param::init(int argc, char **argv) {
   n_skip  = atoi(argv[18]);
   n_wolff = atoi(argv[19]);
   musqr   = atof(argv[20]);
-  lambda  = atof(argv[21]);  
+  lambda  = atof(argv[21]);
+  sigma   = atof(argv[22]);
+
+  t_weight_scale  = atof(argv[23]);  
   
 }
 
@@ -335,7 +352,7 @@ void checkEdgeLength(const vector<Vertex> NodeList, Param P) {
   }
 }
 
-double edgeLength(int q) {
-  return sqrt( 1 - 4*sin(M_PI/q)*sin(M_PI/q) );
-}
+//inline double edgeLength(int q) {
+//return sqrt( 1 - 4*sin(M_PI/q)*sin(M_PI/q) );
+//}
 

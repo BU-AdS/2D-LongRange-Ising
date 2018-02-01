@@ -6,6 +6,11 @@
 
 #define I std::complex<double>(0.0,1.0)
 
+typedef enum latType_s {
+  SQ_LOCAL,
+  SQ_NONLOCAL,
+  ADS} latType;
+
 class Param{
 
  public:
@@ -15,14 +20,15 @@ class Param{
   bool bc        = true;  //if true, use Dirichlet. If false, use Neumann
   bool Vcentre   = true;  //if true, place vertex at centre. If false, use circumcentre.
   bool verbosity = false; //if true, print all data. If false, print summary.
-  bool lattice   = false;  //if true, use a square lattice. If false, use the AdS space too.
+  latType latType = SQ_LOCAL;
+  
   int MaxIter = 100000;
   double tol = pow(10,-6);
   int t = 32;
-  double msqr = 0.059;
-  double C_msqr = 1.0;
+  double msqr = 1.0;
+  double C_msqr = 10.0;
   
-  double N_latt = 1.0;
+  double N_latt = 0.01;
   int n_shift = 1;
   double delta_msqr = 0.01;
   int Levels = 2;
@@ -30,6 +36,7 @@ class Param{
   double hyp_rad = 5.0;
   int r_min_pos = 0;
   int r_max_pos = 0;
+  double t_weight_scale = 2.0;
   
   char fname[256];
 
@@ -39,8 +46,9 @@ class Param{
   int R = 9;
   int surfaceVol = 0;
   int latVol = 0;
-  double lambda = 1.0;
   double musqr  = -1.275;
+  double lambda = 1.0;
+  double sigma = 1.33;
 
   int n_therm=100000;
   int n_meas=1000;
@@ -96,7 +104,9 @@ void checkArea(const std::vector<Vertex> NodeList, Param P);
 void checkEdgeLength(const std::vector<Vertex> NodeList, Param P);
 
 //- Edge length from center z = 0
-double edgeLength(int q); 
+inline double edgeLength(int q){
+  return sqrt( 1 - 4*sin(M_PI/q)*sin(M_PI/q) );
+}
 
 
 #endif

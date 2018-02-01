@@ -7,7 +7,7 @@ OBJS     = main.o update.o util.o cg.o hyp_util.o graph.o data_io.o data_proc.o
 INCLUDES = util.h graph.h cg.h cg_multishift.h update.h eigen.h
 
 CXX = g++ 
-CXXFLAGS = -O2 -g -Wall -std=c++14 -I${EIGEN} -I. -Wall -Wno-sign-compare -Wno-int-in-bool-context -Wno-unused-but-set-variable
+CXXFLAGS = -O2 -g -Wall -std=c++11 -I${EIGEN} -I. -Wall -Wno-sign-compare -Wno-int-in-bool-context -Wno-unused-but-set-variable
 
 #============================================================
 all: $(TARGET)

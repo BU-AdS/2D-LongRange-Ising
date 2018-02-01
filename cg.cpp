@@ -1,4 +1,5 @@
 #include <iostream>
+#include <fstream>
 #include <iomanip>
 #include <complex>
 #include <cmath>
@@ -9,6 +10,8 @@
 
 #include "cg.h" 
 #include "util.h"
+#include "hyp_util.h"
+#include "fit/gsl_fit.h"
 
 using namespace std;
 
@@ -164,7 +167,7 @@ double Minv_phi(double *phi, double *b,
       truersq += (Mpvec[i] - b[i])*(Mpvec[i] - b[i]);
     }
   
-  printf("# CG: Converged iter = %d, rsq = %e, truersq = %e\n",k,(double)rsq,(double)truersq);
+  //printf("# CG: Converged iter = %d, rsq = %e, truersq = %e\n",k,(double)rsq,(double)truersq);
   
   return truersq; // Convergence 
 }
@@ -223,7 +226,8 @@ void cg_multishift(double **phi, double *phi0, int n_shift, int size,
   // Find norm of rhs.
   bsqrt = sqrt(norm2sq(phi0, size));
   
-  // There can't be an initial guess... though it is sort of possible, in reference to:
+  // There can't be an initial guess... though it is sort of possible,
+  // in reference to:
   // http://arxiv.org/pdf/0810.1081v1.pdf
   
   // 1. x_sigma = 0, r = p_sigma = b.
@@ -354,8 +358,9 @@ void cg_multishift(double **phi, double *phi0, int n_shift, int size,
 }
 
 //Wrapper for AdS code.
-void Minv_phi_ms(double **phi, double *phi0, vector<Vertex> NodeList, Param p){
-
+void Minv_phi_ms(double **phi, double *phi0,
+		 vector<Vertex> NodeList, Param p){
+  
   int n_shift = p.n_shift;
   int size = (endNode(p.Levels,p) + 1) * p.t;
   int resid_freq_check = 10;
@@ -373,48 +378,223 @@ void Minv_phi_ms(double **phi, double *phi0, vector<Vertex> NodeList, Param p){
 }
 
 void latticeScaling(vector<Vertex> &NodeList, Param& p){
-  /*
-  int n_shift = p.n_shift;
+
   int latVol  = p.latVol;
   
-  double* phi0= new double[latVol];
-  double* phi = new double[latVol];
-  double* b   = new double[latVol];  
-  for(int s=0; s<sources; s++) { 
-    for(int i=0; i<latVol; i++) {
-      b[i] = 0.0;
-      phi[i] = 0.0;
+  int lower = endNode(p.Levels-1,p)+1;
+
+  int t1, t2, delta_t;
+  double delta = 1.0 + sqrt(1 + p.msqr);
+  double theta, r, r_p;
+  complex<double> ratio;
+  complex<double> snk;
+  double* analytic_prop = new double[p.S1*p.Lt/2];
+  double* xi_invariant  = new double[p.S1*p.Lt/2];
+
+  // Construct the xi invariant and the analytic propagator
+  
+  int j = lower;
+  complex<double> src = NodeList[j].z;  
+  //Loop over timeslices
+  for(int t=0; t<p.Lt/2; t++) {
+    int T_offset = (endNode(p.Levels,p) + 1) * t;
+
+    //Loop over outer circle of the Poincare disk
+    for(long unsigned int k = 0; k < p.S1; k++) {
+
+      //Construct i (full lattice index)
+      int i = T_offset + lower + k;
+      //Construct s (surface lattice index)
+      int s = t*p.S1 + k;
+      
+      ratio = NodeList[i].z/NodeList[j].z;
+      theta = atan2( ratio.imag() , ratio.real() );
+      //index divided by disk size, using the int floor feature/bug,
+      //gives the timeslice for each index.
+      t1 = j / p.AdSVol;
+      t2 = i / p.AdSVol;
+
+      //Assume PBC.
+      delta_t = (t2-t1);// > p.t/2 ? (t2-t1) - p.t : (t2-t1);
+      snk = NodeList[i].z;
+      r   = abs(NodeList[i].z);
+      r_p = abs(NodeList[j].z);
+      
+      xi_invariant[s]  = log( ((1-r)*(1-r_p))/(cosh(delta_t)*(1+r)*(1+r_p)
+					       - 4*r*r_p*cos(theta)) );
+      
+      analytic_prop[s] = log( exp(-delta*sigma(src,snk,delta_t)) /
+			      (1 - exp(-2*sigma(src,snk,delta_t))));
+      
+      //if(s<10) cout<<"s="<<s<<" xi="<<xi_invariant[s]<<" ap="<<analytic_prop[s]<<endl;
     }
-    b[endNode(p.Levels-1,p) + 1 + s] = 1.0;    
-    Minv_phi(phi, b, NodeList, p);
-    cout<<phi[endNode(p.Levels-1,p) + 1 + s]<<endl;
-    NodeList[endNode(p.Levels-1,p) + 1 + s].oneLoopCorr = phi[0][endNode(p.Levels-1,p) + 1 + s];
   }
-  
-  gsl_fit_wlinear(const double * x, const size_t xstride, const double * w, const size_t wstride, const double * y, const size_t ystride, size_t n, double * c0, double * c1, double * cov00, double * cov01, double * cov11, double * chisq);
 
+  double* c = new double[2];
+  double* cov_ssq = new double[4];
+  gsl_fit_linear(xi_invariant, 1, analytic_prop, 1, p.S1*p.Lt/2, &c[0], &c[1],
+		 &cov_ssq[0], &cov_ssq[1], &cov_ssq[2], &cov_ssq[3]);
 
-  int n_shift = p.n_shift;
-  int size = (endNode(p.Levels,p) + 1) * p.t;
-  int resid_freq_check = 10;
-  int max_iter = p.MaxIter;
-  double msqr = p.msqr;
-  double delta_msqr = p.delta_msqr;
-  double eps = p.tol;
-  double *shifts = (double*)malloc(n_shift*sizeof(double));
-  for(int i=0; i<n_shift; i++) shifts[i] = p.C_msqr*msqr + i*delta_msqr;
+  cout<<"Target data"<<endl;
+  cout<<"GSL data: C="<<c[0]<<" M="<<c[1]<<endl;
+  cout<<"          covar00 = "<<cov_ssq[0]<<endl;
+  cout<<"          covar01 = "<<cov_ssq[1]<<endl;
+  cout<<"          covar11 = "<<cov_ssq[2]<<endl;
+  cout<<"          sum_sq  = "<<cov_ssq[3]<<endl;
+
+  double grad = c[1];
+  double inter= c[0];
   
-  cg_multishift(phi, phi0, n_shift, size, resid_freq_check,
-		max_iter, eps, shifts, NodeList, p);
+  double d_grad = 100;
+  double d_inter = 100;
+
+  double grad_tol = 1e-4;
+  double inter_tol = 1e-4;
+
+  //Search in wisdom file for a shorcut
+  bool preTuned = false;
+  bool tuneWin = false;
+  ifstream fileInput;
+  string line;
+  char params[256];
+  sprintf(params, "%d %d %d %.4f", p.q, p.Levels, p.Lt, p.msqr);
+  char* search = params;
+  unsigned int curLine = 0;
+  // open file to search
+  fileInput.open("ads_wisdom");
+  if(fileInput.is_open()) {
+    while(getline(fileInput, line)) { 
+      curLine++;
+      if (line.find(search, 0) != string::npos) {
+	cout<<"Found data for your problem! Lucky you..."<<endl;
+	preTuned = true;
+	getline(fileInput, line);
+	p.N_latt = stof(line);
+	getline(fileInput, line);
+	p.C_msqr = stof(line);
+	cout<<"Using N_latt="<<p.N_latt<<endl;
+	cout<<"Using C_msqr="<<p.C_msqr<<endl;
+	fileInput.close();
+      }
+    }
+    if(!preTuned)
+      cout<<endl<<"AdS wisdom data not found. Strap in for some tuning..."<<endl<<endl;
+  }
+  else cout<<endl<<"AdS wisdom file not found. Strap in for some tuning..."<<endl<<endl;
+
+  //Begin search for correct scaling factors.
+  int iter = 0;
+  while(abs(d_grad) > grad_tol || abs(d_inter) > inter_tol) {
+    
+    double* phi_ave = new double[latVol];  
+    double* phi = new double[latVol];
+    double* b   = new double[latVol];
+
+    //Take the average data from sources in the the qth sector
+    //of the outer level. 
+    int sources = (endNode(p.Levels,p) - endNode(p.Levels-1,p)) / p.q ;
+
+    //initialise, invert, average.
+    for(int i=0; i<latVol; i++) phi_ave[i] = 0.0;    
+    for(int s=0; s<sources; s++) {
+      for(int i=0; i<latVol; i++) {
+	b[i] = 0.0;
+	phi[i] = 0.0;
+      }
+      b[lower + s] = 1.0;    
+      Minv_phi(phi, b, NodeList, p);
+      for(int i=0; i<latVol; i++) phi_ave[i] += phi[i]/sources;
+    }
+    
+    //Use current lattice normalisation.
+    for(int i=0; i<latVol; i++) {
+      phi_ave[i] = log(p.N_latt*phi_ave[i]);
+    }
+    
+    //phi_ave now contains an averaged solution vector. We now
+    //perform linear regression on this vector and the analytic
+    //prop (w.r.t the xi invariant) to compute the relevant
+    //scaling and normalsation.
+    
+    double* latt_prop  = new double[p.S1*p.Lt/2];
+    //Loop over timeslices
+    for(int t=0; t<p.Lt/2; t++) {
+      int T_offset = (endNode(p.Levels,p) + 1) * t;
+      //Loop over H2 disk
+      for(long unsigned int k = 0; k < p.S1; k++) {
+	
+	//Construct i (full lattice AdS2p1 index)
+	int i = T_offset + lower + k;
+	//Construct s (surface lattice 2D index)
+	int s = t*p.S1 + k;
+	
+	latt_prop[s] = phi_ave[i];
+      }
+    }
   
-  free(shifts);  
-  */  
+    //Extract linear fit data from log-log plot.
+    gsl_fit_linear(xi_invariant, 1, latt_prop, 1, p.S1*p.Lt/2, &c[0], &c[1],
+		   &cov_ssq[0], &cov_ssq[1], &cov_ssq[2], &cov_ssq[3]);
+    
+    cout<<"At iteration "<<iter<<endl;
+    cout<<"GSL data: C="<<c[0]<<" M="<<c[1]<<endl;
+    cout<<"          covar00 = "<<cov_ssq[0]<<endl;
+    cout<<"          covar01 = "<<cov_ssq[1]<<endl;
+    cout<<"          covar11 = "<<cov_ssq[2]<<endl;
+    cout<<"          sum_sq  = "<<cov_ssq[3]<<endl;
+    
+    //Adjust the parameters and start over.
+    d_grad = (c[1] - grad)/abs(grad);
+    //d_inter = 0;
+    d_inter= (c[0] - inter)/abs(inter);
+    cout<<"D inter = "<<d_inter<<" D grad = "<<d_grad<<endl;
+    cout<<"N_latt  = "<<p.N_latt<<" C_msqr = "<<p.C_msqr<<endl<<endl;
+    
+    double fac1 = abs(p.C_msqr);
+    
+    if( abs(d_grad) > grad_tol ) {
+      if(c[1] > grad) p.msqr < 0 ? p.C_msqr += (fac1*abs(d_grad) + 10*grad_tol) : p.C_msqr -= (fac1*abs(d_grad) + 10*grad_tol);
+      if(c[1] < grad) p.msqr < 0 ? p.C_msqr -= (fac1*abs(d_grad) + 10*grad_tol) : p.C_msqr += (fac1*abs(d_grad) + 10*grad_tol);
+    }
+    
+    double fac2 = 0.06;    
+    if( abs(d_grad) < grad_tol ) {
+      if(c[0] > inter) p.N_latt -= (fac2*abs(d_inter) + grad_tol/10);
+      if(c[0] < inter) p.N_latt += (fac2*abs(d_inter) + grad_tol/10);
+    }
+
+    //Did it tune properly?
+    if(d_inter < inter_tol && d_grad < grad_tol) tuneWin = true;
+    
+    delete[] phi_ave;
+    delete[] phi;
+    delete[] b;
+    delete[] latt_prop;
+
+    iter++;
+    
+  }
+
+  //If this is a new problem, and it tuned properly, save the data.
+  if(!preTuned && tuneWin) {
+    FILE *file = fopen("ads_wisdom", "a");
+    fprintf(file,"%d %d %d %.4f\n%f\n%f\n",
+	    p.q, p.Levels, p.Lt, p.msqr,
+	    p.N_latt,
+	    p.C_msqr);
+    fclose(file);
+  }
+
+  delete[] c;
+  delete[] cov_ssq;
+
+  delete[] analytic_prop;
+  delete[] xi_invariant;
+  
 }
 
-
-
 //This function will calculate the M(x,x)^{-1} elements on the qth
-//portion of the graph. 
+//sector of the Poincare disk.. 
 void oneLoopCorrection(vector<Vertex> &NodeList, Param& p){
   
   int latVol  = p.latVol;
@@ -431,22 +611,17 @@ void oneLoopCorrection(vector<Vertex> &NodeList, Param& p){
     }
     b[endNode(p.Levels-1,p) + 1 + s] = 1.0;    
     Minv_phi(phi, b, NodeList, p);
+    for(int i=0; i<latVol; i++) phi[i] *= p.N_latt;
     cout<<phi[endNode(p.Levels-1,p) + 1 + s]<<endl;
     NodeList[endNode(p.Levels-1,p) + 1 + s].oneLoopCorr = phi[endNode(p.Levels-1,p) + 1 + s];
   }
 
-  //Propagate the one loop correction through the lattice.
+  //Propagate the one loop correction data through the graph.
   int pos = endNode(p.Levels-1,p) + 1;
   for(int i=0; i<p.t; i++) 
     for(int q=0; q<p.q; q++)     
       for(int s=0; s<sources; s++) 
 	NodeList[pos + s + q*sources + i*p.AdSVol].oneLoopCorr = NodeList[pos + s].oneLoopCorr;
-  
-  
-  //Minv_phi_ms(phi, b, NodeList, p);
-  //DataDump(NodeList, phi[i], p, p.Levels, p.t/2, i);
-
-  //Mphi_ev(NodeList, p);
   
   delete[] phi;
   delete[] b;

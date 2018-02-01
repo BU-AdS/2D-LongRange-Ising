@@ -40,6 +40,12 @@
 std::complex<double> T(std::complex<double> z,  std::complex<double> w);
 std::complex<double> R(std::complex<double> z, std::complex<double> omega);
 std::complex<double> flip(std::complex<double> z, std::complex<double> z1, std::complex<double> z2);
+std::complex<double> DisktoUHP(std::complex<double> z);
+std::complex<double> UHPtoDisk(std::complex<double> u);
+std::complex<double> inversion(std::complex<double> z0, double r);
+std::complex<double> squareInversion(std::complex<double>z0, double r1, double r2 );
+std::complex<double> newVertex(std::complex<double> z,std::complex<double> z0,int k, int q);
+
 double s(std::complex<double> z);
 double r(double s );
 double d12(std::complex<double> z1, std::complex<double> z2);
@@ -48,12 +54,8 @@ double s3p(int q);
 double area3q(int q);
 double areaGeneral(Param P, double A, double B, double C);
 double centralRad(double s);
-std::complex<double> DisktoUHP(std::complex<double> z);
-std::complex<double> UHPtoDisk(std::complex<double> u);
-std::complex<double> inversion(std::complex<double> z0, double r);
-std::complex<double> squareInversion(std::complex<double>z0, double r1, double r2 );
 double greens2D(std::complex<double> z, std::complex<double> w);
 double greensM2D(std::complex<double> z, std::complex<double> w, Param p);
-std::complex<double> newVertex(std::complex<double> z,std::complex<double> z0,int k, int q);
+
 
 #endif

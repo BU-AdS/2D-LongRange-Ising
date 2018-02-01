@@ -8,9 +8,10 @@
 #include <random>
 #include <unistd.h>
 
-#include "update.h"
+#include "monte_carlo_ads.h"
 #include "util.h"
 #include "data_proc.h"
+#include "data_io.h"
 
 using namespace std;
 
@@ -49,223 +50,12 @@ inline int ttm(int i, Param p){
 }
 
 // declare variables to implement Wolff algorithm
-int wc_ave = 0;
-int wc_size = 0;
-int wc_calls = 0;
-int wc_t_size = 0;
-int wc_s_size = 0;
+int ads_wcave = 0;
+int ads_wcsize = 0;
+int ads_wccalls = 0;
+int ads_wct_size = 0;
+int ads_wcs_size = 0;
 
-double actionSqr(double *phi_arr, int *s, Param p,
-		 double & KE, double & PE) {  
-  
-  KE = 0.0;
-  PE = 0.0;
-  double phi_sq;
-  double phi;
-  double lambda_p = p.lambda/4;
-  double musqr_p  = p.musqr/2;
-  
-  for (int i = 0; i < p.latVol; i++)
-    if (s[i] * phi_arr[i] < 0)
-      printf("ERROR s and phi NOT aligned (actionPhi Square) ! \n");
-  
-  //PE terms
-  for (int i = 0; i < p.latVol; i++) {    
-    phi = phi_arr[i];
-    phi_sq = phi*phi;
-    
-    PE += lambda_p * phi_sq*phi_sq;
-    PE += musqr_p  * phi_sq;
-  }
-  
-  // KE terms 
-  for (int i = 0; i <p.latVol; i++) {
-    KE += 0.5 * (phi - phi_arr[xp(i,p)]) * (phi - phi_arr[xp(i,p)]);
-    KE += 0.5 * (phi - phi_arr[tp(i,p)]) * (phi - phi_arr[tp(i,p)]);
-  }	  
-  
-  return PE + KE;
-}
-
-int accept = 0;
-int tries  = 0;
-
-int metropolisUpdateSqr(double *phi_arr, int *s, Param &p,
-			double &delta_mag_phi, int iter) {
-
-  delta_mag_phi = 0.0;
-  
-  int s_old     = 0;
-  int delta_mag = 0;
-  
-  double phi_new = 0.0;
-  double phi_new_sq = 0.0;
-  double phi = 0.0;
-  double phi_sq = 0.0;
-  double lambda_p = p.lambda/4;
-  double musqr_p  = p.musqr/2;
-  
-  double DeltaE = 0.0;
-  
-  for (int i = 0; i < p.latVol; i++) {
-
-    //Set some values we use a lot
-    phi = phi_arr[i];
-    DeltaE = 0.0;
-    phi_new = phi + p.delta_phi * (2.0*unif(rng) - 1.0);
-    phi_new_sq = phi_new*phi_new;
-    phi_sq = phi*phi;
-    
-    if (s[i] * phi_arr[i] < 0) {
-      printf("ERROR s and phi NOT aligned! (MUP)\n");
-      exit(0);
-    }
-
-    //PE
-    DeltaE += lambda_p*(phi_new_sq*phi_new_sq - phi_sq*phi_sq);
-    DeltaE += musqr_p *(phi_new_sq            - phi_sq);
-    
-    //KE
-    DeltaE += 2.0 * (phi_new_sq-phi_sq);
-    DeltaE +=       (phi-phi_new)*(phi_arr[xp(i, p)] + phi_arr[xm(i, p)] +
-				   phi_arr[tp(i, p)] + phi_arr[ttm(i, p)]);
-    
-    tries++;
-    
-    if(DeltaE < 0.0) {
-      //  cout<< " Acepted  " << endl;
-      s_old = s[i];
-      delta_mag_phi += phi_new - phi_arr[i];
-      phi_arr[i] = phi_new;
-      accept += 1;
-      s[i] = (phi_new > 0) ? 1 : -1;
-      delta_mag += s[i] - s_old;
-    }
-    else if ( unif(rng)  < exp(-DeltaE)) {
-      //  cout<< " Acepted  " << endl;
-      s_old = s[i];
-      delta_mag_phi += phi_new - phi_arr[i];
-      phi_arr[i] = phi_new;
-      accept += 1;
-      s[i] = (phi_new > 0) ? 1 : -1;
-      delta_mag += s[i] - s_old;
-    }     
-  }// end loop over lattice volume 
-
-  // TUNING ACCEPTANCE 
-  if (iter < p.n_therm/2 && (iter+1) % p.n_skip/10 == 0) {
-    if ((double) accept / (double) tries < 0.5) {
-      p.delta_phi -= 0.001;
-    } else {
-      p.delta_phi += 0.001;
-    }
-    if(p.n_wolff*1.0*wc_ave/wc_calls < p.latVol && iter > p.n_skip) {
-      p.n_wolff++;
-    } else {
-      p.n_wolff--;
-      if(p.n_wolff < 3) p.n_wolff++;
-    }
-  }
-  
-  if( iter < p.n_therm ) {
-    //cout<<"At iter "<<iter<<" the Acceptance rate is "<<(double)accept/(double)tries<<endl;
-    //cout<<"and delta_phi is "<<p.delta_phi<<endl;
-  }
-  return delta_mag;
-}
-
-
-void wolffUpdateSqr(double *phi, int *s, Param p,
-		    double &delta_mag_phi, int iter) {
-  
-  wc_calls++;
-
-  bool *cluster = new bool[p.latVol];
-  for (int i = 0; i < p.latVol; i++)
-    cluster[i] = false;
-
-  // choose a random spin and grow a cluster
-  int i = int(unif(rng) * p.latVol);
-  int cSpin = s[i];
-  
-  //This function is recursive and will call itself
-  //until all four attempts in the lattice directions
-  // (+x, -x, +t, -t) have failed to ncrease the cluster.
-  wc_size = 1;
-  clusterAddSqr(i, s, cSpin, cluster, phi, p);
-
-  wc_ave += wc_size;
-
-  if( iter%p.n_skip == 0 && iter < p.n_therm) {
-    setprecision(4);
-    cout<<"Using "<<p.n_wolff<<" Wolff hits."<<endl; 
-    cout<<"Ave. cluster size at iter "<<iter<<" = "<<wc_ave<<"/"<<wc_calls<<" = "<<1.0*wc_ave/wc_calls<<endl;
-    cout<<"S/T cluster growth ratio at iter "<<iter<<" = "<<1.0*wc_s_size/wc_ave<<":"<<1.0*wc_t_size/wc_ave<<endl;
-  }
-  delete[] cluster;
-}
-
-void clusterAddSqr(int i, int *s, int cSpin,
-		   bool *cluster, double *phi, Param p) {
-  
-  // The site belongs to the cluster, so flip it.
-  cluster[i] = true;
-  s[i] *= -1;
-  phi[i] *= -1;
-
-  // ferromagnetic coupling
-  const double J = 1.0;
-  
-  // - If the (aligned) neighbor spin does not already belong to the
-  // cluster, then try to add it to the cluster.
-  // - If the site has already been added, then we may skip the test.
-
-  //Forward in T
-  if(!cluster[ tp(i,p) ] && s[tp(i,p)] == cSpin) {
-    if(unif(rng) < 1 - exp(2*J*phi[i]*phi[tp(i,p)])) {
-      wc_size++;
-      wc_t_size++;
-      //cout<<"->tp";
-      clusterAddSqr(tp(i,p), s, cSpin, cluster, phi, p);
-    }
-  }
-
-  //Forward in X
-  if(!cluster[ xp(i,p) ] && s[xp(i,p)] == cSpin) {
-    if(unif(rng) < 1 - exp(2*J*phi[i]*phi[xp(i,p)])) {
-      wc_size++;
-      wc_s_size++;
-      //cout<<"->xp";
-      clusterAddSqr(xp(i,p), s, cSpin, cluster, phi, p);
-    }
-  }
-
-  
-  //Backard in T 
-  if(!cluster[ ttm(i,p) ] && s[ttm(i,p)] == cSpin) {  
-    if(unif(rng) < 1 - exp(2*J*phi[i]*phi[ttm(i,p)])) {
-      wc_size++;
-      wc_t_size++;
-      //cout<<"->tm";
-      clusterAddSqr(ttm(i,p), s, cSpin, cluster, phi, p);
-    }
-  }
-
-  //Backward in X
-  if(!cluster[ xm(i,p) ] && s[xm(i,p)] == cSpin) {
-    if (unif(rng) < 1 - exp(2*J*phi[i]*phi[xm(i,p)])) {
-      wc_size++;
-      wc_s_size++;
-      //cout<<"->xm";
-      clusterAddSqr(xm(i,p), s, cSpin, cluster, phi, p);
-    }
-  }
- 
-}
-
-/////////////////////
-//--- WOLFF ADS ---//
-/////////////////////
 double actionAdS(vector<Vertex> &NodeList, int *s, Param p,
 		 double &KE,  double &PE) {
   
@@ -275,6 +65,7 @@ double actionAdS(vector<Vertex> &NodeList, int *s, Param p,
   double phi;
   int interior = endNode(p.Levels-1,p);
   int disk     = p.AdSVol;
+
   
   for (int i = 0; i < p.latVol; i++)
     if (s[i] * NodeList[i].phi < 0)
@@ -284,10 +75,24 @@ double actionAdS(vector<Vertex> &NodeList, int *s, Param p,
     phi = NodeList[i].phi;
     phi_sq = phi*phi;
 
-    //PE terms 
+    //2D Ising terms
     if( i%disk > interior) {
       PE += 0.25 * p.lambda * phi_sq*phi_sq;
       PE += 0.5  * p.musqr  * phi_sq;
+      
+      //Spatial: q=0 and q=fwdLinks+1 are on the same
+      //level. These are 'Ising' terms and should not be
+      //rescaled?
+      for(int q=0; q<NodeList[i].fwdLinks+1; q++) {
+	if(NodeList[NodeList[i].nn[q]].pos != -1) {
+	  KE += 0.5*((phi - NodeList[NodeList[i].nn[q]].phi)*
+		     (phi - NodeList[NodeList[i].nn[q]].phi));
+	}
+      }
+      //temporal (the qth neighbour is always the forward time link)
+      KE += 0.5*((phi - NodeList[NodeList[i].nn[p.q]].phi)*
+		 (phi - NodeList[NodeList[i].nn[p.q]].phi))*NodeList[i].temporal_weight;
+      
     }
     PE += 0.5*p.msqr*phi_sq;
     
@@ -302,7 +107,7 @@ double actionAdS(vector<Vertex> &NodeList, int *s, Param p,
     //spatial
     for(int q=0; q<NodeList[i].fwdLinks+1; q++) {      
       KE += 0.5*((phi - NodeList[NodeList[i].nn[q]].phi)*
-		 (phi - NodeList[NodeList[i].nn[q]].phi)  );
+		 (phi - NodeList[NodeList[i].nn[q]].phi));
     }    
     //temporal (the qth neighbour is always the forward time link)
     KE += 0.5*((phi - NodeList[NodeList[i].nn[p.q]].phi)*
@@ -312,6 +117,9 @@ double actionAdS(vector<Vertex> &NodeList, int *s, Param p,
   
   return PE + KE;
 }
+
+int ads_accept = 0;
+int ads_tries  = 0;
 
 int metropolisUpdateAdS(vector<Vertex> &NodeList, int *s,
 			Param &p, double &delta_mag_phi, int iter) {
@@ -323,8 +131,6 @@ int metropolisUpdateAdS(vector<Vertex> &NodeList, int *s,
   int disk      = p.AdSVol;  
   int s_old     = 0;
   int delta_mag = 0;
-  int accept    = 0;
-  int tries     = 0;
 
   double phi_new = 0.0;
   double phi_new_sq = 0.0;
@@ -353,8 +159,10 @@ int metropolisUpdateAdS(vector<Vertex> &NodeList, int *s,
     if( i%disk > interior) {
       DeltaE += 0.25*p.lambda*(phi_new_sq*phi_new_sq - phi_sq*phi_sq);
       DeltaE += 0.50*p.musqr *(phi_new_sq            - phi_sq);
+      //cout<<"outer:"<<DeltaE<<endl;      
     }
     DeltaE += 0.50*p.msqr*(phi_new_sq - phi_sq);
+    //cout<<"inner="<<DeltaE<<endl;
     
     
     //KE
@@ -367,13 +175,13 @@ int metropolisUpdateAdS(vector<Vertex> &NodeList, int *s,
       DeltaE += 0.5 * t_weight_sq * (phi_new_sq - phi_sq + 2*NodeList[NodeList[i].nn[q]].phi*(phi - phi_new));
     }
     
-    tries += 1;    
+    ads_tries += 1;    
     if(DeltaE < 0.0) {
       //  cout<< " Acepted  " << endl;
       s_old = s[i];
       delta_mag_phi += phi_new - NodeList[i].phi;
       NodeList[i].phi = phi_new;
-      accept += 1;
+      ads_accept += 1;
       s[i] = (phi_new > 0) ? 1 : -1;
       delta_mag += s[i] - s_old;
     }
@@ -382,7 +190,7 @@ int metropolisUpdateAdS(vector<Vertex> &NodeList, int *s,
       s_old = s[i];
       delta_mag_phi += phi_new - NodeList[i].phi;
       NodeList[i].phi = phi_new;
-      accept += 1;
+      ads_accept += 1;
       s[i] = (phi_new > 0) ? 1 : -1;
       delta_mag += s[i] - s_old;
     }     
@@ -390,12 +198,12 @@ int metropolisUpdateAdS(vector<Vertex> &NodeList, int *s,
   
   // TUNING ACCEPTANCE 
   if (iter < p.n_therm/2 && (iter+1) % p.n_skip/10 == 0) {
-    if ((double) accept / (double) tries < 0.5) {
+    if ((double) ads_accept / (double) ads_tries < 0.5) {
       p.delta_phi -= 0.001;
     } else {
       p.delta_phi += 0.001;
     }
-    if(p.n_wolff*1.0*wc_ave/wc_calls < p.latVol && iter > p.n_skip) {
+    if(p.n_wolff*1.0*ads_wcave/ads_wccalls < p.latVol && iter > p.n_skip) {
       p.n_wolff++;
     } else {
       p.n_wolff--;
@@ -404,7 +212,7 @@ int metropolisUpdateAdS(vector<Vertex> &NodeList, int *s,
   }
 
   if( iter < p.n_therm && (iter+1)%(100*p.n_wolff) == 0 ) {
-    //cout<<"At iter "<<iter<<" the Acceptance rate is "<<(double)accept/(double)tries<<endl;
+    //cout<<"At iter "<<iter<<" the Acceptance rate is "<<(double)ads_accept/(double)ads_tries<<endl;
     //cout<<"and delta_phi is "<<p.delta_phi<<endl;
   }
   
@@ -414,7 +222,7 @@ int metropolisUpdateAdS(vector<Vertex> &NodeList, int *s,
 void wolffUpdateAdS(vector<Vertex> &NodeList, int *s, Param p,
 		    double &delta_mag_phi, int iter) {
   
-  wc_calls++;
+  ads_wccalls++;
   
   bool *cluster = new bool[p.latVol];
   for (int i = 0; i < p.latVol; i++)
@@ -427,16 +235,16 @@ void wolffUpdateAdS(vector<Vertex> &NodeList, int *s, Param p,
   //This function is recursive and will call itself
   //until all q+2 attempts in the lattice directions
   //have failed to increase the cluster.
-  wc_size = 1;
+  ads_wcsize = 1;
   clusterAddAdS(i, s, cSpin, cluster, NodeList, p);
-  //cout<<"wc_size="<<wc_size<<endl;
-  wc_ave += wc_size;
+  //cout<<"ads_wcsize="<<ads_wcsize<<endl;
+  ads_wcave += ads_wcsize;
 
   if( iter%p.n_skip == 0 && iter < p.n_therm) {
     setprecision(4);
     cout<<"Using "<<p.n_wolff<<" Wolff hits."<<endl; 
-    cout<<"Ave. cluster size at iter "<<iter<<" = "<<wc_ave<<"/"<<wc_calls<<" = "<<1.0*wc_ave/wc_calls<<endl;
-    cout<<"S/T cluster growth ratio at iter "<<iter<<" = "<<1.0*wc_s_size/wc_ave<<":"<<1.0*wc_t_size/wc_ave<<endl;
+    cout<<"Ave. cluster size at iter "<<iter<<" = "<<ads_wcave<<"/"<<ads_wccalls<<" = "<<1.0*ads_wcave/ads_wccalls<<endl;
+    cout<<"S/T cluster growth ratio at iter "<<iter<<" = "<<1.0*ads_wcs_size/ads_wcave<<":"<<1.0*ads_wct_size/ads_wcave<<endl;
   }
   
   delete[] cluster;    
@@ -460,8 +268,8 @@ void clusterAddAdS(int i, int *s, int cSpin,
   // if the neighbor spin does not already belong to the
   // cluster, then try to add it to the cluster
   //cout<<"Base="<<i<<" ";
-  //for(int q=p.q+1; q >= 0; q--) {  
-  for(int q=0; q<p.q+2; q++) {
+  for(int q=p.q+1; q >= 0; q--) {  
+    //for(int q=0; q<p.q+2; q++) {
     
     //qth nearest neighbour. If boundary node, nn_q = -1
     int nn_q = NodeList[i].nn[q];
@@ -477,9 +285,9 @@ void clusterAddAdS(int i, int *s, int cSpin,
 	prob = 1 - exp(2*J*t_weight*NodeList[i].phi*NodeList[nn_q].phi);
 	if(s[NodeList[nn_q].pos] == cSpin && prob < rand) {
 	  //cout<<prob<<" "<<rand<<" ";
-	  wc_size++;
-	  if(q<p.q)  wc_s_size++;
-	  if(q>=p.q) wc_t_size++;
+	  ads_wcsize++;
+	  if(q<p.q)  ads_wcs_size++;
+	  if(q>=p.q) ads_wct_size++;
 	  //cout<<"->"<<q<<" ";
 	  clusterAddAdS(NodeList[nn_q].pos, s, cSpin, cluster, NodeList, p);
 	}
@@ -489,35 +297,21 @@ void clusterAddAdS(int i, int *s, int cSpin,
   //cout<<"End"<<endl;
 }
 
-
 //------------- Monte Carlo Update  ----------------//
-void runMonteCarlo(vector<Vertex> &NodeList, Param p) {
+void runMonteCarloAdS(vector<Vertex> &NodeList, Param p) {
   
   double KE = 0.0, PE = 0.0;
   double mag_phi = 0.0;
   double delta_mag_phi = 0.0;
 
   int *s = (int*)malloc(p.latVol*sizeof(int));
-  double *phi;
-  if(p.lattice) {
-    phi = (double*)malloc(p.latVol*sizeof(double));
-    for(int i = 0;i < p.latVol; i++) {
-      phi[i] = 2.0*unif(rng) - 1.0;
-      s[i] = (phi[i] > 0) ? 1:-1;
-      mag_phi += phi[i];
-    }
-  } else {
-    for(int i = 0;i < p.latVol; i++) {
-      NodeList[i].phi = 2.0*unif(rng) - 1.0;
-      s[i] = (NodeList[i].phi > 0) ? 1:-1;
-      mag_phi += NodeList[i].phi;
-    }
+  for(int i = 0;i < p.latVol; i++) {
+    NodeList[i].phi = 2.0*unif(rng) - 1.0;
+    s[i] = (NodeList[i].phi > 0) ? 1:-1;
+    mag_phi += NodeList[i].phi;
   }
+  thermaliseAdS(NodeList, s, p, delta_mag_phi);
   
-  if(p.lattice) thermaliseSqr(phi, s, p, delta_mag_phi);
-  else thermaliseAdS(NodeList, s, p, delta_mag_phi);
-
-
   //Arrays holding measurements for error analysis
   double E_arr[p.n_meas];
   double E2_arr[p.n_meas];
@@ -537,6 +331,8 @@ void runMonteCarlo(vector<Vertex> &NodeList, Param p) {
   //Running averages
   double tmpE     = 0.0;  
   double aveE     = 0.0;
+  double aveKE    = 0.0;
+  double avePE    = 0.0;
   double aveE2    = 0.0;
   double avePhiAb = 0.0;
   double avePhi   = 0.0;
@@ -572,39 +368,28 @@ void runMonteCarlo(vector<Vertex> &NodeList, Param p) {
   for(int iter = p.n_therm; iter < p.n_therm + p.n_skip*p.n_meas; iter++) {
     
     if((iter+1)%p.n_wolff == 0 && p.n_wolff != 0) {
-
-      p.lattice ? metropolisUpdateSqr(phi, s, p, delta_mag_phi, iter) : 
-	metropolisUpdateAdS(NodeList, s, p, delta_mag_phi, iter);
-
+      metropolisUpdateAdS(NodeList, s, p, delta_mag_phi, iter);
     } else {
-      p.lattice ? wolffUpdateSqr(phi, s, p, delta_mag_phi, iter) : 
-	wolffUpdateAdS(NodeList, s, p, delta_mag_phi, iter);
+      wolffUpdateAdS(NodeList, s, p, delta_mag_phi, iter);
     }
-
+    
     //Take measurements.
     if((iter+1) % p.n_skip == 0) {
-
+      
       int offset = endNode(p.Levels-1,p) + 1;
-      if(p.lattice) {
-	for(int i = 0;i < p.S1; i++) {
-	  for(int j=0; j<p.Lt; j++) 
-	    phi_sq_arr[i][j] += pow(phi[i + p.S1*j],2);
-	}
-      } else {
-	for(int i = 0;i < p.S1; i++) {
-	  for(int j=0; j<p.Lt; j++) 
-	    phi_sq_arr[i][j] += pow(NodeList[i + offset + p.AdSVol*j].phi,2);
-	}
+      for(int i = 0;i < p.S1; i++) {
+	for(int j=0; j<p.Lt; j++) 
+	  phi_sq_arr[i][j] += pow(NodeList[i + offset + p.AdSVol*j].phi,2);
       }
       
-      p.lattice ? tmpE = actionSqr(phi, s, p, KE, PE) : 
-	tmpE = actionAdS(NodeList, s, p, KE, PE);
-      aveE    += rhoVol*tmpE;
-      aveE2   += rhoVol2*tmpE*tmpE;
+      tmpE   = actionAdS(NodeList, s, p, KE, PE);
+      aveKE += rhoVol*KE;
+      avePE += rhoVol*PE;
+      aveE  += rhoVol*tmpE;
+      aveE2 += rhoVol2*tmpE*tmpE;
 
       MagPhi = 0.0;
-      if(p.lattice) for(int i = 0;i < p.latVol; i++) MagPhi += phi[i];
-      else for(int i = 0;i < p.latVol; i++) MagPhi += NodeList[i].phi;
+      for(int i = 0;i < p.latVol; i++) MagPhi += NodeList[i].phi;
       MagPhi *= rhoVol;
       
       avePhiAb  += abs(MagPhi);
@@ -627,6 +412,8 @@ void runMonteCarlo(vector<Vertex> &NodeList, Param p) {
       //Dump to stdout
       cout<<"Measurement "<<(iter+1 - p.n_therm)/p.n_skip<<" Sweep "<<iter+1<<endl;
       cout<<"Ave Energy= "<<aveE*norm<<endl;
+      cout<<"Ave KE    = "<<aveKE*norm<<endl;
+      cout<<"Ave PE    = "<<avePE*norm<<endl;
       cout<<"Ave |phi| = "<<avePhiAb*norm<<endl;
       cout<<"Ave phi   = "<<avePhi*norm<<endl;
       cout<<"Ave phi^2 = "<<avePhi2*norm<<endl;
@@ -634,15 +421,16 @@ void runMonteCarlo(vector<Vertex> &NodeList, Param p) {
       cout<<"Suscep    = "<<(avePhi2*norm-pow(avePhiAb*norm,2))/rhoVol<<endl;
       cout<<"Spec Heat = "<<(aveE2*norm-pow(aveE*norm,2))/rhoVol<<endl;
       cout<<"Binder    = "<<1.0-avePhi4/(3.0*avePhi2*avePhi2*norm)<<endl;
-
+      for(int i=endNode(p.Levels-1,p)+1; i<endNode(p.Levels,p)+1; i++) cout<<NodeList[i].phi<<" ";
+      cout<<endl;
+      
       //Visualisation tools
-      //visualiser(phi, avePhiAb*norm, p);
+      //visualiserAdS(NodeList, avePhiAb*norm, p);
       //visualiserPhi2(phi_sq_arr, p, idx);      
 
       //Calculate correlaton functions and update the average.
-      p.lattice ? correlators(corr_tmp, corr_ave, idx, phi, avePhi*norm, p) : 
-	correlators(corr_tmp, corr_ave, idx, NodeList, avePhi*norm, p);
-
+      correlators(corr_tmp, corr_ave, idx, NodeList, avePhi*norm, p);
+      
       ofstream myfilet("correlators_t.dat");
       for(int i=0; i<p.Lt/2; i++) {
 	myfilet << i << " " << corr_tmp[0][i] << endl;
@@ -668,20 +456,6 @@ void runMonteCarlo(vector<Vertex> &NodeList, Param p) {
   //free(corr_ave);
 
   free(s);
-  free(phi);
-}
-
-void thermaliseSqr(double *phi, int *s, 
-		   Param p, double &delta_mag_phi) {
-  
-  for(int iter = 0; iter < p.n_therm; iter++) {
-    for(int i=0; i<p.n_wolff; i++) {
-      wolffUpdateSqr(phi, s, p, delta_mag_phi, iter);
-      iter++;
-    }
-    metropolisUpdateSqr(phi, s, p, delta_mag_phi, iter);
-    if((iter+1)%p.n_skip == 0) cout<<"Therm sweep "<<iter+1<<endl;
-  }
 }
 
 void thermaliseAdS(vector<Vertex> &NodeList, int *s, 

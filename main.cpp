@@ -19,7 +19,9 @@ uniform_real_distribution<double> unif(0.0,1.0);
 #include "graph.h"
 #include "cg.h"
 #include "eigen.h"
-#include "update.h"
+#include "monte_carlo_ads.h"
+#include "monte_carlo_square_local.h"
+#include "monte_carlo_square_nonlocal.h"
 
 int main(int argc, char **argv) {
 
@@ -34,13 +36,13 @@ int main(int argc, char **argv) {
   p.S1 = endNode(p.Levels,p) - endNode(p.Levels-1,p);
   p.Lt = p.t;
   p.AdSVol = endNode(p.Levels,p) + 1;
-  if(p.lattice == true) {    
+  if(p.latType == SQ_LOCAL || p.latType == SQ_NONLOCAL) {    
     p.latVol = p.surfaceVol;
   }
   else p.latVol = p.AdSVol * p.Lt;
-
+  
   for(int i=1;i<10;i++) cout<<"Endnode("<<i<<") = "<<endNode(i,p)<<endl;
-  if(p.lattice == true) cout<<"Total Square nodes = "<<p.surfaceVol<<endl;
+  if(p.latType == SQ_LOCAL || p.latType == SQ_NONLOCAL) cout<<"Total Square nodes = "<<p.surfaceVol<<endl;
   else cout<<"Total AdS nodes = "<<p.latVol<<endl;
   
   //Print paramters
@@ -58,7 +60,8 @@ int main(int argc, char **argv) {
     for(int mu = 0; mu < p.q+2; mu++) 
       NodeList[n].nn[mu] = -1;
   
-  if(!p.lattice) {
+  switch(p.latType) {
+  case (ADS) :
     //Construct neighbour table.
     buildGraph(NodeList, p);
     //Get the z-coords and temporal weighting
@@ -67,12 +70,19 @@ int main(int argc, char **argv) {
     latticeScaling(NodeList, p);
     //Calculate the one loop corrections, store in NodeList.
     oneLoopCorrection(NodeList, p);
-    //PrintNodeTables(NodeList, p);
-    //connectivityCheck(NodeList, p);
+
+    runMonteCarloAdS(NodeList, p);
+    break;
+  case (SQ_LOCAL) :
+    runMonteCarloSqL(NodeList, p);
+    break;
+  case (SQ_NONLOCAL) :    
+    runMonteCarloSqNL(NodeList, p);
+    break;
+  default :
+    cout<<"Unkown lattice type given"<<endl;
   }
   
-  runMonteCarlo(NodeList, p);
-
   return 0;
-  
+
 }
