@@ -49,7 +49,7 @@ std::complex<double> newVertex(std::complex<double> z,std::complex<double> z0,in
 double s(std::complex<double> z);
 double r(double s );
 double d12(std::complex<double> z1, std::complex<double> z2);
-double sigma(std::complex<double> z1, std::complex<double> z2, int t);
+double sigma(std::complex<double> z1, std::complex<double> z2, double t);
 double s3p(int q);
 double area3q(int q);
 double areaGeneral(Param P, double A, double B, double C);

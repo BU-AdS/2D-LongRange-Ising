@@ -8,15 +8,14 @@
 #include <vector>
 
 #include "util.h"
-//#include "hyp_util.h"
 
-//Square lattice, non-local interactions
+//Square lattice, non-local r^{-(d+\sigma)} interactions
 void clusterAddSqNL(int i, int *s, int cSpin, bool *Acluster,
-		    int *Rcluster, double *LR_couplings,
+		    std::vector<int> &Rcluster, double *LR_couplings,
 		    double *phi, Param p);
 
 void clusterPossibleSqNL(int i, int *s, int cSpin,
-			 bool *Pcluster, Param p);
+			 bool *Pcluster, std::vector<int> &Rcluster, Param p);
 
 void wolffUpdateSqNL(double *phi_arr, int *s, Param p,
 		     double *LR_couplings,		  

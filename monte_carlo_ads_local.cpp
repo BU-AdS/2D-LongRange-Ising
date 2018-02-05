@@ -8,7 +8,7 @@
 #include <random>
 #include <unistd.h>
 
-#include "monte_carlo_ads.h"
+#include "monte_carlo_ads_local.h"
 #include "util.h"
 #include "data_proc.h"
 #include "data_io.h"
@@ -50,22 +50,21 @@ inline int ttm(int i, Param p){
 }
 
 // declare variables to implement Wolff algorithm
-int ads_wcave = 0;
-int ads_wcsize = 0;
-int ads_wccalls = 0;
-int ads_wct_size = 0;
-int ads_wcs_size = 0;
+int ads_wc_ave = 0;
+int ads_wc_size = 0;
+int ads_wc_calls = 0;
+int ads_wc_t_size = 0;
+int ads_wc_s_size = 0;
 
-double actionAdS(vector<Vertex> &NodeList, int *s, Param p,
+double actionAdSL(vector<Vertex> &NodeList, int *s, Param p,
 		 double &KE,  double &PE) {
   
   KE = 0.0;
   PE = 0.0;
   double phi_sq;
   double phi;
-  int interior = endNode(p.Levels-1,p);
-  int disk     = p.AdSVol;
-
+  double lambda_p = 0.25*p.lambda;
+  double msqr_p   = 0.50*p.msqr;
   
   for (int i = 0; i < p.latVol; i++)
     if (s[i] * NodeList[i].phi < 0)
@@ -75,60 +74,35 @@ double actionAdS(vector<Vertex> &NodeList, int *s, Param p,
     phi = NodeList[i].phi;
     phi_sq = phi*phi;
 
-    //2D Ising terms
-    if( i%disk > interior) {
-      PE += 0.25 * p.lambda * phi_sq*phi_sq;
-      PE += 0.5  * p.musqr  * phi_sq;
-      
-      //Spatial: q=0 and q=fwdLinks+1 are on the same
-      //level. These are 'Ising' terms and should not be
-      //rescaled?
-      for(int q=0; q<NodeList[i].fwdLinks+1; q++) {
-	if(NodeList[NodeList[i].nn[q]].pos != -1) {
+    //PE terms
+    PE += lambda_p * phi_sq*phi_sq;
+    PE += msqr_p   * phi_sq;
+    
+    //Spatial: q=0 and q=fwdLinks+1 are on the same
+    //level. These are 'Ising' terms and should not be
+    //rescaled?
+    for(int q=0; q<NodeList[i].fwdLinks+1; q++) {
+      if(NodeList[NodeList[i].nn[q]].pos != -1) {
 	  KE += 0.5*((phi - NodeList[NodeList[i].nn[q]].phi)*
 		     (phi - NodeList[NodeList[i].nn[q]].phi));
-	}
       }
-      //temporal (the qth neighbour is always the forward time link)
-      KE += 0.5*((phi - NodeList[NodeList[i].nn[p.q]].phi)*
-		 (phi - NodeList[NodeList[i].nn[p.q]].phi))*NodeList[i].temporal_weight;
-      
     }
-    PE += 0.5*p.msqr*phi_sq;
-    
-    //KE terms
-    //N.B. We must assess a link once, and once only.
-    //To do this, we take the link to the 0th
-    //neighbour, and all the forward links.
-    //On the boundary, the fwdLinks value is set to 0, so only
-    //the links connecting boundary points to other boundary
-    //points are counted. 
-    
-    //spatial
-    for(int q=0; q<NodeList[i].fwdLinks+1; q++) {      
-      KE += 0.5*((phi - NodeList[NodeList[i].nn[q]].phi)*
-		 (phi - NodeList[NodeList[i].nn[q]].phi));
-    }    
     //temporal (the qth neighbour is always the forward time link)
     KE += 0.5*((phi - NodeList[NodeList[i].nn[p.q]].phi)*
-	       (phi - NodeList[NodeList[i].nn[p.q]].phi)*
-	       (NodeList[i].temporal_weight*NodeList[i].temporal_weight));
+	       (phi - NodeList[NodeList[i].nn[p.q]].phi))*NodeList[i].temporal_weight;
   }
-  
   return PE + KE;
 }
 
 int ads_accept = 0;
 int ads_tries  = 0;
 
-int metropolisUpdateAdS(vector<Vertex> &NodeList, int *s,
+int metropolisUpdateAdSL(vector<Vertex> &NodeList, int *s,
 			Param &p, double &delta_mag_phi, int iter) {
   
   delta_mag_phi = 0.0;
   uniform_real_distribution<double> unif(0.0,1.0);
 
-  int interior  = endNode(p.Levels-1,p);
-  int disk      = p.AdSVol;  
   int s_old     = 0;
   int delta_mag = 0;
 
@@ -136,7 +110,9 @@ int metropolisUpdateAdS(vector<Vertex> &NodeList, int *s,
   double phi_new_sq = 0.0;
   double phi = 0.0;
   double phi_sq = 0.0;
-
+  double lambda_p = 0.25*p.lambda;
+  double msqr_p   = 0.50*p.msqr;
+  
   double t_weight_sq = 0.0;
   double DeltaE = 0.0;
   
@@ -150,20 +126,13 @@ int metropolisUpdateAdS(vector<Vertex> &NodeList, int *s,
     phi_new_sq = phi_new*phi_new;
     phi_sq = phi*phi;
     
-
     if (s[i] * phi < 0) {
       printf("ERROR s and phi NOT aligned! (MUP AdS)\n");
     }
     
     //PE
-    if( i%disk > interior) {
-      DeltaE += 0.25*p.lambda*(phi_new_sq*phi_new_sq - phi_sq*phi_sq);
-      DeltaE += 0.50*p.musqr *(phi_new_sq            - phi_sq);
-      //cout<<"outer:"<<DeltaE<<endl;      
-    }
-    DeltaE += 0.50*p.msqr*(phi_new_sq - phi_sq);
-    //cout<<"inner="<<DeltaE<<endl;
-    
+    DeltaE += lambda_p*(phi_new_sq*phi_new_sq - phi_sq*phi_sq);
+    DeltaE += msqr_p  *(phi_new_sq            - phi_sq);
     
     //KE
     for(int q=0; q<p.q; q++) {
@@ -203,7 +172,7 @@ int metropolisUpdateAdS(vector<Vertex> &NodeList, int *s,
     } else {
       p.delta_phi += 0.001;
     }
-    if(p.n_wolff*1.0*ads_wcave/ads_wccalls < p.latVol && iter > p.n_skip) {
+    if(p.n_wolff*1.0*ads_wc_ave/ads_wc_calls < p.latVol && iter > p.n_skip) {
       p.n_wolff++;
     } else {
       p.n_wolff--;
@@ -212,17 +181,17 @@ int metropolisUpdateAdS(vector<Vertex> &NodeList, int *s,
   }
 
   if( iter < p.n_therm && (iter+1)%(100*p.n_wolff) == 0 ) {
-    //cout<<"At iter "<<iter<<" the Acceptance rate is "<<(double)ads_accept/(double)ads_tries<<endl;
-    //cout<<"and delta_phi is "<<p.delta_phi<<endl;
+    cout<<"At iter "<<iter<<" the Acceptance rate is "<<(double)ads_accept/(double)ads_tries<<endl;
+    cout<<"and delta_phi is "<<p.delta_phi<<endl;
   }
   
   return delta_mag;
 }
 
-void wolffUpdateAdS(vector<Vertex> &NodeList, int *s, Param p,
+void wolffUpdateAdSL(vector<Vertex> &NodeList, int *s, Param p,
 		    double &delta_mag_phi, int iter) {
   
-  ads_wccalls++;
+  ads_wc_calls++;
   
   bool *cluster = new bool[p.latVol];
   for (int i = 0; i < p.latVol; i++)
@@ -235,22 +204,22 @@ void wolffUpdateAdS(vector<Vertex> &NodeList, int *s, Param p,
   //This function is recursive and will call itself
   //until all q+2 attempts in the lattice directions
   //have failed to increase the cluster.
-  ads_wcsize = 1;
-  clusterAddAdS(i, s, cSpin, cluster, NodeList, p);
-  //cout<<"ads_wcsize="<<ads_wcsize<<endl;
-  ads_wcave += ads_wcsize;
+  ads_wc_size = 1;
+  clusterAddAdSL(i, s, cSpin, cluster, NodeList, p);
+  //cout<<"ads_wc_size="<<ads_wc_size<<endl;
+  ads_wc_ave += ads_wc_size;
 
   if( iter%p.n_skip == 0 && iter < p.n_therm) {
     setprecision(4);
     cout<<"Using "<<p.n_wolff<<" Wolff hits."<<endl; 
-    cout<<"Ave. cluster size at iter "<<iter<<" = "<<ads_wcave<<"/"<<ads_wccalls<<" = "<<1.0*ads_wcave/ads_wccalls<<endl;
-    cout<<"S/T cluster growth ratio at iter "<<iter<<" = "<<1.0*ads_wcs_size/ads_wcave<<":"<<1.0*ads_wct_size/ads_wcave<<endl;
+    cout<<"Ave. cluster size at iter "<<iter<<" = "<<ads_wc_ave<<"/"<<ads_wc_calls<<" = "<<1.0*ads_wc_ave/ads_wc_calls<<endl;
+    cout<<"S/T cluster growth ratio at iter "<<iter<<" = "<<1.0*ads_wc_s_size/ads_wc_ave<<":"<<1.0*ads_wc_t_size/ads_wc_ave<<endl;
   }
   
   delete[] cluster;    
 }
 
-void clusterAddAdS(int i, int *s, int cSpin,
+void clusterAddAdSL(int i, int *s, int cSpin,
 		   bool *cluster, vector<Vertex> &NodeList, Param p) {
   
   // Mark the spin as belonging to the cluster and flip it
@@ -285,11 +254,11 @@ void clusterAddAdS(int i, int *s, int cSpin,
 	prob = 1 - exp(2*J*t_weight*NodeList[i].phi*NodeList[nn_q].phi);
 	if(s[NodeList[nn_q].pos] == cSpin && prob < rand) {
 	  //cout<<prob<<" "<<rand<<" ";
-	  ads_wcsize++;
-	  if(q<p.q)  ads_wcs_size++;
-	  if(q>=p.q) ads_wct_size++;
+	  ads_wc_size++;
+	  //if(q<p.q)  ads_wc_s_size++;
+	  //if(q>=p.q) ads_wc_t_size++;
 	  //cout<<"->"<<q<<" ";
-	  clusterAddAdS(NodeList[nn_q].pos, s, cSpin, cluster, NodeList, p);
+	  clusterAddAdSL(NodeList[nn_q].pos, s, cSpin, cluster, NodeList, p);
 	}
       }
     }
@@ -298,7 +267,7 @@ void clusterAddAdS(int i, int *s, int cSpin,
 }
 
 //------------- Monte Carlo Update  ----------------//
-void runMonteCarloAdS(vector<Vertex> &NodeList, Param p) {
+void runMonteCarloAdSL(vector<Vertex> &NodeList, Param p) {
   
   double KE = 0.0, PE = 0.0;
   double mag_phi = 0.0;
@@ -310,7 +279,7 @@ void runMonteCarloAdS(vector<Vertex> &NodeList, Param p) {
     s[i] = (NodeList[i].phi > 0) ? 1:-1;
     mag_phi += NodeList[i].phi;
   }
-  thermaliseAdS(NodeList, s, p, delta_mag_phi);
+  thermaliseAdSL(NodeList, s, p, delta_mag_phi);
   
   //Arrays holding measurements for error analysis
   double E_arr[p.n_meas];
@@ -368,9 +337,9 @@ void runMonteCarloAdS(vector<Vertex> &NodeList, Param p) {
   for(int iter = p.n_therm; iter < p.n_therm + p.n_skip*p.n_meas; iter++) {
     
     if((iter+1)%p.n_wolff == 0 && p.n_wolff != 0) {
-      metropolisUpdateAdS(NodeList, s, p, delta_mag_phi, iter);
+      metropolisUpdateAdSL(NodeList, s, p, delta_mag_phi, iter);
     } else {
-      wolffUpdateAdS(NodeList, s, p, delta_mag_phi, iter);
+      wolffUpdateAdSL(NodeList, s, p, delta_mag_phi, iter);
     }
     
     //Take measurements.
@@ -382,7 +351,7 @@ void runMonteCarloAdS(vector<Vertex> &NodeList, Param p) {
 	  phi_sq_arr[i][j] += pow(NodeList[i + offset + p.AdSVol*j].phi,2);
       }
       
-      tmpE   = actionAdS(NodeList, s, p, KE, PE);
+      tmpE   = actionAdSL(NodeList, s, p, KE, PE);
       aveKE += rhoVol*KE;
       avePE += rhoVol*PE;
       aveE  += rhoVol*tmpE;
@@ -421,13 +390,12 @@ void runMonteCarloAdS(vector<Vertex> &NodeList, Param p) {
       cout<<"Suscep    = "<<(avePhi2*norm-pow(avePhiAb*norm,2))/rhoVol<<endl;
       cout<<"Spec Heat = "<<(aveE2*norm-pow(aveE*norm,2))/rhoVol<<endl;
       cout<<"Binder    = "<<1.0-avePhi4/(3.0*avePhi2*avePhi2*norm)<<endl;
-      for(int i=endNode(p.Levels-1,p)+1; i<endNode(p.Levels,p)+1; i++) cout<<NodeList[i].phi<<" ";
-      cout<<endl;
       
       //Visualisation tools
-      //visualiserAdS(NodeList, avePhiAb*norm, p);
+      visualiserAdS(NodeList, avePhiAb*norm, p);
       //visualiserPhi2(phi_sq_arr, p, idx);      
 
+      /*
       //Calculate correlaton functions and update the average.
       correlators(corr_tmp, corr_ave, idx, NodeList, avePhi*norm, p);
       
@@ -443,7 +411,7 @@ void runMonteCarloAdS(vector<Vertex> &NodeList, Param p) {
       }
       myfiles.close();
       //if(idx%50 == 0) corr_eigs(corr_run, p);
-      
+      */      
     }
   }
 
@@ -458,16 +426,16 @@ void runMonteCarloAdS(vector<Vertex> &NodeList, Param p) {
   free(s);
 }
 
-void thermaliseAdS(vector<Vertex> &NodeList, int *s, 
+void thermaliseAdSL(vector<Vertex> &NodeList, int *s, 
 		   Param p, double &delta_mag_phi) {
   
   for(int iter = 0; iter < p.n_therm; iter++) {
     for(int i=0; i<p.n_wolff; i++) {
-      wolffUpdateAdS(NodeList, s, p, delta_mag_phi, iter);
+      wolffUpdateAdSL(NodeList, s, p, delta_mag_phi, iter);
       if((iter+1)%p.n_skip == 0) cout<<"Therm sweep "<<iter+1<<endl;
       iter++;
     }
-    metropolisUpdateAdS(NodeList, s, p, delta_mag_phi, iter);    
+    metropolisUpdateAdSL(NodeList, s, p, delta_mag_phi, iter);    
     if((iter+1)%p.n_skip == 0) cout<<"Therm sweep "<<iter+1<<endl;
   }
 }

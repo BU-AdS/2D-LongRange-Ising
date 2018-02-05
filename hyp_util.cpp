@@ -45,7 +45,7 @@ double d12(complex<double> z, complex<double> w) {
 }
 
 //Geodesic distance from z1,t1 to z2,t2
-double sigma(complex<double> z, complex<double> w, int delta_t) {
+double sigma(complex<double> z, complex<double> w, double delta_t) {
   
   double theta = atan2( (w/z).imag() , (w/z).real() );
   double r = abs(z);

@@ -380,7 +380,6 @@ void Minv_phi_ms(double **phi, double *phi0,
 void latticeScaling(vector<Vertex> &NodeList, Param& p){
 
   int latVol  = p.latVol;
-  
   int lower = endNode(p.Levels-1,p)+1;
 
   int t1, t2, delta_t;
@@ -415,7 +414,7 @@ void latticeScaling(vector<Vertex> &NodeList, Param& p){
       t2 = i / p.AdSVol;
 
       //Assume PBC.
-      delta_t = (t2-t1);// > p.t/2 ? (t2-t1) - p.t : (t2-t1);
+      delta_t = (t2-t1);
       snk = NodeList[i].z;
       r   = abs(NodeList[i].z);
       r_p = abs(NodeList[j].z);
@@ -449,7 +448,7 @@ void latticeScaling(vector<Vertex> &NodeList, Param& p){
   double d_inter = 100;
 
   double grad_tol = 1e-4;
-  double inter_tol = 1e-4;
+  double inter_tol = 1e-3;
 
   //Search in wisdom file for a shorcut
   bool preTuned = false;
@@ -484,7 +483,8 @@ void latticeScaling(vector<Vertex> &NodeList, Param& p){
 
   //Begin search for correct scaling factors.
   int iter = 0;
-  while(abs(d_grad) > grad_tol || abs(d_inter) > inter_tol) {
+  //while(abs(d_grad) > grad_tol || abs(d_inter) > inter_tol) {
+  while(abs(d_grad) > grad_tol) {
     
     double* phi_ave = new double[latVol];  
     double* phi = new double[latVol];
@@ -545,26 +545,31 @@ void latticeScaling(vector<Vertex> &NodeList, Param& p){
     
     //Adjust the parameters and start over.
     d_grad = (c[1] - grad)/abs(grad);
-    //d_inter = 0;
-    d_inter= (c[0] - inter)/abs(inter);
+    //d_inter= (c[0] - inter)/abs(inter);
     cout<<"D inter = "<<d_inter<<" D grad = "<<d_grad<<endl;
     cout<<"N_latt  = "<<p.N_latt<<" C_msqr = "<<p.C_msqr<<endl<<endl;
     
     double fac1 = abs(p.C_msqr);
     
     if( abs(d_grad) > grad_tol ) {
-      if(c[1] > grad) p.msqr < 0 ? p.C_msqr += (fac1*abs(d_grad) + 10*grad_tol) : p.C_msqr -= (fac1*abs(d_grad) + 10*grad_tol);
-      if(c[1] < grad) p.msqr < 0 ? p.C_msqr -= (fac1*abs(d_grad) + 10*grad_tol) : p.C_msqr += (fac1*abs(d_grad) + 10*grad_tol);
-    }
-    
-    double fac2 = 0.06;    
-    if( abs(d_grad) < grad_tol ) {
-      if(c[0] > inter) p.N_latt -= (fac2*abs(d_inter) + grad_tol/10);
-      if(c[0] < inter) p.N_latt += (fac2*abs(d_inter) + grad_tol/10);
+      if(c[1] > grad) p.msqr < 0 ? p.C_msqr += (fac1*abs(d_grad) + 1*grad_tol) : p.C_msqr -= (fac1*abs(d_grad) + 1*grad_tol);
+      if(c[1] < grad) p.msqr < 0 ? p.C_msqr -= (fac1*abs(d_grad) + 1*grad_tol) : p.C_msqr += (fac1*abs(d_grad) + 1*grad_tol);
     }
 
+    if(cov_ssq[0] != cov_ssq[0]) {
+      cout<<"GSL failed!"<<endl;
+      exit(0);
+    }
+    
+    //double fac2 = 0.01;    
+    //if( abs(d_grad) < grad_tol ) {
+    //if(c[0] > inter) p.N_latt -= (fac2*abs(d_inter) + grad_tol/10);
+    //if(c[0] < inter) p.N_latt += (fac2*abs(d_inter) + grad_tol/10);
+    //}
+    
     //Did it tune properly?
-    if(d_inter < inter_tol && d_grad < grad_tol) tuneWin = true;
+    //if(d_inter < inter_tol && d_grad < grad_tol) tuneWin = true;
+    if(d_grad < grad_tol) tuneWin = true;
     
     delete[] phi_ave;
     delete[] phi;
@@ -575,6 +580,8 @@ void latticeScaling(vector<Vertex> &NodeList, Param& p){
     
   }
 
+  
+  
   //If this is a new problem, and it tuned properly, save the data.
   if(!preTuned && tuneWin) {
     FILE *file = fopen("ads_wisdom", "a");
@@ -595,34 +602,95 @@ void latticeScaling(vector<Vertex> &NodeList, Param& p){
 
 //This function will calculate the M(x,x)^{-1} elements on the qth
 //sector of the Poincare disk.. 
-void oneLoopCorrection(vector<Vertex> &NodeList, Param& p){
+void oneLoopCorrection(double *LR_coupling,
+		       vector<Vertex> &NodeList,
+		       Param& p){
   
-  int latVol  = p.latVol;
-  int sources = (endNode(p.Levels,p) - endNode(p.Levels-1,p)) / p.q ;  
-
+  int sources = (endNode(p.Levels,p) - endNode(p.Levels-1,p)) / p.q ;
   cout<<"Solving for "<<sources<<" sources."<<endl;
-  
-  double* phi = new double[latVol];
-  double* b   = new double[latVol];  
-  for(int s=0; s<sources; s++) { 
-    for(int i=0; i<latVol; i++) {
+
+  int pos = endNode(p.Levels-1,p) + 1;
+  double* phi_ave = new double[p.latVol];
+  for(int i=0; i<p.latVol; i++) phi_ave[i] = 0.0;
+  double* phi = new double[p.latVol];
+  double* b   = new double[p.latVol];  
+  for(int s=0; s<sources; s++) {
+    //initialise
+    for(int i=0; i<p.latVol; i++) {
       b[i] = 0.0;
       phi[i] = 0.0;
     }
-    b[endNode(p.Levels-1,p) + 1 + s] = 1.0;    
+    //set source
+    b[endNode(p.Levels-1,p) + 1 + s] = 1.0;
+    //invert
     Minv_phi(phi, b, NodeList, p);
-    for(int i=0; i<latVol; i++) phi[i] *= p.N_latt;
-    cout<<phi[endNode(p.Levels-1,p) + 1 + s]<<endl;
-    NodeList[endNode(p.Levels-1,p) + 1 + s].oneLoopCorr = phi[endNode(p.Levels-1,p) + 1 + s];
+    //normalise 
+    for(int i=0; i<p.latVol; i++) {
+      phi[i] *= p.N_latt;
+      phi_ave[i] += phi[i]/sources;
+    }
+
+    //----------------------//
+    //Here is where the propagator has been normalised, so
+    //we can use it as our long range coupling. We popuate
+    //only the unique part of the i index, then copy the data
+    //afterwards.
+    for(int j=0; j<p.surfaceVol; j++){      
+      //LR_coupling[s + j*p.surfaceVol] = phi[pos + j%p.S1 + (j/p.S1)*p.AdSVol];
+      //cout<<s<<" "<<j<<" "<<j%p.S1<<" "<<(j/p.S1)*p.AdSVol<<" "<<LR_coupling[s + j*p.surfaceVol]<<endl;
+    }
+    
+    //record one loop data
+    for(int s=0; s<sources; s++) {
+      NodeList[endNode(p.Levels-1,p) + 1 + s].oneLoopCorr = phi[pos + s];
+    }
+  }
+  
+  //Propagate the one loop correction data...
+  for(int i=0; i<p.t; i++) {
+    for(int q=0; q<p.q; q++) {    
+      for(int s=0; s<sources; s++) {
+	NodeList[pos + s + q*sources + i*p.AdSVol].oneLoopCorr = NodeList[pos + s].oneLoopCorr;
+	//...and LR coupling data too.
+	for(int j=0; j<p.surfaceVol; j++) {
+	  //LR_coupling[s + q*sources + i*p.S1 + j*p.surfaceVol] = LR_coupling[s + ((p.surfaceVol - q*sources - i*p.S1 + j)%p.surfaceVol)*p.surfaceVol];
+	  //cout<<s<<" "<<q<<" "<<i<<" "<<j<<" "<<LR_coupling[s + q*sources + i*p.S1 + j*p.surfaceVol]<<endl;
+	}
+      }
+    }
   }
 
-  //Propagate the one loop correction data through the graph.
-  int pos = endNode(p.Levels-1,p) + 1;
-  for(int i=0; i<p.t; i++) 
-    for(int q=0; q<p.q; q++)     
-      for(int s=0; s<sources; s++) 
-	NodeList[pos + s + q*sources + i*p.AdSVol].oneLoopCorr = NodeList[pos + s].oneLoopCorr;
+  double rad = 0.0;
+  for(int i=0; i<p.S1; i++)
+    rad += abs(NodeList[pos + i%p.S1 + (i/p.S1)*p.AdSVol].z)/p.S1;
+
+  cout<<rad<<endl;
+  //exit(0);
+  vector<complex<double>> circum(p.S1);
+  for(int i=0; i<p.S1; i++) {
+    circum[i].real(rad*cos(2*i*(M_PI/p.S1)));
+    circum[i].imag(rad*sin(2*i*(M_PI/p.S1)));
+  }
+
+  double delta = 1.0 + sqrt(1 + p.msqr);
   
+  for(int i=0; i<p.surfaceVol; i++){
+    for(int j=0; j<p.surfaceVol; j++){
+      //index divided by disk size, using the int floor feature/bug,
+      //gives the timeslice for each index.
+      int t1 = i / p.S1;
+      int t2 = j / p.S1;
+      double delta_t = abs(t2-t1) > p.Lt/2 ? abs(p.Lt - abs(t2-t1)) : abs(t2-t1);
+      delta_t = delta_t*(p.t_weight_scale);
+      if(i != j) LR_coupling[i+j*p.surfaceVol] = exp(-delta*sigma(circum[i%p.S1], circum[j%p.S1], delta_t)) / (1 - exp(-2*sigma(circum[i%p.S1], circum[j%p.S1], delta_t)));
+      //if(i != j) LR_coupling[i+j*p.surfaceVol] = sigma(circum[i%p.S1], circum[j%p.S1], delta_t);
+      //else LR_coupling[i+j*p.surfaceVol] = 0.0;
+      //if ( j == i+32 ) cout<<i<<" "<<j<<" "<<d12(circum[i%p.S1], circum[j%p.S1])<<" "<<LR_coupling[i + j*p.surfaceVol]<<endl;
+    }
+  }
+  
+  //exit(0);
+  delete[] phi_ave;
   delete[] phi;
   delete[] b;
 }

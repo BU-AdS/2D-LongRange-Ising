@@ -9,7 +9,9 @@
 typedef enum latType_s {
   SQ_LOCAL,
   SQ_NONLOCAL,
-  ADS} latType;
+  SQ_ADS,
+  ADS_LOCAL
+} latType;
 
 class Param{
 
@@ -46,7 +48,7 @@ class Param{
   int R = 9;
   int surfaceVol = 0;
   int latVol = 0;
-  double musqr  = -1.275;
+  double musqr  = -1.2725;
   double lambda = 1.0;
   double sigma = 1.33;
 

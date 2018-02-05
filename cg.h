@@ -66,13 +66,14 @@ void cg_multishift(double **phi, double *phi0, int n_shift, int size,
 //---------------------//
 
 //This function will calculate the M(x,x)^{-1} elements on the qth
-//portion of the graph. 
-void oneLoopCorrection(std::vector<Vertex> &NodeList, Param& p);
+//portion of the graph. From this information we can derive the
+//one loop corrections, and the LR couplings.
+void oneLoopCorrection(double *LR_couplings,
+		       std::vector<Vertex> &NodeList,
+		       Param &p);
 
 //This function will calculate the scaling factors needed to 
 //make the AdS lattice action match the analytcal action.
 void latticeScaling(std::vector<Vertex> &NodeList, Param& p);
-
-
 
 #endif

@@ -10,8 +10,9 @@
 
 using namespace std;
 
-int seed = clock();
-mt19937_64 rng(seed);
+//int seed = clock();
+int seed = 1234;
+mt19937 rng(seed);
 uniform_real_distribution<double> unif(0.0,1.0);
 
 #include "util.h"
@@ -19,9 +20,10 @@ uniform_real_distribution<double> unif(0.0,1.0);
 #include "graph.h"
 #include "cg.h"
 #include "eigen.h"
-#include "monte_carlo_ads.h"
 #include "monte_carlo_square_local.h"
 #include "monte_carlo_square_nonlocal.h"
+#include "monte_carlo_square_ads.h"
+#include "monte_carlo_ads_local.h"
 
 int main(int argc, char **argv) {
 
@@ -31,19 +33,22 @@ int main(int argc, char **argv) {
   //Process Command line arguments
   if(argc > 1) p.init(argc, argv);
   
-  //Populate problem dependent data
-  p.surfaceVol = (endNode(p.Levels,p) - endNode(p.Levels-1,p))*p.t;
+  //-- Populate problem dependent data. --//
+  //Nodes on the outer AdS perimeter.
   p.S1 = endNode(p.Levels,p) - endNode(p.Levels-1,p);
+  //Timeslices.
   p.Lt = p.t;
+  //Nodes on the 2D surface of the AdS space.
+  p.surfaceVol = p.S1*p.Lt;
+  //Nodes on the Poincare disk
   p.AdSVol = endNode(p.Levels,p) + 1;
-  if(p.latType == SQ_LOCAL || p.latType == SQ_NONLOCAL) {    
-    p.latVol = p.surfaceVol;
-  }
-  else p.latVol = p.AdSVol * p.Lt;
-  
+  //Nodes in the entire lattice Volume.
+  p.latVol = p.AdSVol * p.Lt;
+
+  //Print endnode data for reference.
   for(int i=1;i<10;i++) cout<<"Endnode("<<i<<") = "<<endNode(i,p)<<endl;
-  if(p.latType == SQ_LOCAL || p.latType == SQ_NONLOCAL) cout<<"Total Square nodes = "<<p.surfaceVol<<endl;
-  else cout<<"Total AdS nodes = "<<p.latVol<<endl;
+  cout<<"Total Surface nodes = "<<p.surfaceVol<<endl;
+  cout<<"Total AdS nodes     = "<<p.latVol<<endl;
   
   //Print paramters
   p.print();
@@ -61,26 +66,47 @@ int main(int argc, char **argv) {
       NodeList[n].nn[mu] = -1;
   
   switch(p.latType) {
-  case (ADS) :
+  case (ADS_LOCAL) : {
+    
     //Construct neighbour table.
     buildGraph(NodeList, p);
     //Get the z-coords and temporal weighting
     getComplexPositions(NodeList, p);
     //Get lattice/analytic scaling law
     latticeScaling(NodeList, p);
-    //Calculate the one loop corrections, store in NodeList.
-    oneLoopCorrection(NodeList, p);
-
-    runMonteCarloAdS(NodeList, p);
+    //Calculate the one loop corrections, store in NodeList,
+    //populate LR AdS Couplings
+    //oneLoopCorrection(LR_couplings, NodeList, p);
+    
+    runMonteCarloAdSL(NodeList, p);    
     break;
-  case (SQ_LOCAL) :
+  }    
+  case (SQ_LOCAL) : {
     runMonteCarloSqL(NodeList, p);
     break;
-  case (SQ_NONLOCAL) :    
+  }
+  case (SQ_NONLOCAL) : {
     runMonteCarloSqNL(NodeList, p);
     break;
-  default :
+  }
+  case (SQ_ADS) : {
+    double *LR_couplings = new double[p.surfaceVol*p.surfaceVol];
+    //Construct neighbour table.
+    buildGraph(NodeList, p);
+    //Get the z-coords and temporal weighting
+    getComplexPositions(NodeList, p);
+    //Get lattice/analytic scaling law
+    //latticeScaling(NodeList, p);
+    //Calculate the one loop corrections, store in NodeList,
+    //populate LR AdS Couplings
+    oneLoopCorrection(LR_couplings, NodeList, p);
+    runMonteCarloSqAdS(LR_couplings, NodeList, p);
+    delete[] LR_couplings;
+    break;
+  }
+  default : {
     cout<<"Unkown lattice type given"<<endl;
+  }
   }
   
   return 0;

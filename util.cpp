@@ -56,15 +56,23 @@ void Param::init(int argc, char **argv) {
 	    latType_in == "Sq_NonLocal") {
     latType = SQ_NONLOCAL;
     
-  } else if(latType_in == "ads" ||
-	    latType_in == "AdS") {
-    latType = ADS;
+  } else if (latType_in == "sq_ads"  ||
+	     latType_in == "SQ_ADS"  ||
+	     latType_in == "Sq_AdS") {
+    latType = SQ_ADS;
+    
+  } else if(latType_in == "ads_local" ||
+	    latType_in == "AdS_Locall" ||
+	    latType_in == "ADS_LOCAL") {
+    latType = ADS_LOCAL;
+    
     
   } else {
     cout<<"Invalid Lattice type given. Options are "<<endl;
-    cout<<"SQ_LOCAL: square lattice with local interacton"<<endl;
-    cout<<"SQ_NONLOCAL: square lattice with non-local interacton"<<endl;
-    cout<<"ADS: lattice with non-local interacton via AdS space"<<endl;
+    cout<<"SQ_LOCAL:    Square lattice with local interacton"<<endl;
+    cout<<"SQ_NONLOCAL: Square lattice with non-local interacton"<<endl;
+    cout<<"SQ_ADS:      Square lattice with non-local AdS coupling. "<<endl;
+    cout<<"ADS_LOCAL:   AdS lattice with local interacton "<<endl;
     exit(0);
   }
   

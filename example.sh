@@ -12,34 +12,39 @@ CENTRE='v'
 #v=verbose,q=quiet
 VERBOSITY='q'
 
-#sql=Square Local, sqnl=Square Non-Local, ads=AdS Lattice
-LATTICE='sq_nonlocal'
+#sq_local    = Square Local
+#sq_nonlocal = Square Non-Local
+#sq_ads      = Square AdS
+#ads_local   = AdS Lattice
+LATTICE='ads_local'
 
-Q=7
+Q=8
 MAX_ITER=100000
 TOL=1e-80
-TIMESLICES=21
-MSQR=-0.7
+TIMESLICES=32
+MSQR=100.0
 LEVELS=2
 SRC_POS=-1
 g_MSQR=1.0
-g_LATT=0.1
+g_LATT=1.0
 delta_MSQR=0.0
 N_SHIFT=1
 
 #Ensure these values are sensible!
 #Currently set for testing only.
-N_THERM=10000
-N_MEAS=5000
-N_SKIP=1000
+N_THERM=1000
+N_MEAS=500
+N_SKIP=100
 N_WOLFF=10
-MUSQR=1.0
-LAMBDA=0.30
-SIGMA=1.33
+MUSQR=-1.2725
+LAMBDA=10000.0
+SIGMA=100.0
 
-TWS=1.75
+TWS=$1
 
 make
+
+rm ads_wisdom
 
 rm -rf data_dump
 mkdir data_dump

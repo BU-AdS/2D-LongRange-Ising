@@ -63,15 +63,15 @@ double actionSqL(double *phi_arr, int *s, Param p,
   PE = 0.0;
   double phi_sq;
   double phi;
-  double lambda_p = p.lambda/4;
-  double musqr_p  = p.musqr/2;
+  double lambda_p = 0.25*p.lambda;
+  double musqr_p  = 0.50*p.musqr;
 
-  for (int i = 0; i < p.latVol; i++)
+  for (int i = 0; i < p.surfaceVol; i++)
     if (s[i] * phi_arr[i] < 0)
       printf("ERROR s and phi NOT aligned (actionPhi Square) ! \n");
   
   //PE terms
-  for (int i = 0; i < p.latVol; i++) {    
+  for (int i = 0; i < p.surfaceVol; i++) {    
     phi = phi_arr[i];
     phi_sq = phi*phi;
     
@@ -100,12 +100,12 @@ int metropolisUpdateSqL(double *phi_arr, int *s, Param &p,
   double phi_new_sq = 0.0;
   double phi = 0.0;
   double phi_sq = 0.0;
-  double lambda_p = p.lambda/4;
-  double musqr_p  = p.musqr/2;
+  double lambda_p = 0.25*p.lambda;
+  double musqr_p  = 0.50*p.musqr;
   
   double DeltaE = 0.0;
   
-  for (int i = 0; i < p.latVol; i++) {
+  for (int i = 0; i < p.surfaceVol; i++) {
 
     //Set some values we use a lot
     phi = phi_arr[i];
@@ -114,7 +114,7 @@ int metropolisUpdateSqL(double *phi_arr, int *s, Param &p,
     phi_new_sq = phi_new*phi_new;
     phi_sq = phi*phi;
     
-    if (s[i] * phi_arr[i] < 0) {
+    if (s[i] * phi < 0) {
       printf("ERROR s and phi NOT aligned! (MUP)\n");
       exit(0);
     }
@@ -157,7 +157,7 @@ int metropolisUpdateSqL(double *phi_arr, int *s, Param &p,
     } else {
       p.delta_phi += 0.001;
     }
-    if(p.n_wolff*1.0*sql_wc_ave/sql_wc_calls < p.latVol && iter > p.n_skip) {
+    if(p.n_wolff*1.0*sql_wc_ave/sql_wc_calls < p.surfaceVol && iter > p.n_skip) {
       p.n_wolff++;
     } else {
       p.n_wolff--;
@@ -166,31 +166,31 @@ int metropolisUpdateSqL(double *phi_arr, int *s, Param &p,
   }
   
   if( iter < p.n_therm ) {
-    //cout<<"At iter "<<iter<<" the Acceptance rate is "<<(double)accept/(double)tries<<endl;
+    //cout<<"At iter "<<iter<<" the Acceptance rate is "<<(double)sql_accept/(double)sql_tries<<endl;
     //cout<<"and delta_phi is "<<p.delta_phi<<endl;
   }
   return delta_mag;
 }
 
 
-void wolffUpdateSqL(double *phi, int *s, Param p,
+void wolffUpdateSqL(double *phi_arr, int *s, Param p,
 		    double &delta_mag_phi, int iter) {
   
   sql_wc_calls++;
 
-  bool *cluster = new bool[p.latVol];
-  for (int i = 0; i < p.latVol; i++)
+  bool *cluster = new bool[p.surfaceVol];
+  for (int i = 0; i < p.surfaceVol; i++)
     cluster[i] = false;
 
   // choose a random spin and grow a cluster
-  int i = int(unif(rng) * p.latVol);
+  int i = int(unif(rng) * p.surfaceVol);
   int cSpin = s[i];
   
   //This function is recursive and will call itself
   //until all four attempts in the lattice directions
   // (+x, -x, +t, -t) have failed to ncrease the cluster.
   sql_wc_size = 1;
-  clusterAddSqL(i, s, cSpin, cluster, phi, p);
+  clusterAddSqL(i, s, cSpin, cluster, phi_arr, p);
 
   sql_wc_ave += sql_wc_size;
 
@@ -204,12 +204,12 @@ void wolffUpdateSqL(double *phi, int *s, Param p,
 }
 
 void clusterAddSqL(int i, int *s, int cSpin,
-		   bool *cluster, double *phi, Param p) {
+		   bool *cluster, double *phi_arr, Param p) {
   
   // The site belongs to the cluster, so flip it.
   cluster[i] = true;
   s[i] *= -1;
-  phi[i] *= -1;
+  phi_arr[i] *= -1;
 
   // ferromagnetic coupling
   const double J = 1.0;
@@ -220,42 +220,42 @@ void clusterAddSqL(int i, int *s, int cSpin,
 
   //Forward in T
   if(!cluster[ tp(i,p) ] && s[tp(i,p)] == cSpin) {
-    if(unif(rng) < 1 - exp(2*J*phi[i]*phi[tp(i,p)])) {
+    if(unif(rng) < 1 - exp(2*J*phi_arr[i]*phi_arr[tp(i,p)])) {
       sql_wc_size++;
       sql_wc_t_size++;
       //cout<<"->tp";
-      clusterAddSqL(tp(i,p), s, cSpin, cluster, phi, p);
+      clusterAddSqL(tp(i,p), s, cSpin, cluster, phi_arr, p);
     }
   }
 
   //Forward in X
   if(!cluster[ xp(i,p) ] && s[xp(i,p)] == cSpin) {
-    if(unif(rng) < 1 - exp(2*J*phi[i]*phi[xp(i,p)])) {
+    if(unif(rng) < 1 - exp(2*J*phi_arr[i]*phi_arr[xp(i,p)])) {
       sql_wc_size++;
       sql_wc_s_size++;
       //cout<<"->xp";
-      clusterAddSqL(xp(i,p), s, cSpin, cluster, phi, p);
+      clusterAddSqL(xp(i,p), s, cSpin, cluster, phi_arr, p);
     }
   }
 
   
   //Backard in T 
   if(!cluster[ ttm(i,p) ] && s[ttm(i,p)] == cSpin) {  
-    if(unif(rng) < 1 - exp(2*J*phi[i]*phi[ttm(i,p)])) {
+    if(unif(rng) < 1 - exp(2*J*phi_arr[i]*phi_arr[ttm(i,p)])) {
       sql_wc_size++;
       sql_wc_t_size++;
       //cout<<"->tm";
-      clusterAddSqL(ttm(i,p), s, cSpin, cluster, phi, p);
+      clusterAddSqL(ttm(i,p), s, cSpin, cluster, phi_arr, p);
     }
   }
 
   //Backward in X
   if(!cluster[ xm(i,p) ] && s[xm(i,p)] == cSpin) {
-    if (unif(rng) < 1 - exp(2*J*phi[i]*phi[xm(i,p)])) {
+    if (unif(rng) < 1 - exp(2*J*phi_arr[i]*phi_arr[xm(i,p)])) {
       sql_wc_size++;
       sql_wc_s_size++;
       //cout<<"->xm";
-      clusterAddSqL(xm(i,p), s, cSpin, cluster, phi, p);
+      clusterAddSqL(xm(i,p), s, cSpin, cluster, phi_arr, p);
     }
   }
  
@@ -268,10 +268,10 @@ void runMonteCarloSqL(vector<Vertex> &NodeList, Param p) {
   double mag_phi = 0.0;
   double delta_mag_phi = 0.0;
 
-  int *s = (int*)malloc(p.latVol*sizeof(int));
+  int *s = (int*)malloc(p.surfaceVol*sizeof(int));
   double *phi;
-  phi = (double*)malloc(p.latVol*sizeof(double));
-  for(int i = 0;i < p.latVol; i++) {
+  phi = (double*)malloc(p.surfaceVol*sizeof(double));
+  for(int i = 0;i < p.surfaceVol; i++) {
     phi[i] = 2.0*unif(rng) - 1.0;
     s[i] = (phi[i] > 0) ? 1:-1;
     mag_phi += phi[i];
@@ -307,7 +307,7 @@ void runMonteCarloSqL(vector<Vertex> &NodeList, Param p) {
   double MagPhi   = 0.0;
 
   //Density of lattice sites
-  double rhoVol  = 1.0/(double)p.latVol;
+  double rhoVol  = 1.0/(double)p.surfaceVol;
   double rhoVol2 = rhoVol*rhoVol;
 
   //correlation function arrays. One keeps the running average,
@@ -354,7 +354,7 @@ void runMonteCarloSqL(vector<Vertex> &NodeList, Param p) {
       aveE2 += rhoVol2*tmpE*tmpE;
 
       MagPhi = 0.0;
-      for(int i = 0;i < p.latVol; i++) MagPhi += phi[i];
+      for(int i = 0;i < p.surfaceVol; i++) MagPhi += phi[i];
       MagPhi *= rhoVol;
       
       avePhiAb  += abs(MagPhi);
@@ -388,7 +388,7 @@ void runMonteCarloSqL(vector<Vertex> &NodeList, Param p) {
       cout<<"Binder    = "<<1.0-avePhi4/(3.0*avePhi2*avePhi2*norm)<<endl;
       
       //Visualisation tools
-      //visualiserSq(phi, avePhiAb*norm, p);
+      visualiserSqr(phi, avePhiAb*norm, p);
       //visualiserPhi2(phi_sq_arr, p, idx);      
 
       //Calculate correlaton functions and update the average.
