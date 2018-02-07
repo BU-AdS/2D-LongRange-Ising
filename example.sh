@@ -16,13 +16,13 @@ VERBOSITY='q'
 #sq_nonlocal = Square Non-Local
 #sq_ads      = Square AdS
 #ads_local   = AdS Lattice
-LATTICE='ads_local'
+LATTICE='sq_nonlocal'
 
 Q=8
 MAX_ITER=100000
 TOL=1e-80
 TIMESLICES=32
-MSQR=100.0
+MSQR=1.0
 LEVELS=2
 SRC_POS=-1
 g_MSQR=1.0
@@ -32,13 +32,13 @@ N_SHIFT=1
 
 #Ensure these values are sensible!
 #Currently set for testing only.
-N_THERM=1000
+N_THERM=2000
 N_MEAS=500
 N_SKIP=100
 N_WOLFF=10
 MUSQR=-1.2725
-LAMBDA=10000.0
-SIGMA=100.0
+LAMBDA=1.0
+SIGMA=$2
 
 TWS=$1
 

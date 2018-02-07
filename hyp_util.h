@@ -50,12 +50,16 @@ double s(std::complex<double> z);
 double r(double s );
 double d12(std::complex<double> z1, std::complex<double> z2);
 double sigma(std::complex<double> z1, std::complex<double> z2, double t);
+double sigmaL(std::complex<long double> z1,
+	      std::complex<long double> z2, double t);
 double s3p(int q);
 double area3q(int q);
 double areaGeneral(Param P, double A, double B, double C);
 double centralRad(double s);
 double greens2D(std::complex<double> z, std::complex<double> w);
 double greensM2D(std::complex<double> z, std::complex<double> w, Param p);
-
+double AdS2p1Prop(std::complex<long double> z1,
+		  std::complex<long double> z2,
+		  double delta_t, Param p);
 
 #endif

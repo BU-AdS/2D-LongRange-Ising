@@ -56,6 +56,18 @@ double sigma(complex<double> z, complex<double> w, double delta_t) {
     
 }
 
+//Geodesic distance from z1,t1 to z2,t2
+double sigmaL(complex<long double> z,
+	      complex<long double> w,
+	      double delta_t) {
+  
+  long double theta = atan2( (w/z).imag() , (w/z).real() );
+  long double r = abs(z);
+  long double r_p = abs(w);  
+  long double xi = (cosh(delta_t)*(1.0L+r)*(1.0L+r_p) - 4*r*r_p*cos(theta)) / ((1.0L-r)*(1.0L-r_p)); 
+  return acosh(xi);   
+}
+
 // length of arc q fold triangle to origin.
 double s3p(int q){  //vertex centered Arc lengeth
   return (double)2.0*acosh((double)1.0/sin(M_PI/(double)q));
@@ -152,4 +164,13 @@ double greensM2D(complex<double> z, complex<double> w, Param p) {
   result *= pow(geo,delta/2) * tgamma(delta) / (2*pow(M_PI,h)*tgamma(delta+1-h));
 
   return result;
+}
+
+double AdS2p1Prop(complex<long double> z1, complex<long double> z2,
+		  double delta_t, Param p){
+
+  long double Delta = 1.0L + sqrt(1.0L + p.msqr);
+  long double sigma_val = sigmaL(z1, z2, delta_t);
+  
+  return exp(-Delta*sigma_val) / (1.0L - exp(-2.0L*sigma_val));
 }

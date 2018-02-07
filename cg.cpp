@@ -555,7 +555,7 @@ void latticeScaling(vector<Vertex> &NodeList, Param& p){
       if(c[1] > grad) p.msqr < 0 ? p.C_msqr += (fac1*abs(d_grad) + 1*grad_tol) : p.C_msqr -= (fac1*abs(d_grad) + 1*grad_tol);
       if(c[1] < grad) p.msqr < 0 ? p.C_msqr -= (fac1*abs(d_grad) + 1*grad_tol) : p.C_msqr += (fac1*abs(d_grad) + 1*grad_tol);
     }
-
+    
     if(cov_ssq[0] != cov_ssq[0]) {
       cout<<"GSL failed!"<<endl;
       exit(0);
@@ -568,7 +568,6 @@ void latticeScaling(vector<Vertex> &NodeList, Param& p){
     //}
     
     //Did it tune properly?
-    //if(d_inter < inter_tol && d_grad < grad_tol) tuneWin = true;
     if(d_grad < grad_tol) tuneWin = true;
     
     delete[] phi_ave;
@@ -579,8 +578,6 @@ void latticeScaling(vector<Vertex> &NodeList, Param& p){
     iter++;
     
   }
-
-  
   
   //If this is a new problem, and it tuned properly, save the data.
   if(!preTuned && tuneWin) {
@@ -660,40 +657,14 @@ void oneLoopCorrection(double *LR_coupling,
     }
   }
 
-  double rad = 0.0;
-  for(int i=0; i<p.S1; i++)
-    rad += abs(NodeList[pos + i%p.S1 + (i/p.S1)*p.AdSVol].z)/p.S1;
-
-  cout<<rad<<endl;
-  //exit(0);
-  vector<complex<double>> circum(p.S1);
-  for(int i=0; i<p.S1; i++) {
-    circum[i].real(rad*cos(2*i*(M_PI/p.S1)));
-    circum[i].imag(rad*sin(2*i*(M_PI/p.S1)));
-  }
-
-  double delta = 1.0 + sqrt(1 + p.msqr);
-  
-  for(int i=0; i<p.surfaceVol; i++){
-    for(int j=0; j<p.surfaceVol; j++){
-      //index divided by disk size, using the int floor feature/bug,
-      //gives the timeslice for each index.
-      int t1 = i / p.S1;
-      int t2 = j / p.S1;
-      double delta_t = abs(t2-t1) > p.Lt/2 ? abs(p.Lt - abs(t2-t1)) : abs(t2-t1);
-      delta_t = delta_t*(p.t_weight_scale);
-      if(i != j) LR_coupling[i+j*p.surfaceVol] = exp(-delta*sigma(circum[i%p.S1], circum[j%p.S1], delta_t)) / (1 - exp(-2*sigma(circum[i%p.S1], circum[j%p.S1], delta_t)));
-      //if(i != j) LR_coupling[i+j*p.surfaceVol] = sigma(circum[i%p.S1], circum[j%p.S1], delta_t);
-      //else LR_coupling[i+j*p.surfaceVol] = 0.0;
-      //if ( j == i+32 ) cout<<i<<" "<<j<<" "<<d12(circum[i%p.S1], circum[j%p.S1])<<" "<<LR_coupling[i + j*p.surfaceVol]<<endl;
-    }
-  }
   
   //exit(0);
   delete[] phi_ave;
   delete[] phi;
   delete[] b;
 }
+
+
 
 // v1 = 0
 void zero_vector(double* v1, const int size)

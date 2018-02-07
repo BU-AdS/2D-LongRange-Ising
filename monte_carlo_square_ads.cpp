@@ -323,49 +323,24 @@ void clusterAddSqAdS(int i, int *s, int cSpin, bool *Acluster,
 
 
 //------------- Monte Carlo Update  ----------------//
-void runMonteCarloSqAdS(double *LR_couplings,
-			vector<Vertex> &NodeList,
-			Param p) {
+void runMonteCarloSqAdS(vector<Vertex> &NodeList, Param p) {
   
   double KE = 0.0, PE = 0.0;
   double mag_phi = 0.0;
   double delta_mag_phi = 0.0;
 
-  //Here we scale the LR couplings so that nn interactions are
-  //approximately 1.
-  double nn_sum = 0.0;
-  for(int i=0; i<p.surfaceVol; i++) {
-    nn_sum = 0.0;
-    //Get couplings of i's nn
-    nn_sum += LR_couplings[i + xp(i,p)*p.surfaceVol];
-    nn_sum += LR_couplings[i + xm(i,p)*p.surfaceVol];
-    nn_sum += LR_couplings[i + tp(i,p)*p.surfaceVol];
-    nn_sum += LR_couplings[i +ttm(i,p)*p.surfaceVol];
-    //Average out and take inverse
-    nn_sum /= 4.0;
-    //cout<<nn_sum<<endl;
-    for(int j=0; j<p.surfaceVol; j++) {
-      //Rescale all couplings
-      LR_couplings[i + j*p.surfaceVol] /= nn_sum;
-      LR_couplings[i + j*p.surfaceVol] = pow(LR_couplings[i + j*p.surfaceVol], p.sigma);
-      
-      //This essentially is the same as
-      //if(i != j) in the KE calculation.
-      if(i==j) LR_couplings[i + j*p.surfaceVol] = 0.0;
-      if(j == xp(i,p)) cout<<i<<" "<<j<<" "<<LR_couplings[i + j*p.surfaceVol]<<endl;
-      if(j == xm(i,p)) cout<<i<<" "<<j<<" "<<LR_couplings[i + j*p.surfaceVol]<<endl;
-      if(j == tp(i,p)) cout<<i<<" "<<j<<" "<<LR_couplings[i + j*p.surfaceVol]<<endl;
-      if(j ==ttm(i,p)) cout<<i<<" "<<j<<" "<<LR_couplings[i + j*p.surfaceVol]<<endl;
-    }
-  }
-      
-  int *s = (int*)malloc(p.surfaceVol*sizeof(int));
-  double *phi = (double*)malloc(p.surfaceVol*sizeof(double));
+  double *LR_couplings = new double[p.surfaceVol*p.surfaceVol];  
+  LRAdSCouplings(LR_couplings, NodeList, p);
+
+  cout<<"1"<<endl;
+  
+  int *s = new int[p.surfaceVol];
+  double *phi = new double[p.surfaceVol];
   for(int i=0; i<p.surfaceVol; i++) {
     phi[i] = 2.0*unif(rng) - 1.0;
     s[i] = (phi[i] > 0) ? 1:-1;
     mag_phi += phi[i];
-  }  
+  } 
   thermaliseSqAdS(phi, s, p, delta_mag_phi, LR_couplings);
   
   //Arrays holding measurements for error analysis
@@ -507,12 +482,14 @@ void runMonteCarloSqAdS(double *LR_couplings,
   
   //free(corr_run);
   //free(corr_ave);
-
-  free(s);
+  
+  delete[] s;
+  delete[] phi;
+  delete[] LR_couplings;;  
 }
 
 void thermaliseSqAdS(double *phi, int *s, Param p,
-		   double &delta_mag_phi, double *LR_couplings) {
+		     double &delta_mag_phi, double *LR_couplings) {
   
   for(int iter = 0; iter < p.n_therm; iter++) {
     for(int i=0; i<p.n_wolff; i++) {
@@ -522,5 +499,107 @@ void thermaliseSqAdS(double *phi, int *s, Param p,
     }
     metropolisUpdateSqAdS(phi, s, p, LR_couplings, delta_mag_phi, iter);    
     if((iter+1)%p.n_skip == 0) cout<<"Therm sweep "<<iter+1<<endl;
+  }
+}
+
+void LRAdSCouplings(double *LR_couplings, vector<Vertex> NodeList, Param &p){
+
+  int pos = endNode(p.Levels-1, p) + 1;  
+  double rad = 0.0;
+  for(int i=0; i<p.S1; i++)
+    rad += abs(NodeList[pos + i%p.S1 + (i/p.S1)*p.AdSVol].z)/p.S1;
+
+  rad = 0.99;
+  
+  cout<<rad<<endl;
+  vector<complex<long double>> circum(p.S1);
+  for(int i=0; i<p.S1; i++) {
+    circum[i].real(rad*cos(2*i*(M_PI/p.S1)));
+    circum[i].imag(rad*sin(2*i*(M_PI/p.S1)));
+  }
+
+  for(int i=0; i<p.S1; i++) {
+    double delta_t = i > p.Lt/2 ? p.Lt - i : i;
+    delta_t = delta_t*(p.t_weight_scale);
+    //cout<<AdS2p1Prop(circum[0], circum[i], 0, p)/AdS2p1Prop(circum[0], circum[0], i*p.t_weight_scale, p)<<endl;
+    cout<<i<<" "<<pow(AdS2p1Prop(circum[0], circum[i], 0, p)/AdS2p1Prop(circum[0], circum[0], delta_t, p),p.sigma)<<endl;
+  }
+  exit(0);
+    
+  //Here we scale the LR couplings so that nn interactions are
+  //approximately unit valued. We do this by raking the ratio of
+  //G(i,t;i+1,t) to G(i,t;i,t+1)
+  double celeritas = (AdS2p1Prop(circum[0], circum[1], 0, p) /
+		      AdS2p1Prop(circum[0], circum[0], 1, p));
+
+  double c_tol = 1e-8;
+  double kappa = p.t_weight_scale;
+
+  while(abs(1-celeritas) > c_tol) {
+    celeritas = (sigmaL(circum[0], circum[1], 0) /
+		 sigmaL(circum[0], circum[0], kappa));
+    //celeritas = (AdS2p1Prop(circum[0], circum[1], 0, p) /
+    //AdS2p1Prop(circum[0], circum[0], kappa, p));
+    if(celeritas > 1) kappa += 1e-10;
+    if(celeritas < 1) kappa -= 1e-10;
+    setprecision(10);
+    cout<<kappa<<endl;
+  }
+  
+  p.t_weight_scale = kappa;
+  
+  for(int i=0; i<p.surfaceVol; i++){
+    for(int j=0; j<p.surfaceVol; j++){
+      //index divided by disk size, using the int floor feature/bug,
+      //gives the timeslice for each index.
+      int t1 = i / p.S1;
+      int t2 = j / p.S1;
+      double delta_t = abs(t2-t1) > p.Lt/2 ? p.Lt - abs(t2-t1) : abs(t2-t1);
+      delta_t = delta_t*(p.t_weight_scale);
+      
+      if(i!=j) {
+	//LR_couplings[i+j*p.surfaceVol] = AdS2p1Prop(circum[i%p.S1],
+	//circum[j%p.S1],
+	//delta_t, p);
+      }      
+      if(i!=j) {
+	LR_couplings[i+j*p.surfaceVol] = sigmaL(circum[i%p.S1],
+						circum[j%p.S1],
+						delta_t);
+      }      
+      else LR_couplings[i+j*p.surfaceVol] = 0.0;
+    }
+  }
+
+  //double unit_scale = 1.0/(AdS2p1Prop(circum[0], circum[1], 0, p));
+  double unit_scale = 1.0/(sigmaL(circum[0], circum[1], 0));
+  cout<<"Unit Scale = "<<unit_scale<<endl;
+  
+  //exit(0);
+
+  
+  for(int i=0; i<p.surfaceVol; i++) {
+    for(int j=0; j<p.surfaceVol; j++) {
+      //Rescale temporally
+      if(j == tp(i,p)) {
+	//LR_couplings[i + j*p.surfaceVol] *= celeritas;
+      }
+      //Rescale G(i;nn) = 1;
+      LR_couplings[i + j*p.surfaceVol] *= unit_scale;
+      
+      //Additional \sigma scaling (c.f. Slava)
+      LR_couplings[i + j*p.surfaceVol] = pow(LR_couplings[i + j*p.surfaceVol], p.sigma);
+
+      if(i==j) LR_couplings[i+j*p.surfaceVol] = 0.0;
+    }
+  }
+  for(int i=0; i<p.surfaceVol; i++) {
+    for(int j=0; j<p.surfaceVol; j++) {
+      //Check      
+      if(i==0 && j%32 == 0) {
+	cout<<i<<" "<<j/32<<" x "<<LR_couplings[i + (j/32)*p.surfaceVol]<<endl;
+	cout<<i<<" "<<j/32<<" t "<<LR_couplings[i + j*p.surfaceVol]<<endl;       
+      }      
+    }
   }
 }

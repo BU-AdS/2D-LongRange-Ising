@@ -7,6 +7,7 @@
 #include <cstring>
 #include <random>
 #include <unistd.h>
+#include </usr/local/Cellar/gcc/4.9.2_1/lib/gcc/4.9/gcc/x86_64-apple-darwin14.3.0/4.9.2/include/omp.h>
 
 #include "util.h"
 #include "hyp_util.h"
@@ -82,7 +83,11 @@ double actionSqNL(double *phi_arr, int *s, Param p,
     PE += musqr_p  * phi_sq;
 
     //KE terms
+#pragma omp parallel for
     for(int j=0; j<p.surfaceVol; j++) {
+      int id = omp_get_thread_num();
+      printf("Greetings from process %d!/n", id);
+      
       //Here we are overcounting by a factor of two, hence the 0.25
       //coefficient.
       //FIXME
@@ -134,6 +139,7 @@ int metropolisUpdateSqNL(double *phi_arr, int *s, Param &p,
     //KE
     double pmpn = phi-phi_new;
     double pnsmps = 0.5*phi_new_sq-phi_sq;
+#pragma omp parallel for
     for(int j=0; j<p.surfaceVol; j++) {
       DeltaE += (pmpn*phi_arr[j] + pnsmps)*LR_couplings[i+j*p.surfaceVol]*LR_couplings[i+j*p.surfaceVol];
     }
@@ -192,11 +198,13 @@ void wolffUpdateSqNL(double *phi_arr, int *s, Param p,
   
   //Tracks which sites are acutally in the cluster.
   bool *Acluster = new bool[p.surfaceVol];
+#pragma omp parallel for
   for (int i = 0; i < p.surfaceVol; i++)
     Acluster[i] = false;
   
   //Tracks which sites are potentially in the cluster.
   bool *Pcluster = new bool[p.surfaceVol];
+#pragma omp parallel for
   for (int i = 0; i < p.surfaceVol; i++)
     Pcluster[i] = false;
 
@@ -293,7 +301,7 @@ void clusterAddSqNL(int i, int *s, int cSpin, bool *Acluster,
   //(creating bonds) with the specified LR probablity.
   for(int j=0; j<sqnl_wc_poss; j++) {
     idx = Rcluster[j];
-    if(LR_couplings[i + idx*p.surfaceVol] > 0){
+    if(LR_couplings[i + idx*p.surfaceVol] > 1e-7){
       //cout<<Rcluster[j]<<endl;
       prob = 1 - exp(2*J*phi_arr[i]*phi_arr[idx]*LR_couplings[i + idx*p.surfaceVol]);
       rand = unif(rng);
@@ -326,6 +334,7 @@ void runMonteCarloSqNL(vector<Vertex> &NodeList, Param p) {
   double r_y = 0.0;
 
   for(int i=0; i<p.surfaceVol; i++) {
+#pragma omp parallel for
     for(int j=0; j<p.surfaceVol; j++) {
       
       r_x = abs(i%p.S1 - j%p.S1);
@@ -404,11 +413,10 @@ void runMonteCarloSqNL(vector<Vertex> &NodeList, Param p) {
   
   for(int iter = p.n_therm; iter < p.n_therm + p.n_skip*p.n_meas; iter++) {
     
-    if((iter+1)%p.n_wolff == 0 && p.n_wolff != 0) {
-      metropolisUpdateSqNL(phi, s, p, LR_couplings, delta_mag_phi, iter);
-    } else {
-      wolffUpdateSqNL(phi, s, p, LR_couplings, delta_mag_phi, iter);
+    for(int i=0; i<p.n_wolff; i++) {
+      wolffUpdateSqNL(phi, s, p, LR_couplings, delta_mag_phi, iter);      
     }
+    metropolisUpdateSqNL(phi, s, p, LR_couplings, delta_mag_phi, iter);
     
     //Take measurements.
     if((iter+1) % p.n_skip == 0) {
@@ -425,6 +433,7 @@ void runMonteCarloSqNL(vector<Vertex> &NodeList, Param p) {
       aveE2 += rhoVol2*tmpE*tmpE;
 
       MagPhi = 0.0;
+#pragma omp parallel for
       for(int i = 0;i < p.surfaceVol; i++) MagPhi += phi[i];
       MagPhi *= rhoVol;
       
@@ -456,7 +465,7 @@ void runMonteCarloSqNL(vector<Vertex> &NodeList, Param p) {
       cout<<"Ave phi^4 = "<<avePhi4*norm<<endl;
       cout<<"Suscep    = "<<(avePhi2*norm-pow(avePhiAb*norm,2))/rhoVol<<endl;
       cout<<"Spec Heat = "<<(aveE2*norm-pow(aveE*norm,2))/rhoVol<<endl;
-      cout<<"Binder    = "<<1.0-avePhi4/(3.0*avePhi2*avePhi2*norm)<<endl;
+      cout<<"Binder    = "<<1.0-avePhi4/(3.0*avePhi2*avePhi2*norm)<<" ("<<norm*avePhi2*avePhi2/avePhi4<<")"<<endl;
       
       //Visualisation tools
       visualiserSqr(phi, avePhiAb*norm, p);
@@ -498,8 +507,7 @@ void thermaliseSqNL(double *phi, int *s, Param p,
   
   for(int iter = 0; iter < p.n_therm; iter++) {
     for(int i=0; i<p.n_wolff; i++) {
-      wolffUpdateSqNL(phi, s, p, LR_couplings, delta_mag_phi, iter);
-      iter++;
+      wolffUpdateSqNL(phi, s, p, LR_couplings, delta_mag_phi, iter);      
     }
     metropolisUpdateSqNL(phi, s, p, LR_couplings, delta_mag_phi, iter);
     if((iter+1)%p.n_skip == 0) cout<<"Therm sweep "<<iter+1<<endl;

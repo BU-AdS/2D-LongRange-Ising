@@ -105,7 +105,7 @@ void Param::init(int argc, char **argv) {
   lambda  = atof(argv[21]);
   sigma   = atof(argv[22]);
 
-  t_weight_scale  = atof(argv[23]);  
+  t_weight_scale = atof(argv[23]);  
   
 }
 

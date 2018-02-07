@@ -32,8 +32,9 @@ double actionSqAdS(double *phi_arr, int *s, Param p,
 void thermaliseSqAdS(double *phi, int *s, Param P,
 		   double &delta_mag_phi, double *LR_couplings);
 
-void runMonteCarloSqAdS(double *LR_couplings, std::vector<Vertex> &NodeList,
-			Param p);
+void LRAdSCouplings(double *LR_couplings, std::vector<Vertex> NodeList, Param &p);
+
+void runMonteCarloSqAdS(std::vector<Vertex> &NodeList, Param p);
 
 
 #endif

@@ -90,18 +90,12 @@ int main(int argc, char **argv) {
     break;
   }
   case (SQ_ADS) : {
-    double *LR_couplings = new double[p.surfaceVol*p.surfaceVol];
     //Construct neighbour table.
     buildGraph(NodeList, p);
-    //Get the z-coords and temporal weighting
+    //Get the z-coords
     getComplexPositions(NodeList, p);
-    //Get lattice/analytic scaling law
-    //latticeScaling(NodeList, p);
-    //Calculate the one loop corrections, store in NodeList,
-    //populate LR AdS Couplings
-    oneLoopCorrection(LR_couplings, NodeList, p);
-    runMonteCarloSqAdS(LR_couplings, NodeList, p);
-    delete[] LR_couplings;
+    
+    runMonteCarloSqAdS(NodeList, p);
     break;
   }
   default : {
