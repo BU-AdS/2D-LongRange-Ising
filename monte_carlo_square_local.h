@@ -16,6 +16,12 @@ void clusterAddSqL(int i, int *s, int clusterSpin,
 void wolffUpdateSqL(double *phi_arr, int *s, Param p,
 		    double &delta_mag_phi, int iter);
 
+void swendsenWangUpdateSqL(double *phi_arr, int *s, Param p,
+			   double &delta_mag_phi, int iter);
+
+void SWclusterAddSqL(int i, int *s, int cSpin, int clusterNum, 
+		     int *clusterDef, double *phi_arr, Param p);
+
 int metropolisUpdateSqL(double *phi_arr, int *s, 
 			Param &p, double & delta_mag_phi, int iter);
 

@@ -21,6 +21,15 @@ void wolffUpdateSqNL(double *phi_arr, int *s, Param p,
 		     double *LR_couplings,		  
 		     double &delta_mag_phi, int iter);
 
+void swendsenWangUpdateSqNL(double *phi_arr, int *s, Param p,
+			    double *LR_coupling,
+			    double &delta_mag_phi, int iter);
+
+void SWclusterAddSqNL(int i, int *s, int cSpin, int clusterNum, 
+		      int *clusterDef, std::vector<int> Rcluster, 
+		      double *LR_couplings,
+		      double *phi_arr, Param p);
+
 int metropolisUpdateSqNL(double *phi_arr, int *s, Param &p,
 			 double *LR_couplings,
 			 double & delta_mag_phi, int iter);

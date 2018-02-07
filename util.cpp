@@ -49,22 +49,22 @@ void Param::init(int argc, char **argv) {
   if (latType_in == "sq_local"  ||
       latType_in == "SQ_LOCAL"  ||
       latType_in == "Sq_Local") {
-    latType = SQ_LOCAL;
+    lat_type = SQ_LOCAL;
     
   } else if(latType_in == "sq_nonlocal" ||
 	    latType_in == "SQ_NONLOCAL" ||
 	    latType_in == "Sq_NonLocal") {
-    latType = SQ_NONLOCAL;
+    lat_type = SQ_NONLOCAL;
     
   } else if (latType_in == "sq_ads"  ||
 	     latType_in == "SQ_ADS"  ||
 	     latType_in == "Sq_AdS") {
-    latType = SQ_ADS;
+    lat_type = SQ_ADS;
     
   } else if(latType_in == "ads_local" ||
 	    latType_in == "AdS_Locall" ||
 	    latType_in == "ADS_LOCAL") {
-    latType = ADS_LOCAL;
+    lat_type = ADS_LOCAL;
     
     
   } else {

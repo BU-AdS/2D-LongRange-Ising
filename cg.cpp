@@ -11,7 +11,7 @@
 #include "cg.h" 
 #include "util.h"
 #include "hyp_util.h"
-#include "fit/gsl_fit.h"
+#include "gsl_fit.h"
 
 using namespace std;
 

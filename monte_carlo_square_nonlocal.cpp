@@ -7,7 +7,7 @@
 #include <cstring>
 #include <random>
 #include <unistd.h>
-#include </usr/local/Cellar/gcc/4.9.2_1/lib/gcc/4.9/gcc/x86_64-apple-darwin14.3.0/4.9.2/include/omp.h>
+#include <omp.h>
 
 #include "util.h"
 #include "hyp_util.h"
@@ -20,6 +20,9 @@ using namespace std;
 extern int seed;
 extern mt19937 rng;
 extern uniform_real_distribution<double> unif;
+
+//ferromagnetic coupling
+const double J = 1.0;
 
 //Basic utilites
 // x = 0,1,..., p.S1-1  and
@@ -83,15 +86,14 @@ double actionSqNL(double *phi_arr, int *s, Param p,
     PE += musqr_p  * phi_sq;
 
     //KE terms
-#pragma omp parallel for
-    for(int j=0; j<p.surfaceVol; j++) {
-      int id = omp_get_thread_num();
-      printf("Greetings from process %d!/n", id);
-      
+    double val = 0.0;
+#pragma omp parallel for private(val) reduction(+:KE)
+    for(int j=0; j<p.surfaceVol; j++) {      
       //Here we are overcounting by a factor of two, hence the 0.25
       //coefficient.
       //FIXME
-      KE += 0.25*(phi - phi_arr[j])*(phi - phi_arr[j])*LR_couplings[i+j*p.surfaceVol]*LR_couplings[i+j*p.surfaceVol];
+      val = 0.25*(phi - phi_arr[j])*(phi - phi_arr[j])*LR_couplings[i+j*p.surfaceVol]*LR_couplings[i+j*p.surfaceVol];
+      KE += val;
     }
   }
   return PE + KE;
@@ -139,9 +141,13 @@ int metropolisUpdateSqNL(double *phi_arr, int *s, Param &p,
     //KE
     double pmpn = phi-phi_new;
     double pnsmps = 0.5*phi_new_sq-phi_sq;
-#pragma omp parallel for
+    double val = 0.0;
+#pragma omp parallel for private(val) reduction(+:DeltaE)
     for(int j=0; j<p.surfaceVol; j++) {
-      DeltaE += (pmpn*phi_arr[j] + pnsmps)*LR_couplings[i+j*p.surfaceVol]*LR_couplings[i+j*p.surfaceVol];
+      //int id = omp_get_thread_num();
+      //cout<<"Greetings from process "<<id<<endl;
+      val = (pmpn*phi_arr[j] + pnsmps)*LR_couplings[i+j*p.surfaceVol]*LR_couplings[i+j*p.surfaceVol];
+      DeltaE += val;
     }
     
     sqnl_tries++;
@@ -165,7 +171,8 @@ int metropolisUpdateSqNL(double *phi_arr, int *s, Param &p,
       delta_mag += s[i] - s_old;
     }     
   }// end loop over lattice volume 
-  
+
+  /*  
   // TUNING ACCEPTANCE 
   if (iter < p.n_therm/2 && (iter+1) % p.n_skip/10 == 0) {
     if ((double) sqnl_accept / (double) sqnl_tries < 0.5) {
@@ -185,9 +192,129 @@ int metropolisUpdateSqNL(double *phi_arr, int *s, Param &p,
     cout<<"At iter "<<iter<<" the Acceptance rate is "<<(double)sqnl_accept/(double)sqnl_tries<<endl;
     cout<<"and delta_phi is "<<p.delta_phi<<endl;
   }
+  */
   return delta_mag;
 }
 
+void swendsenWangUpdateSqNL(double *phi_arr, int *s, Param p,
+			    double *LR_couplings, 
+			    double &delta_mag_phi, int iter) {
+
+  int clusterNum = 0;
+  
+  //Integer array holding the cluster number each site
+  //belongs to. If zero, the site is unchecked.
+  int *clusterDef = new int[p.surfaceVol];
+  for (int i = 0; i < p.surfaceVol; i++)
+    clusterDef[i] = 0;
+
+  //Integer array holding the spin value of each cluster,
+  int *clusterSpin = new int[p.surfaceVol];
+  for (int i = 0; i < p.surfaceVol; i++)
+    clusterSpin[i] = 1;
+
+  //Tracks which sites are potentially in the cluster.
+  bool *Pcluster = new bool[p.surfaceVol];
+
+  for (int i = 0; i < p.surfaceVol; i++) {
+    if(clusterDef[i] == 0) {
+      //This is the start of a new cluster.
+      clusterNum++; 
+      clusterDef[i] = clusterNum;
+      s[i] < 0 ? clusterSpin[clusterNum] = -1 : clusterSpin[clusterNum] = 1;
+
+      //First, we must identify the maximum possible cluster, then we 
+      //can loop over only the sites 
+
+      for (int i = 0; i < p.surfaceVol; i++) Pcluster[i] = false;
+      
+      //Records which sites are potentially in the cluster.
+      //This will have a modifiable size, hence the vector
+      //style.
+      sqnl_wc_poss = 0;
+      vector<int> Rcluster;
+      clusterPossibleSqNL(i, s, clusterSpin[clusterNum], 
+			  Pcluster, Rcluster, p);
+      
+      cout<<"Site "<<i<<" "<<sqnl_wc_poss<<endl;
+
+      //This function will call itself recursively until it fails to 
+      //add to the cluster
+      SWclusterAddSqNL(i, s, clusterSpin[clusterNum], clusterNum, 
+		       clusterDef, Rcluster, LR_couplings, phi_arr, p);
+
+      Rcluster.clear();
+
+    }
+  }
+  
+  //Loop over the defined clusters, flip with probabilty 0.5.
+  for(int i=1; i<=clusterNum; i++) {
+    if(unif(rng) < 0.5) clusterSpin[i] = -1;
+    else clusterSpin[i] = 1;
+  }
+  
+  //Apply spin flip. If a site is not in a cluster, its cluster value
+  //is zero and its spin is not flipped.
+  for (int i = 0; i < p.surfaceVol; i++) {
+    phi_arr[i] *= clusterSpin[clusterDef[i]];
+    s[i]       *= clusterSpin[clusterDef[i]];
+  }      
+
+  delete[] clusterDef;
+  delete[] clusterSpin;
+  delete[] Pcluster;
+}
+
+
+void SWclusterAddSqNL(int i, int *s, int cSpin, int clusterNum, 
+		      int *clusterDef, vector<int> Rcluster, 
+		      double *LR_couplings,
+		      double *phi_arr, Param p) {
+
+  cout<<"Here?1"<<endl;
+
+  //The site belongs to the (clusterNum)th cluster
+  clusterDef[i] = clusterNum;
+
+  cout<<"Here?2"<<endl;
+
+  double prob = 0.0;
+  double rand = 0.0;
+  int idx = 0;
+
+  cout<<"Here?3"<<endl;
+  
+  //We now loop over the possible lattice sites, adding sites
+  //(creating bonds) with the specified LR probablity.
+  for(int j=0; j<sqnl_wc_poss; j++) {
+    cout<<"Here?4"<<endl;
+    idx = Rcluster[j];
+    cout<<"Here?5"<<endl;
+    if(LR_couplings[i + idx*p.surfaceVol] > 1e-7 && clusterDef[i] != 0){
+      cout<<"Here?6"<<endl;
+      //cout<<Rcluster[j]<<endl;
+      prob = 1 - exp(-2*J*phi_arr[i]*phi_arr[idx]*LR_couplings[i + idx*p.surfaceVol]);
+      cout<<"Here?7"<<endl;
+      rand = unif(rng);
+      cout<<"Here?8"<<endl;
+      //cout<<"Testing "<<i<<","<<Rcluster[j]<<" "<<rand<<" "<<prob<<" ";
+      if(rand < prob) {
+	cout<<"Here?9"<<endl;
+	//cout<<"hit"<<endl;
+	sqnl_wc_size++;
+	cout<<"Here?10"<<endl;
+	//next = Rcluster[j];
+	//Rcluster.erase(Rcluster.begin() + j);
+	SWclusterAddSqNL(idx, s, cSpin, clusterNum, 
+			 clusterDef, Rcluster, LR_couplings, phi_arr, p);
+	
+      }    
+      //cout<<"miss"<<endl;
+    }
+  }
+  //cout<<endl<<endl<<"New Base"<<endl;
+}
 
 void wolffUpdateSqNL(double *phi_arr, int *s, Param p,
 		     double *LR_couplings,
@@ -213,16 +340,16 @@ void wolffUpdateSqNL(double *phi_arr, int *s, Param p,
   //style.
   vector<int> Rcluster;
   
-  //Choose a random spin and identfy the possible cluster
+  //Choose a random spin and identify the possible cluster
   //with a flood fill.
   int i = int(unif(rng) * p.surfaceVol);
   int cSpin = s[i];
   clusterPossibleSqNL(i, s, cSpin, Pcluster, Rcluster, p);
 
-  //cout<<"Maximum cluster size = "<<sqnl_wc_poss<<endl;
+  //`cout<<"Maximum cluster size = "<<sqnl_wc_poss<<endl;
   
   //This function is recursive and will call itself
-  //until all attempts to increase the cluster size
+  //until all attempts `to increase the cluster size
   //have failed.
   sqnl_wc_size = 1;
   clusterAddSqNL(i, s, cSpin, Acluster, Rcluster, LR_couplings, phi_arr, p);
@@ -409,12 +536,14 @@ void runMonteCarloSqNL(vector<Vertex> &NodeList, Param p) {
   }
 
   int idx = 0;
-  double norm;
+  double norm = 0.0;
+  double val = 0.0;
   
   for(int iter = p.n_therm; iter < p.n_therm + p.n_skip*p.n_meas; iter++) {
     
     for(int i=0; i<p.n_wolff; i++) {
-      wolffUpdateSqNL(phi, s, p, LR_couplings, delta_mag_phi, iter);      
+      //wolffUpdateSqNL(phi, s, p, LR_couplings, delta_mag_phi, iter);      
+      swendsenWangUpdateSqNL(phi, s, p, LR_couplings, delta_mag_phi, iter);      
     }
     metropolisUpdateSqNL(phi, s, p, LR_couplings, delta_mag_phi, iter);
     
@@ -432,9 +561,12 @@ void runMonteCarloSqNL(vector<Vertex> &NodeList, Param p) {
       aveE  += rhoVol*tmpE;
       aveE2 += rhoVol2*tmpE*tmpE;
 
-      MagPhi = 0.0;
-#pragma omp parallel for
-      for(int i = 0;i < p.surfaceVol; i++) MagPhi += phi[i];
+      MagPhi = 0.0;      
+#pragma omp parallel for private(val) reduction(+:MagPhi)
+      for(int i = 0;i < p.surfaceVol; i++) {
+	val = phi[i];
+	MagPhi += val;
+      }
       MagPhi *= rhoVol;
       
       avePhiAb  += abs(MagPhi);
@@ -507,7 +639,8 @@ void thermaliseSqNL(double *phi, int *s, Param p,
   
   for(int iter = 0; iter < p.n_therm; iter++) {
     for(int i=0; i<p.n_wolff; i++) {
-      wolffUpdateSqNL(phi, s, p, LR_couplings, delta_mag_phi, iter);      
+      //wolffUpdateSqNL(phi, s, p, LR_couplings, delta_mag_phi, iter);      
+      swendsenWangUpdateSqNL(phi, s, p, LR_couplings, delta_mag_phi, iter);      
     }
     metropolisUpdateSqNL(phi, s, p, LR_couplings, delta_mag_phi, iter);
     if((iter+1)%p.n_skip == 0) cout<<"Therm sweep "<<iter+1<<endl;

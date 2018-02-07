@@ -32,17 +32,17 @@ N_SHIFT=1
 
 #Ensure these values are sensible!
 #Currently set for testing only.
-N_THERM=2000
+N_THERM=500
 N_MEAS=500
 N_SKIP=100
-N_WOLFF=10
+N_WOLFF=3
 MUSQR=-1.2725
 LAMBDA=1.0
 SIGMA=$2
 
 TWS=$1
 
-make
+make -j 12
 
 rm ads_wisdom
 
@@ -52,8 +52,8 @@ mkdir data_dump
 COMMAND="./adsrun ${BC} ${CENTRE} ${VERBOSITY} ${LATTICE} \
 	 	  ${MAX_ITER} ${TOL} ${TIMESLICES} ${MSQR} ${delta_MSQR} \
 	 	  ${LEVELS} ${SRC_POS} ${g_MSQR} ${g_LATT} ${Q} ${N_SHIFT} \
-		  ${N_THERM} ${N_MEAS} ${N_SKIP} ${N_WOLFF} ${MUSQR} ${LAMBDA} \
-		  ${SIGMA} ${TWS}"
+		  ${N_THERM} ${N_MEAS} ${N_SKIP} ${N_WOLFF} ${MUSQR} 
+                  ${LAMBDA} ${SIGMA} ${TWS} "
 
 echo ${COMMAND}
 

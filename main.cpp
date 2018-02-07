@@ -10,8 +10,8 @@
 
 using namespace std;
 
-//int seed = clock();
-int seed = 1234;
+int seed = clock();
+//int seed = 1234;
 mt19937 rng(seed);
 uniform_real_distribution<double> unif(0.0,1.0);
 
@@ -65,7 +65,7 @@ int main(int argc, char **argv) {
     for(int mu = 0; mu < p.q+2; mu++) 
       NodeList[n].nn[mu] = -1;
   
-  switch(p.latType) {
+  switch(p.lat_type) {
   case (ADS_LOCAL) : {
     
     //Construct neighbour table.

@@ -22,7 +22,7 @@ class Param{
   bool bc        = true;  //if true, use Dirichlet. If false, use Neumann
   bool Vcentre   = true;  //if true, place vertex at centre. If false, use circumcentre.
   bool verbosity = false; //if true, print all data. If false, print summary.
-  latType latType = SQ_LOCAL;
+  latType lat_type = SQ_LOCAL;
   
   int MaxIter = 100000;
   double tol = pow(10,-6);

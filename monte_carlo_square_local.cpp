@@ -56,6 +56,12 @@ int sql_wc_calls = 0;
 int sql_wc_t_size = 0;
 int sql_wc_s_size = 0;
 
+int sql_sw_ave = 0;
+int sql_sw_size = 0;
+int sql_sw_calls = 0;
+int sql_sw_t_size = 0;
+int sql_sw_s_size = 0;
+
 double actionSqL(double *phi_arr, int *s, Param p,
 		 double & KE, double & PE) {  
   
@@ -165,11 +171,102 @@ int metropolisUpdateSqL(double *phi_arr, int *s, Param &p,
     }
   }
   
-  if( iter < p.n_therm ) {
-    //cout<<"At iter "<<iter<<" the Acceptance rate is "<<(double)sql_accept/(double)sql_tries<<endl;
-    //cout<<"and delta_phi is "<<p.delta_phi<<endl;
-  }
   return delta_mag;
+}
+
+void swendsenWangUpdateSqL(double *phi_arr, int *s, Param p,
+			   double &delta_mag_phi, int iter) {
+  
+  sql_sw_calls++;  
+  int clusterNum = 0;
+  
+  //Integer array holding the cluster number each site
+  //belongs to. If zero, the site is unchecked.
+  int *clusterDef = new int[p.surfaceVol];
+  for (int i = 0; i < p.surfaceVol; i++)
+    clusterDef[i] = 0;
+  
+  //Integer array holding the spin value of each cluster,
+  int *clusterSpin = new int[p.surfaceVol];
+  for (int i = 0; i < p.surfaceVol; i++)
+    clusterSpin[i] = 1;
+
+  for (int i = 0; i < p.surfaceVol; i++) {
+    if(clusterDef[i] == 0) {
+      //This is the start of a new cluster.
+      clusterNum++; 
+      clusterDef[i] = clusterNum;
+      s[i] < 0 ? clusterSpin[clusterNum] = -1 : clusterSpin[clusterNum] = 1;
+      
+      cout<<"Site "<<i<<endl;
+      
+      //This function will call itself recursively until it fails to 
+      //add to the cluster
+      SWclusterAddSqL(i, s, clusterSpin[clusterNum], clusterNum, clusterDef, phi_arr, p);
+    }
+  }
+  
+  //Loop over the defined clusters, flip with probabilty 0.5.
+  for(int i=1; i<=clusterNum; i++) {
+    if(unif(rng) < 0.5) clusterSpin[i] = -1;
+    else clusterSpin[i] = 1;
+  }
+  
+  //Apply spin flip. If a site is not in a cluster, its cluster value
+  //is zero and its spin is not flipped.
+  for (int i = 0; i < p.surfaceVol; i++) {
+    phi_arr[i] *= clusterSpin[clusterDef[i]];
+    s[i]       *= clusterSpin[clusterDef[i]];
+  }      
+
+  delete[] clusterDef;
+  delete[] clusterSpin;
+}
+
+void SWclusterAddSqL(int i, int *s, int cSpin, int clusterNum, 
+		     int *clusterDef, double *phi_arr, Param p) {
+  
+  //The site belongs to the (clusterNum)th cluster
+  clusterDef[i] = clusterNum;
+
+  //ferromagnetic coupling
+  const double J = 1.0;
+  
+  //If the (aligned) neighbor spin does not already belong to the
+  // cluster, then try to add it to the cluster.
+  // - If the site has already been added, then we may skip the test.
+
+  //Forward in T
+  if(clusterDef[tp(i,p)] == 0 && s[tp(i,p)] == cSpin) {
+    if(unif(rng) < 1 - exp(-2*J*phi_arr[i]*phi_arr[tp(i,p)])) {
+      //cout<<"->tp";
+      SWclusterAddSqL(tp(i,p), s, cSpin, clusterNum, clusterDef, phi_arr, p);
+    }
+  }
+
+  //Forward in X
+  if(clusterDef[xp(i,p)] == 0 && s[xp(i,p)] == cSpin) {
+    if(unif(rng) < 1 - exp(-2*J*phi_arr[i]*phi_arr[xp(i,p)])) {
+      //cout<<"->xp";
+      SWclusterAddSqL(xp(i,p), s, cSpin, clusterNum, clusterDef, phi_arr, p);
+    }
+  }
+  
+  //Backard in T 
+  if(clusterDef[ttm(i,p)] == 0 && s[ttm(i,p)] == cSpin) {  
+    if(unif(rng) < 1 - exp(-2*J*phi_arr[i]*phi_arr[ttm(i,p)])) {
+      //cout<<"->tm";
+      SWclusterAddSqL(ttm(i,p), s, cSpin, clusterNum, clusterDef, phi_arr, p);
+    }
+  }
+  
+  //Backward in X
+  if(clusterDef[xm(i,p)] == 0 && s[xm(i,p)] == cSpin) {
+    if (unif(rng) < 1 - exp(-2*J*phi_arr[i]*phi_arr[xm(i,p)])) {
+      //cout<<"->xm";
+      SWclusterAddSqL(xm(i,p), s, cSpin, clusterNum, clusterDef, phi_arr, p);
+    }
+  } 
 }
 
 
@@ -257,8 +354,7 @@ void clusterAddSqL(int i, int *s, int cSpin,
       //cout<<"->xm";
       clusterAddSqL(xm(i,p), s, cSpin, cluster, phi_arr, p);
     }
-  }
- 
+  } 
 }
 
 //------------- Monte Carlo Update  ----------------//
@@ -333,11 +429,11 @@ void runMonteCarloSqL(vector<Vertex> &NodeList, Param p) {
   
   for(int iter = p.n_therm; iter < p.n_therm + p.n_skip*p.n_meas; iter++) {
     
-    if((iter+1)%p.n_wolff == 0 && p.n_wolff != 0) {
-      metropolisUpdateSqL(phi, s, p, delta_mag_phi, iter);
-    } else {
-      wolffUpdateSqL(phi, s, p, delta_mag_phi, iter);
+    for(int i=0; i<p.n_wolff; i++) {
+      //wolffUpdateSqL(phi, s, p, delta_mag_phi, iter);
+      swendsenWangUpdateSqL(phi, s, p, delta_mag_phi, iter);
     }
+    metropolisUpdateSqL(phi, s, p, delta_mag_phi, iter);
     
     //Take measurements.
     if((iter+1) % p.n_skip == 0) {
@@ -427,8 +523,8 @@ void thermaliseSqL(double *phi, int *s,
   
   for(int iter = 0; iter < p.n_therm; iter++) {
     for(int i=0; i<p.n_wolff; i++) {
-      wolffUpdateSqL(phi, s, p, delta_mag_phi, iter);
-      iter++;
+      swendsenWangUpdateSqL(phi, s, p, delta_mag_phi, iter);
+      //wolffUpdateSqL(phi, s, p, delta_mag_phi, iter);
     }
     metropolisUpdateSqL(phi, s, p, delta_mag_phi, iter);
     if((iter+1)%p.n_skip == 0) cout<<"Therm sweep "<<iter+1<<endl;
