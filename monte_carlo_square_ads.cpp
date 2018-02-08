@@ -176,11 +176,11 @@ int metropolisUpdateSqAdS(double *phi_arr, int *s, Param &p,
     } else {
       p.delta_phi += 0.001;
     }
-    if(p.n_wolff*1.0*sqads_wc_ave/sqads_wc_calls < p.surfaceVol && iter > p.n_skip) {
-      p.n_wolff++;
+    if(p.n_cluster*1.0*sqads_wc_ave/sqads_wc_calls < p.surfaceVol && iter > p.n_skip) {
+      p.n_cluster++;
     } else {
-      p.n_wolff--;
-      if(p.n_wolff < 2) p.n_wolff++;
+      p.n_cluster--;
+      if(p.n_cluster < 2) p.n_cluster++;
     }
   }
   
@@ -232,7 +232,7 @@ void wolffUpdateSqAdS(double *phi_arr, int *s, Param p,
 
   if( iter%p.n_skip == 0 && iter < p.n_therm) {
     setprecision(4);
-    cout<<"Using "<<p.n_wolff<<" Wolff hits."<<endl; 
+    cout<<"Using "<<p.n_cluster<<" Wolff hits."<<endl; 
     cout<<"Ave. cluster size at iter "<<iter<<" = "<<sqads_wc_ave<<"/"<<sqads_wc_calls<<" = "<<1.0*sqads_wc_ave/sqads_wc_calls<<endl;
     cout<<"S/T cluster growth ratio at iter "<<iter<<" = "<<1.0*sqads_wc_s_size/sqads_wc_ave<<":"<<1.0*sqads_wc_t_size/sqads_wc_ave<<endl;
   }
@@ -398,7 +398,7 @@ void runMonteCarloSqAdS(vector<Vertex> &NodeList, Param p) {
   
   for(int iter = p.n_therm; iter < p.n_therm + p.n_skip*p.n_meas; iter++) {
     
-    if((iter+1)%p.n_wolff == 0 && p.n_wolff != 0) {
+    if((iter+1)%p.n_cluster == 0 && p.n_cluster != 0) {
       metropolisUpdateSqAdS(phi, s, p, LR_couplings, delta_mag_phi, iter);
     } else {
       wolffUpdateSqAdS(phi, s, p, LR_couplings, delta_mag_phi, iter);
@@ -457,7 +457,7 @@ void runMonteCarloSqAdS(vector<Vertex> &NodeList, Param p) {
       //visualiserPhi2(phi_sq_arr, p, idx);      
 
       //Calculate correlaton functions and update the average.
-      correlators(corr_tmp, corr_ave, idx, phi, avePhi*norm, p);
+      //correlators(corr_tmp, corr_ave, idx, phi, avePhi*norm, p);
       
       ofstream myfilet("correlators_t.dat");
       for(int i=0; i<p.Lt/2; i++) {
@@ -492,10 +492,9 @@ void thermaliseSqAdS(double *phi, int *s, Param p,
 		     double &delta_mag_phi, double *LR_couplings) {
   
   for(int iter = 0; iter < p.n_therm; iter++) {
-    for(int i=0; i<p.n_wolff; i++) {
-      wolffUpdateSqAdS(phi, s, p, LR_couplings, delta_mag_phi, iter);
-      if((iter+1)%p.n_skip == 0) cout<<"Therm sweep "<<iter+1<<endl;
-      iter++;
+    for(int i=0; i<p.n_cluster; i++) {
+      if(p.useWolff) wolffUpdateSqAdS(phi, s, p, LR_couplings, delta_mag_phi, iter);
+      else if((iter+1)%p.n_skip == 0) cout<<"Therm sweep "<<iter+1<<endl;
     }
     metropolisUpdateSqAdS(phi, s, p, LR_couplings, delta_mag_phi, iter);    
     if((iter+1)%p.n_skip == 0) cout<<"Therm sweep "<<iter+1<<endl;

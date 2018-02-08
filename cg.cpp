@@ -442,13 +442,9 @@ void latticeScaling(vector<Vertex> &NodeList, Param& p){
   cout<<"          sum_sq  = "<<cov_ssq[3]<<endl;
 
   double grad = c[1];
-  double inter= c[0];
-  
   double d_grad = 100;
-  double d_inter = 100;
 
   double grad_tol = 1e-4;
-  double inter_tol = 1e-3;
 
   //Search in wisdom file for a shorcut
   bool preTuned = false;
@@ -545,9 +541,8 @@ void latticeScaling(vector<Vertex> &NodeList, Param& p){
     
     //Adjust the parameters and start over.
     d_grad = (c[1] - grad)/abs(grad);
-    //d_inter= (c[0] - inter)/abs(inter);
-    cout<<"D inter = "<<d_inter<<" D grad = "<<d_grad<<endl;
-    cout<<"N_latt  = "<<p.N_latt<<" C_msqr = "<<p.C_msqr<<endl<<endl;
+    cout<<"D grad = "<<d_grad<<endl;
+    cout<<"C_msqr = "<<p.C_msqr<<endl<<endl;
     
     double fac1 = abs(p.C_msqr);
     
@@ -560,12 +555,6 @@ void latticeScaling(vector<Vertex> &NodeList, Param& p){
       cout<<"GSL failed!"<<endl;
       exit(0);
     }
-    
-    //double fac2 = 0.01;    
-    //if( abs(d_grad) < grad_tol ) {
-    //if(c[0] > inter) p.N_latt -= (fac2*abs(d_inter) + grad_tol/10);
-    //if(c[0] < inter) p.N_latt += (fac2*abs(d_inter) + grad_tol/10);
-    //}
     
     //Did it tune properly?
     if(d_grad < grad_tol) tuneWin = true;

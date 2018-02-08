@@ -19,9 +19,11 @@ class Param{
 
   int q = 8;
   
-  bool bc        = true;  //if true, use Dirichlet. If false, use Neumann
-  bool Vcentre   = true;  //if true, place vertex at centre. If false, use circumcentre.
-  bool verbosity = false; //if true, print all data. If false, print summary.
+  bool bc        = true;  //If true, use Dirichlet. If false, use Neumann
+  bool Vcentre   = true;  //If true, place vertex at centre. 
+                          //If false, use circumcentre.
+  bool verbosity = false; //If true, print all data. If false, print summary.
+  bool useWolff  = true;  //If true, use Wolff. Else, use SW.
   latType lat_type = SQ_LOCAL;
   
   int MaxIter = 100000;
@@ -52,10 +54,10 @@ class Param{
   double lambda = 1.0;
   double sigma = 1.33;
 
-  int n_therm=100000;
-  int n_meas=1000;
-  int n_skip=1000;
-  int n_wolff=8;
+  int n_therm = 100000;
+  int n_meas = 1000;
+  int n_skip = 1000;
+  int n_cluster = 8;
   double delta_phi = 1.5;
 
   void print();

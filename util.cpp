@@ -3,7 +3,7 @@
 #include <complex>
 #include <cmath>
 #include <vector>
-#include <cstring>
+#include <string>
 #include <random>
 #include <unistd.h>
 
@@ -19,7 +19,7 @@ void Param::init(int argc, char **argv) {
     bc = true;
   } else if (BC == "N" || BC == "n") {
     bc = false;
-    } else {
+  } else {
     cout<<"Invalid boundary condition given. Use D/d for Dirichlet or N/n for Neumann."<<endl;
     exit(0);
   }
@@ -97,16 +97,29 @@ void Param::init(int argc, char **argv) {
   n_shift = atoi(argv[15]);
   
   //MC params  
-  n_therm = atoi(argv[16]);
-  n_meas  = atoi(argv[17]);
-  n_skip  = atoi(argv[18]);
-  n_wolff = atoi(argv[19]);
-  musqr   = atof(argv[20]);
-  lambda  = atof(argv[21]);
-  sigma   = atof(argv[22]);
+  n_therm   = atoi(argv[16]);
+  n_meas    = atoi(argv[17]);
+  n_skip    = atoi(argv[18]);
+  n_cluster = atoi(argv[19]);
+  musqr     = atof(argv[20]);
+  lambda    = atof(argv[21]);
+  sigma     = atof(argv[22]);
 
   t_weight_scale = atof(argv[23]);  
-  
+
+  std::string WOLFF(argv[24]);
+  if (WOLFF == "wolff" || 
+      WOLFF == "Wolff" ||
+      WOLFF == "WOLFF" ) {
+    useWolff = true;
+  } else if (WOLFF == "SW" || 
+	     WOLFF == "sw" ||
+	     WOLFF == "Sw" ) {
+    useWolff = false;
+  } else {
+    cout<<"Invalid cluster algorithm given. Use WOLFF for Wolff or SW for Swendsen Wang."<<endl;
+    exit(0);
+  }  
 }
 
 void Param::print() {

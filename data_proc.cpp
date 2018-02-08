@@ -14,99 +14,118 @@
 using namespace std;
 
 //Overloaded version to handle AdS lattices
-void correlators(double **corr, double **corr_ave, int corr_norm,
-		 vector<Vertex> NodeList, double avePhi, Param p) {
-
+void correlators(double **ind_corr, int meas, double *run_corr, bool dir,
+		 vector<Vertex> NodeList, 
+		 double avePhi, Param p) {
+  
   double *phi = (double*)malloc(p.S1*p.Lt*sizeof(double));
   int offset = endNode(p.Levels-1,p)+1;
   int disk   = p.AdSVol;  
   for(int i=0; i<p.S1*p.Lt; i++) {    
     phi[i] = NodeList[disk*(i/p.S1) + offset + i%p.S1].phi;
   }
-
-  correlators(corr, corr_ave, corr_norm, phi, avePhi, p);
-  
+  correlators(ind_corr, meas, run_corr, dir, phi, avePhi, p);
+  free(phi);  
 }
 
 
-void correlators(double **corr, double **corr_ave, int corr_norm,
-		 double *phi, double avePhi, Param p) {
+void correlators(double **ind_corr, int meas, double *run_corr, 
+		 bool temporalDir, double *phi, double avePhi, Param p) {
   
-  int s_idx = 0;
-  int t_idx = 0;
-
   int s_size = p.S1;
   int t_size = p.Lt;
+  int vol    = p.surfaceVol;
+  int idx    = 0;
 
-  //Each value of \delta t and \delta \theta
-  //must be normalised seperately.
-  int norm[s_size/2][t_size/2];
-  for(int i=0; i<s_size/2; i++)
-    for(int j=0; j<t_size/2; j++) {
-      norm[i][j] = 0;
-      corr[i][j] = 0.0;
-    }
-  
-  //loop over sink/source *theta*
-  for(int is=0; is<s_size; is++)
-    for(int js=0; js<s_size; js++) {
-      
-      s_idx = abs(is-js);
-      if(s_idx != s_size/2) {
-	if(s_idx >= s_size/2) s_idx = s_size - s_idx - 1;
-      
-	//loop over sink/source *temporal*
-	for(int il=0; il<t_size; il++) 
-	  for(int jl=0; jl<t_size; jl++) {
-	    
-	    t_idx = abs(il-jl);
-	    if(t_idx != t_size/2) {
-	      if(t_idx >= t_size/2) t_idx = t_size - t_idx - 1;
-	      
-	      corr[s_idx][t_idx] += ((phi[is + p.S1*il] - avePhi) *
-				     (phi[js + p.S1*jl] - avePhi));
-	      norm[s_idx][t_idx]++;
-	    }
-	  }
+  double val = 0.0;
+
+  //loop over all sources
+  for(int i=0; i<vol; i++) {
+
+    //loop over all sinks in the specified direction
+    if(temporalDir) {
+      for(int j=0; j<t_size; j++) {
+	idx = abs(i/s_size-j);
+	if(idx > t_size/2) idx = t_size - idx;
+	val = ((phi[i] - avePhi) *
+	       (phi[i%s_size + j*s_size] - avePhi));
+
+	ind_corr[meas][idx] += val;
+	run_corr[idx] += val;
+      }
+    } else {
+      for(int j=0; j<s_size; j++) {
+	
+	idx = abs(i%s_size-j);
+	if(idx > s_size/2) idx = s_size - idx;
+	
+	val = ((phi[i] - avePhi) *
+	       (phi[s_size*(i/s_size) + j] - avePhi));
+	
+	ind_corr[meas][idx] += val;
+	run_corr[idx] += val;
       }
     }
-  
-  //Normalise, add to running average
-  for(int i=0; i<s_size/2; i++)
-    for(int j=0; j<t_size/2; j++) {
-      corr[i][j] /= norm[i][j];
-      corr_ave[i][j] += corr[i][j];
-    }
-
-  //Corr dump to stdout and collect running average.
-  if(p.verbosity) cout<<setprecision(4);      
-  if(p.verbosity) cout<<"Corr Sample: "<<endl;
-  for(int i=0; i<s_size/2; i++) {
-    if(p.verbosity) cout<<"theta "<<2*M_PI*i/(double)(s_size)<<":";
-    for(int j=0; j<t_size/2; j++) {
-      if(p.verbosity) cout<<" "<<corr_ave[i][j]/corr_norm;
-      corr[i][j] = corr_ave[i][j]/corr_norm;
-    }
-    if(p.verbosity) cout<<endl;
   }
-
-  if(!p.verbosity) {
-    cout<<setprecision(4);      
-    cout<<"Corr Sample:";
-    for(int j=0; j<t_size/2; j++) {
-      cout<<" "<<corr[0][j];
-    }
-    cout<<endl;
-  }
-  
-  //corr now contains the current, normalised, running average correlation
-  //matrix.  
 }
 
-void autocorrelation(double *PhiAb_arr, double avePhiAbs, int meas) {
+//Calculate the autocorrelation of |phi|
+void autocorrelation(double *PhiAb_arr, double avePhiAbs, 
+		     int meas, double *auto_corr) {
+
+  double auto_corr_t = 0;  
+  //Calculate the variance function
+  for(int i=0; i<meas; i++)
+    auto_corr[0] += pow(PhiAb_arr[i] - avePhiAbs,2)/meas;
   
+  //Calculate the ratios Ck/C0
+  for(int k=1; k<meas; k++) {
+    for(int i=0; i<k; i++) {
+      auto_corr[k] += (PhiAb_arr[i]*PhiAb_arr[i+k] - 
+		       avePhiAbs*avePhiAbs)/(meas-k);
+    }
+    cout<<"Autocorrelation "<<k<<" = "<<auto_corr[k]/auto_corr[0]<<endl;
+    auto_corr_t -= k/log(auto_corr[k]);
+    cout<<"Autocorrelation time at k = "<<1+2*auto_corr_t<<endl;
+  }
+
 }
 
-void jackknife(double *array, int block, int length) {
-
+//Data is entered in 'raw form.' normalisation of the data is done
+//at the data write stage.
+void jackknife(double **ind, double *run, double *jk_err, int block, 
+	       int data_points, int arr_length, Param p) {
+  
+  int num_resamp = data_points/block;
+  double coeff = (1.0*num_resamp - 1.0)/(1.0*num_resamp);
+  double resamp_norm = 1.0/(data_points - block);
+  
+  double **resamp_ave = (double**)malloc(arr_length*sizeof(double*));
+  for(int r=0; r<arr_length; r++) {
+    jk_err[r] = 0.0;
+    resamp_ave[r] = (double*)malloc(num_resamp*sizeof(double));
+    for(int i=0; i<num_resamp; i++) resamp_ave[r][i] = 0.0;
+  }
+  
+  //Get resampling averages
+  for(int r=0; r<arr_length; r++) {
+    for(int i=0; i<num_resamp; i++) {
+      for(int j=0; j<data_points; j++) {   
+	if(j < i*block || j >= (i+1)*block)  {
+	  resamp_ave[r][i] += ind[j][r];
+	}
+      }
+      resamp_ave[r][i] *= resamp_norm;
+    }
+  }
+  
+  //Get jk error
+  //The run/data_ponts value is the arithmetic mean.
+  for(int r=0; r<arr_length; r++) {
+    for(int i=0; i<num_resamp; i++) {
+      jk_err[r] += pow(run[r]/data_points - resamp_ave[r][i],2);
+    }
+    jk_err[r] = sqrt(coeff*jk_err[r]);    
+  }
+  
 }

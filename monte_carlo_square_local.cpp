@@ -163,14 +163,14 @@ int metropolisUpdateSqL(double *phi_arr, int *s, Param &p,
     } else {
       p.delta_phi += 0.001;
     }
-    if(p.n_wolff*1.0*sql_wc_ave/sql_wc_calls < p.surfaceVol && iter > p.n_skip) {
-      p.n_wolff++;
+    if(p.n_cluster*1.0*sql_wc_ave/sql_wc_calls < p.surfaceVol && iter > p.n_skip) {
+      p.n_cluster++;
     } else {
-      p.n_wolff--;
-      if(p.n_wolff < 3) p.n_wolff++;
+      p.n_cluster--;
+      if(p.n_cluster < 3) p.n_cluster++;
     }
   }
-  
+
   return delta_mag;
 }
 
@@ -197,8 +197,6 @@ void swendsenWangUpdateSqL(double *phi_arr, int *s, Param p,
       clusterNum++; 
       clusterDef[i] = clusterNum;
       s[i] < 0 ? clusterSpin[clusterNum] = -1 : clusterSpin[clusterNum] = 1;
-      
-      cout<<"Site "<<i<<endl;
       
       //This function will call itself recursively until it fails to 
       //add to the cluster
@@ -293,7 +291,7 @@ void wolffUpdateSqL(double *phi_arr, int *s, Param p,
 
   if( iter%p.n_skip == 0 && iter < p.n_therm) {
     setprecision(4);
-    cout<<"Using "<<p.n_wolff<<" Wolff hits."<<endl; 
+    cout<<"Using "<<p.n_cluster<<" Wolff hits."<<endl; 
     cout<<"Ave. cluster size at iter "<<iter<<" = "<<sql_wc_ave<<"/"<<sql_wc_calls<<" = "<<1.0*sql_wc_ave/sql_wc_calls<<endl;
     cout<<"S/T cluster growth ratio at iter "<<iter<<" = "<<1.0*sql_wc_s_size/sql_wc_ave<<":"<<1.0*sql_wc_t_size/sql_wc_ave<<endl;
   }
@@ -429,9 +427,9 @@ void runMonteCarloSqL(vector<Vertex> &NodeList, Param p) {
   
   for(int iter = p.n_therm; iter < p.n_therm + p.n_skip*p.n_meas; iter++) {
     
-    for(int i=0; i<p.n_wolff; i++) {
-      //wolffUpdateSqL(phi, s, p, delta_mag_phi, iter);
-      swendsenWangUpdateSqL(phi, s, p, delta_mag_phi, iter);
+    for(int i=0; i<p.n_cluster; i++) {
+      if(p.useWolff) wolffUpdateSqL(phi, s, p, delta_mag_phi, iter);
+      else swendsenWangUpdateSqL(phi, s, p, delta_mag_phi, iter);
     }
     metropolisUpdateSqL(phi, s, p, delta_mag_phi, iter);
     
@@ -484,11 +482,11 @@ void runMonteCarloSqL(vector<Vertex> &NodeList, Param p) {
       cout<<"Binder    = "<<1.0-avePhi4/(3.0*avePhi2*avePhi2*norm)<<endl;
       
       //Visualisation tools
-      visualiserSqr(phi, avePhiAb*norm, p);
+      //visualiserSqr(phi, avePhiAb*norm, p);
       //visualiserPhi2(phi_sq_arr, p, idx);      
 
       //Calculate correlaton functions and update the average.
-      correlators(corr_tmp, corr_ave, idx, phi, avePhi*norm, p);
+      //correlators(corr_tmp, corr_ave, idx, phi, avePhi*norm, p);
       
       ofstream filet("correlators_t.dat");
       for(int i=0; i<p.Lt/2; i++) {
@@ -522,9 +520,9 @@ void thermaliseSqL(double *phi, int *s,
 		   Param p, double &delta_mag_phi) {
   
   for(int iter = 0; iter < p.n_therm; iter++) {
-    for(int i=0; i<p.n_wolff; i++) {
-      swendsenWangUpdateSqL(phi, s, p, delta_mag_phi, iter);
-      //wolffUpdateSqL(phi, s, p, delta_mag_phi, iter);
+    for(int i=0; i<p.n_cluster; i++) {
+      if(p.useWolff == true) wolffUpdateSqL(phi, s, p, delta_mag_phi, iter);
+      else swendsenWangUpdateSqL(phi, s, p, delta_mag_phi, iter);
     }
     metropolisUpdateSqL(phi, s, p, delta_mag_phi, iter);
     if((iter+1)%p.n_skip == 0) cout<<"Therm sweep "<<iter+1<<endl;

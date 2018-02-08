@@ -5,14 +5,17 @@
 // Functions to process data on the fly
 //-------------------------------------
 
-void correlators(double **corr, double **corr_ave, int corr_norm,
-                 std::vector<Vertex> NodeList, double avePhi, Param p);
+void correlators(double **ind_corr, int meas, double *run_corr, bool dir,
+		 std::vector<Vertex> NodeList, 
+		 double avePhi, Param p);
 
-void correlators(double **corr, double **corr_ave, int corr_norm,
-                 double *phi, double avePhi, Param p);
+void correlators(double **ind_corr, int meas, double *run_corr, bool dir,
+		 double *phi, double avePhi, Param p);
 
-void autocorrelation(double *PhiAb_arr, double avePhiAbs, int meas);
+void autocorrelation(double *PhiAb_arr, double avePhiAbs, 
+		     int meas, double *auto_corr);
 
-void jackknife(double *array, int block, int length);
+void jackknife(double **ind, double *run, double *jk_err, int block, 
+	       int data_points, int arr_length, Param p);
 
 #endif

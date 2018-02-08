@@ -172,15 +172,15 @@ int metropolisUpdateAdSL(vector<Vertex> &NodeList, int *s,
     } else {
       p.delta_phi += 0.001;
     }
-    if(p.n_wolff*1.0*ads_wc_ave/ads_wc_calls < p.latVol && iter > p.n_skip) {
-      p.n_wolff++;
+    if(p.n_cluster*1.0*ads_wc_ave/ads_wc_calls < p.latVol && iter > p.n_skip) {
+      p.n_cluster++;
     } else {
-      p.n_wolff--;
-      if(p.n_wolff < 3) p.n_wolff++;
+      p.n_cluster--;
+      if(p.n_cluster < 3) p.n_cluster++;
     }
   }
 
-  if( iter < p.n_therm && (iter+1)%(100*p.n_wolff) == 0 ) {
+  if( iter < p.n_therm && (iter+1)%(100*p.n_cluster) == 0 ) {
     cout<<"At iter "<<iter<<" the Acceptance rate is "<<(double)ads_accept/(double)ads_tries<<endl;
     cout<<"and delta_phi is "<<p.delta_phi<<endl;
   }
@@ -211,7 +211,7 @@ void wolffUpdateAdSL(vector<Vertex> &NodeList, int *s, Param p,
 
   if( iter%p.n_skip == 0 && iter < p.n_therm) {
     setprecision(4);
-    cout<<"Using "<<p.n_wolff<<" Wolff hits."<<endl; 
+    cout<<"Using "<<p.n_cluster<<" Wolff hits."<<endl; 
     cout<<"Ave. cluster size at iter "<<iter<<" = "<<ads_wc_ave<<"/"<<ads_wc_calls<<" = "<<1.0*ads_wc_ave/ads_wc_calls<<endl;
     cout<<"S/T cluster growth ratio at iter "<<iter<<" = "<<1.0*ads_wc_s_size/ads_wc_ave<<":"<<1.0*ads_wc_t_size/ads_wc_ave<<endl;
   }
@@ -336,7 +336,7 @@ void runMonteCarloAdSL(vector<Vertex> &NodeList, Param p) {
   
   for(int iter = p.n_therm; iter < p.n_therm + p.n_skip*p.n_meas; iter++) {
     
-    if((iter+1)%p.n_wolff == 0 && p.n_wolff != 0) {
+    if((iter+1)%p.n_cluster == 0 && p.n_cluster != 0) {
       metropolisUpdateAdSL(NodeList, s, p, delta_mag_phi, iter);
     } else {
       wolffUpdateAdSL(NodeList, s, p, delta_mag_phi, iter);
@@ -430,7 +430,7 @@ void thermaliseAdSL(vector<Vertex> &NodeList, int *s,
 		   Param p, double &delta_mag_phi) {
   
   for(int iter = 0; iter < p.n_therm; iter++) {
-    for(int i=0; i<p.n_wolff; i++) {
+    for(int i=0; i<p.n_cluster; i++) {
       wolffUpdateAdSL(NodeList, s, p, delta_mag_phi, iter);
       if((iter+1)%p.n_skip == 0) cout<<"Therm sweep "<<iter+1<<endl;
       iter++;

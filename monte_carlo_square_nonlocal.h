@@ -10,15 +10,14 @@
 #include "util.h"
 
 //Square lattice, non-local r^{-(d+\sigma)} interactions
-void clusterAddSqNL(int i, int *s, int cSpin, bool *Acluster,
-		    std::vector<int> &Rcluster, double *LR_couplings,
-		    double *phi, Param p);
+void clusterAddSqNL(int i, int *s, int cSpin, std::vector<int> &Rcluster, 
+		    double *LR_couplings, double *phi, Param p);
 
 void clusterPossibleSqNL(int i, int *s, int cSpin,
 			 bool *Pcluster, std::vector<int> &Rcluster, Param p);
 
 void wolffUpdateSqNL(double *phi_arr, int *s, Param p,
-		     double *LR_couplings,		  
+		     double *LR_couplings,
 		     double &delta_mag_phi, int iter);
 
 void swendsenWangUpdateSqNL(double *phi_arr, int *s, Param p,

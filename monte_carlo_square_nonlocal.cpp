@@ -8,6 +8,7 @@
 #include <random>
 #include <unistd.h>
 #include <omp.h>
+#include <chrono>
 
 #include "util.h"
 #include "hyp_util.h"
@@ -144,8 +145,6 @@ int metropolisUpdateSqNL(double *phi_arr, int *s, Param &p,
     double val = 0.0;
 #pragma omp parallel for private(val) reduction(+:DeltaE)
     for(int j=0; j<p.surfaceVol; j++) {
-      //int id = omp_get_thread_num();
-      //cout<<"Greetings from process "<<id<<endl;
       val = (pmpn*phi_arr[j] + pnsmps)*LR_couplings[i+j*p.surfaceVol]*LR_couplings[i+j*p.surfaceVol];
       DeltaE += val;
     }
@@ -180,11 +179,11 @@ int metropolisUpdateSqNL(double *phi_arr, int *s, Param &p,
     } else {
       p.delta_phi += 0.001;
     }
-    if(p.n_wolff*1.0*sqnl_wc_ave/sqnl_wc_calls < p.surfaceVol && iter > p.n_skip) {
-      p.n_wolff++;
+    if(p.n_cluster*1.0*sqnl_wc_ave/sqnl_wc_calls < p.surfaceVol && iter > p.n_skip) {
+      p.n_cluster++;
     } else {
-      p.n_wolff--;
-      if(p.n_wolff < 3) p.n_wolff++;
+      p.n_cluster--;
+      if(p.n_cluster < 3) p.n_cluster++;
     }
   }
   
@@ -216,6 +215,11 @@ void swendsenWangUpdateSqNL(double *phi_arr, int *s, Param p,
   //Tracks which sites are potentially in the cluster.
   bool *Pcluster = new bool[p.surfaceVol];
 
+  //Records which sites are potentially in the cluster.
+  //This will have a modifiable size, hence the vector
+  //style.
+  vector<int> Rcluster;
+
   for (int i = 0; i < p.surfaceVol; i++) {
     if(clusterDef[i] == 0) {
       //This is the start of a new cluster.
@@ -224,27 +228,20 @@ void swendsenWangUpdateSqNL(double *phi_arr, int *s, Param p,
       s[i] < 0 ? clusterSpin[clusterNum] = -1 : clusterSpin[clusterNum] = 1;
 
       //First, we must identify the maximum possible cluster, then we 
-      //can loop over only the sites 
+      //can loop over only those sites 
 
       for (int i = 0; i < p.surfaceVol; i++) Pcluster[i] = false;
       
-      //Records which sites are potentially in the cluster.
-      //This will have a modifiable size, hence the vector
-      //style.
       sqnl_wc_poss = 0;
-      vector<int> Rcluster;
       clusterPossibleSqNL(i, s, clusterSpin[clusterNum], 
 			  Pcluster, Rcluster, p);
       
-      cout<<"Site "<<i<<" "<<sqnl_wc_poss<<endl;
-
       //This function will call itself recursively until it fails to 
       //add to the cluster
-      SWclusterAddSqNL(i, s, clusterSpin[clusterNum], clusterNum, 
-		       clusterDef, Rcluster, LR_couplings, phi_arr, p);
+      SWclusterAddSqNL(i, s, clusterSpin[clusterNum], clusterNum, clusterDef, 
+		       Rcluster, LR_couplings, phi_arr, p);
 
       Rcluster.clear();
-
     }
   }
   
@@ -261,59 +258,47 @@ void swendsenWangUpdateSqNL(double *phi_arr, int *s, Param p,
     s[i]       *= clusterSpin[clusterDef[i]];
   }      
 
+  if( iter%p.n_skip == 0 && iter < p.n_therm) {
+    setprecision(4);
+    cout<<"Using "<<p.n_cluster<<" SW hits."<<endl; 
+    cout<<"Ave. number of clusters at iter "<<iter<<" = "<<clusterNum<<endl;
+  }
+
+
   delete[] clusterDef;
   delete[] clusterSpin;
   delete[] Pcluster;
 }
 
+double probsw = 0.0;
+double randsw = 0.0;
+int idxj = 0;
+int idxij = 0;
 
 void SWclusterAddSqNL(int i, int *s, int cSpin, int clusterNum, 
 		      int *clusterDef, vector<int> Rcluster, 
 		      double *LR_couplings,
 		      double *phi_arr, Param p) {
 
-  cout<<"Here?1"<<endl;
-
   //The site belongs to the (clusterNum)th cluster
   clusterDef[i] = clusterNum;
 
-  cout<<"Here?2"<<endl;
-
-  double prob = 0.0;
-  double rand = 0.0;
-  int idx = 0;
-
-  cout<<"Here?3"<<endl;
-  
   //We now loop over the possible lattice sites, adding sites
   //(creating bonds) with the specified LR probablity.
   for(int j=0; j<sqnl_wc_poss; j++) {
-    cout<<"Here?4"<<endl;
-    idx = Rcluster[j];
-    cout<<"Here?5"<<endl;
-    if(LR_couplings[i + idx*p.surfaceVol] > 1e-7 && clusterDef[i] != 0){
-      cout<<"Here?6"<<endl;
-      //cout<<Rcluster[j]<<endl;
-      prob = 1 - exp(-2*J*phi_arr[i]*phi_arr[idx]*LR_couplings[i + idx*p.surfaceVol]);
-      cout<<"Here?7"<<endl;
-      rand = unif(rng);
-      cout<<"Here?8"<<endl;
-      //cout<<"Testing "<<i<<","<<Rcluster[j]<<" "<<rand<<" "<<prob<<" ";
-      if(rand < prob) {
-	cout<<"Here?9"<<endl;
-	//cout<<"hit"<<endl;
+    idxj = Rcluster[j];
+    idxij= i + idxj*p.surfaceVol;
+    if(LR_couplings[idxij] > 1e-7 && clusterDef[idxj] != clusterNum ){
+      probsw = 1 - exp(-2*J*phi_arr[i]*phi_arr[idxj]*LR_couplings[idxij]);
+      randsw = unif(rng);
+      if(randsw < probsw) {
 	sqnl_wc_size++;
-	cout<<"Here?10"<<endl;
-	//next = Rcluster[j];
-	//Rcluster.erase(Rcluster.begin() + j);
-	SWclusterAddSqNL(idx, s, cSpin, clusterNum, 
-			 clusterDef, Rcluster, LR_couplings, phi_arr, p);
+	SWclusterAddSqNL(idxj, s, cSpin, clusterNum, clusterDef, 
+			 Rcluster, LR_couplings, phi_arr, p);
 	
       }    
-      //cout<<"miss"<<endl;
     }
   }
-  //cout<<endl<<endl<<"New Base"<<endl;
 }
 
 void wolffUpdateSqNL(double *phi_arr, int *s, Param p,
@@ -322,12 +307,6 @@ void wolffUpdateSqNL(double *phi_arr, int *s, Param p,
   
   sqnl_wc_calls++;
   sqnl_wc_poss = 0;
-  
-  //Tracks which sites are acutally in the cluster.
-  bool *Acluster = new bool[p.surfaceVol];
-#pragma omp parallel for
-  for (int i = 0; i < p.surfaceVol; i++)
-    Acluster[i] = false;
   
   //Tracks which sites are potentially in the cluster.
   bool *Pcluster = new bool[p.surfaceVol];
@@ -346,33 +325,31 @@ void wolffUpdateSqNL(double *phi_arr, int *s, Param p,
   int cSpin = s[i];
   clusterPossibleSqNL(i, s, cSpin, Pcluster, Rcluster, p);
 
-  //`cout<<"Maximum cluster size = "<<sqnl_wc_poss<<endl;
-  
   //This function is recursive and will call itself
   //until all attempts `to increase the cluster size
   //have failed.
   sqnl_wc_size = 1;
-  clusterAddSqNL(i, s, cSpin, Acluster, Rcluster, LR_couplings, phi_arr, p);
+  clusterAddSqNL(i, s, cSpin, Rcluster, LR_couplings, phi_arr, p);
 
   sqnl_wc_ave += sqnl_wc_size;
 
   if( iter%p.n_skip == 0 && iter < p.n_therm) {
     setprecision(4);
-    cout<<"Using "<<p.n_wolff<<" Wolff hits."<<endl; 
+    cout<<"Using "<<p.n_cluster<<" Wolff hits."<<endl; 
     cout<<"Ave. cluster size at iter "<<iter<<" = "<<sqnl_wc_ave<<"/"<<sqnl_wc_calls<<" = "<<1.0*sqnl_wc_ave/sqnl_wc_calls<<endl;
-    cout<<"S/T cluster growth ratio at iter "<<iter<<" = "<<1.0*sqnl_wc_s_size/sqnl_wc_ave<<":"<<1.0*sqnl_wc_t_size/sqnl_wc_ave<<endl;
+
   }
   
-  delete[] Acluster;
   delete[] Pcluster;
 }
 
 void clusterPossibleSqNL(int i, int *s, int cSpin,
 			 bool *Pcluster, vector<int> &Rcluster,
 			 Param p) {
+
   //The site possibily belongs to the cluster...
   Pcluster[i] = true;
-  //...so record it
+  // ...so record it
   Rcluster.push_back(i);
   sqnl_wc_poss++;
   
@@ -407,17 +384,13 @@ void clusterPossibleSqNL(int i, int *s, int cSpin,
   }
 }
 
-void clusterAddSqNL(int i, int *s, int cSpin, bool *Acluster,
-		    vector<int> &Rcluster, double *LR_couplings,
+void clusterAddSqNL(int i, int *s, int cSpin, vector<int> &Rcluster, 
+		    double *LR_couplings,
 		    double *phi_arr, Param p) {
-
+  
   // The site belongs to the cluster, so flip it.
-  Acluster[i] = true;
   s[i] *= -1;
   phi_arr[i] *= -1;
-  
-  // ferromagnetic coupling
-  const double J = 1.0;
 
   double prob = 0.0;
   double rand = 0.0;
@@ -429,22 +402,14 @@ void clusterAddSqNL(int i, int *s, int cSpin, bool *Acluster,
   for(int j=0; j<sqnl_wc_poss; j++) {
     idx = Rcluster[j];
     if(LR_couplings[i + idx*p.surfaceVol] > 1e-7){
-      //cout<<Rcluster[j]<<endl;
-      prob = 1 - exp(2*J*phi_arr[i]*phi_arr[idx]*LR_couplings[i + idx*p.surfaceVol]);
+      prob = 1 - exp(2*phi_arr[i]*phi_arr[idx]*LR_couplings[i + idx*p.surfaceVol]);
       rand = unif(rng);
-      //cout<<"Testing "<<i<<","<<Rcluster[j]<<" "<<rand<<" "<<prob<<" ";
       if(rand < prob) {
-	//cout<<"hit"<<endl;
 	sqnl_wc_size++;
-	//next = Rcluster[j];
-	//Rcluster.erase(Rcluster.begin() + j);
-	clusterAddSqNL(idx, s, cSpin, Acluster, Rcluster,
-		       LR_couplings, phi_arr, p);
+	clusterAddSqNL(idx, s, cSpin, Rcluster, LR_couplings, phi_arr, p);
       }    
-      //cout<<"miss"<<endl;
     }
   }
-  //cout<<endl<<endl<<"New Base"<<endl;
 }
 
 //------------- Monte Carlo Update  ----------------//
@@ -517,43 +482,77 @@ void runMonteCarloSqNL(vector<Vertex> &NodeList, Param p) {
   double rhoVol  = 1.0/(double)p.surfaceVol;
   double rhoVol2 = rhoVol*rhoVol;
 
-  //correlation function arrays. One keeps the running average,
-  //one is temporary to pass around single measurent values. 
-  double **corr_tmp = (double**)malloc((p.S1/2)*sizeof(double*));
-  double **corr_ave = (double**)malloc((p.S1/2)*sizeof(double*));
-  for(int i=0; i<p.S1/2; i++) {
-    corr_tmp[i] = (double*)malloc((p.Lt/2)*sizeof(double));
-    corr_ave[i] = (double*)malloc((p.Lt/2)*sizeof(double));
+  //Running correlation function arrays.
+  double *run_corr_t = (double*)malloc((p.Lt/2+1)*sizeof(double));
+  for(int i=0; i<p.Lt/2+1; i++) {
+    run_corr_t[i] = 0.0;
   }
-  for(int i=0; i<p.S1/2; i++)
-    for(int j=0; j<p.Lt/2; j++) 
-      corr_ave[i][j] = 0.0;
-  
-  double **phi_sq_arr = (double**)malloc(p.S1*sizeof(double*));
-  for(int i=0; i<p.S1; i++) {
-    phi_sq_arr[i] = (double*)malloc(p.Lt*sizeof(double));
-    for(int j=0; j<p.Lt; j++) phi_sq_arr[i][j] = 0.0;
+  double *run_corr_s = (double*)malloc((p.S1/2+1)*sizeof(double));
+  for(int i=0; i<p.S1/2+1; i++) {
+    run_corr_s[i] = 0.0;
   }
 
+  //Individual correlation functions.
+  double **ind_corr_t = (double**)malloc((p.n_meas)*sizeof(double*));
+  for(int i=0; i<p.n_meas; i++) {
+    ind_corr_t[i] = (double*)malloc((p.Lt/2+1)*sizeof(double));
+    for(int j=0; j<p.Lt/2+1; j++) {
+      ind_corr_t[i][j] = 0.0;
+    }
+  }
+  double **ind_corr_s = (double**)malloc((p.n_meas)*sizeof(double*));
+  for(int i=0; i<p.n_meas; i++) {
+    ind_corr_s[i] = (double*)malloc((p.S1/2+1)*sizeof(double));
+    for(int j=0; j<p.S1/2+1; j++) {
+      ind_corr_s[i][j] = 0.0;
+    }
+  }
+  //The correlation functions must be weighted by how frequently
+  //the i,j separation occurs
+  
+  //correlation norms array.
+  int **corr_norms = (int**)malloc((p.S1/2+1)*sizeof(int*));
+  for(int i=0; i<p.S1/2+1; i++) {
+    corr_norms[i] = (int*)malloc((p.Lt/2+1)*sizeof(int));
+  }
+  for(int i=0; i<p.S1/2+1; i++)
+    for(int j=0; j<p.Lt/2+1; j++) 
+      corr_norms[i][j] = 0;
+  
+  int s_idx = 0;
+  int t_idx = 0;
+  int s_size = p.S1;
+  int t_size = p.Lt;
+
+  //loop over sink/source *theta*
+  for(int is=0; is<s_size; is++)
+    for(int js=0; js<s_size; js++) {      
+      s_idx = abs(is-js);
+      if(s_idx > s_size/2) s_idx = s_size - s_idx ;      
+      //loop over sink/source *temporal*
+      for(int il=0; il<t_size; il++) 	  
+	for(int jl=0; jl<t_size; jl++) {
+	  t_idx = abs(il-jl);
+	  if(t_idx >= t_size/2) t_idx = t_size - t_idx;
+	  ++corr_norms[s_idx][t_idx];
+	}
+    }
+  
   int idx = 0;
   double norm = 0.0;
-  double val = 0.0;
-  
+  double val = 0.0;  
   for(int iter = p.n_therm; iter < p.n_therm + p.n_skip*p.n_meas; iter++) {
-    
-    for(int i=0; i<p.n_wolff; i++) {
-      //wolffUpdateSqNL(phi, s, p, LR_couplings, delta_mag_phi, iter);      
-      swendsenWangUpdateSqNL(phi, s, p, LR_couplings, delta_mag_phi, iter);      
-    }
+    for(int i=0; i<p.n_cluster; i++) {
+      if(p.useWolff) 
+	wolffUpdateSqNL(phi, s, p, LR_couplings, delta_mag_phi, iter);      
+      else 
+	swendsenWangUpdateSqNL(phi, s, p, LR_couplings, delta_mag_phi, iter);
+    }    
     metropolisUpdateSqNL(phi, s, p, LR_couplings, delta_mag_phi, iter);
     
     //Take measurements.
+    //------------------
     if((iter+1) % p.n_skip == 0) {
-      
-      for(int i = 0;i < p.S1; i++) {
-	for(int j=0; j<p.Lt; j++) 
-	  phi_sq_arr[i][j] += pow(phi[i + p.S1*j],2);
-      }
       
       tmpE   = actionSqNL(phi, s, p, LR_couplings, KE, PE);
       aveKE += rhoVol*KE;
@@ -587,7 +586,9 @@ void runMonteCarloSqNL(vector<Vertex> &NodeList, Param p) {
       norm = 1.0/(idx);
 
       //Dump to stdout
-      cout<<"Measurement "<<(iter+1 - p.n_therm)/p.n_skip<<" Sweep "<<iter+1<<endl;
+      cout<<"Measurement "<<(iter+1 - p.n_therm)/p.n_skip;
+      cout<<" Sweep "<<iter+1<<endl;
+
       cout<<"Ave Energy= "<<aveE*norm<<endl;
       cout<<"Ave KE    = "<<aveKE*norm<<endl;
       cout<<"Ave PE    = "<<avePE*norm<<endl;
@@ -599,37 +600,53 @@ void runMonteCarloSqNL(vector<Vertex> &NodeList, Param p) {
       cout<<"Spec Heat = "<<(aveE2*norm-pow(aveE*norm,2))/rhoVol<<endl;
       cout<<"Binder    = "<<1.0-avePhi4/(3.0*avePhi2*avePhi2*norm)<<" ("<<norm*avePhi2*avePhi2/avePhi4<<")"<<endl;
       
-      //Visualisation tools
-      visualiserSqr(phi, avePhiAb*norm, p);
-      //visualiserPhi2(phi_sq_arr, p, idx);      
+      //Visualisation tool
+      //visualiserSqr(phi, avePhiAb*norm, p);
 
       //Calculate correlaton functions and update the average.
-      correlators(corr_tmp, corr_ave, idx, phi, avePhi*norm, p);
-      
-      ofstream filet("correlators_t.dat");
-      for(int i=0; i<p.Lt/2; i++) {
-	filet << i << " " << corr_tmp[0][i] << endl;
+      correlators(ind_corr_t, idx-1, run_corr_t, true,  phi, avePhi*norm, p);
+      correlators(ind_corr_s, idx-1, run_corr_s, false, phi, avePhi*norm, p);
+
+      double *auto_corr = (double*)malloc(idx*sizeof(double));
+      if(idx > 10) autocorrelation(PhiAb_arr, avePhiAb*norm, idx, auto_corr);
+      free(auto_corr);
+
+      //dump the data
+      if(idx%10 == 0) {
+
+	double *jk_err_t = (double*)malloc((p.Lt/2+1)*sizeof(double));
+	jackknife(ind_corr_t, run_corr_t, jk_err_t, 5, idx, p.Lt/2+1, p); 
+	ofstream filet("correlators_t.dat");
+	for(int i=0; i<p.Lt/2+1; i++) {
+	  filet<<i<<" "<<(run_corr_t[i]/corr_norms[0][i])*norm;
+	  filet<<" "<<(jk_err_t[i]/corr_norms[0][i])<<endl;
+	  cout<<(run_corr_t[i]/corr_norms[0][i])*norm<<" ";
+	  cout<<(jk_err_t[i]/corr_norms[0][i])<<" ";
+	}
+	filet.close();
+	free(jk_err_t);
+	cout<<endl;
+	
+	double *jk_err_s = (double*)malloc((p.S1/2+1)*sizeof(double));
+	jackknife(ind_corr_t, run_corr_t, jk_err_s, 2, idx, p.S1/2+1, p);
+	ofstream files("correlators_s.dat");
+	for(int i=0; i<p.S1/2+1; i++) {
+	  files<<i<<" "<<(run_corr_s[i]/corr_norms[i][0])*norm;
+	  files<<" "<<(jk_err_s[i]/corr_norms[i][0])<<endl;
+	  cout<<(run_corr_s[i]/corr_norms[i][0])*norm<<" ";
+	  cout<<(jk_err_s[i]/corr_norms[i][0])<<" ";
+	}
+	files.close();
+	free(jk_err_s);
       }
-      filet.close();
-      
-      ofstream files("correlators_s.dat");
-      for(int i=0; i<p.S1/2; i++) {
-	files << i << " " << corr_tmp[i][0] << endl;
-      }
-      files.close();
-      //if(idx%50 == 0) corr_eigs(corr_run, p);
-      
     }
   }
 
-  //autocorrelation(PhiAb_arr, avePhiAb, p.n_meas);
-  
-  //correlators(corr_run, corr_ave, idx, phi_cyl, avePhi*norm, p);
-  //corr_eigs(corr_run, p);
-  
-  //free(corr_run);
-  //free(corr_ave);
 
+  
+  free(run_corr_t);
+  free(run_corr_s);
+  free(corr_norms);
   free(s);
   free(phi);
 }
@@ -637,12 +654,31 @@ void runMonteCarloSqNL(vector<Vertex> &NodeList, Param p) {
 void thermaliseSqNL(double *phi, int *s, Param p,
 		    double &delta_mag_phi, double *LR_couplings) {
   
+  long long metro = 0.0;
+  long long cluster = 0.0;
   for(int iter = 0; iter < p.n_therm; iter++) {
-    for(int i=0; i<p.n_wolff; i++) {
-      //wolffUpdateSqNL(phi, s, p, LR_couplings, delta_mag_phi, iter);      
-      swendsenWangUpdateSqNL(phi, s, p, LR_couplings, delta_mag_phi, iter);      
+
+    auto start = std::chrono::high_resolution_clock::now();    
+    for(int i=0; i<p.n_cluster; i++) {
+      if(p.useWolff) 
+	wolffUpdateSqNL(phi, s, p, LR_couplings, delta_mag_phi, iter);      
+      else 
+	swendsenWangUpdateSqNL(phi, s, p, LR_couplings, delta_mag_phi, iter);
     }
+    auto elapsed = std::chrono::high_resolution_clock::now() - start;
+
+    cluster += std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();
+    
+    start = std::chrono::high_resolution_clock::now();
     metropolisUpdateSqNL(phi, s, p, LR_couplings, delta_mag_phi, iter);
-    if((iter+1)%p.n_skip == 0) cout<<"Therm sweep "<<iter+1<<endl;
+    elapsed = std::chrono::high_resolution_clock::now() - start;
+
+    metro += std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();
+
+    if((iter+1)%p.n_skip == 0) {
+      cout<<"Therm sweep "<<iter+1<<" Cluster time = "<<cluster/(1e6)<<"s Metropolis time = "<<metro/(1e6)<<endl;
+      cluster = 0.0;
+      metro = 0.0;
+    }
   }
 }
