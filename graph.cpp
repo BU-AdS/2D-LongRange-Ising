@@ -89,10 +89,10 @@ void getComplexPositions(std::vector<Vertex> &NodeList, Param& p){
     }
   }
 
-  if(p.t > 1) {
+  if(p.Lt > 1) {
     //Copy all 2D complex positions and weights along the cylinder
     for(long unsigned int n=0; n<endNode(p.Levels,p)+1; n++) 
-      for(int t=1; t<p.t; t++) {
+      for(int t=1; t<p.Lt; t++) {
 	NodeList[n + T_offset*t].z = NodeList[n].z;
 	NodeList[n + T_offset*t].temporal_weight = NodeList[n].temporal_weight;
       }
@@ -107,7 +107,7 @@ void connectivityCheck(vector<Vertex> &NodeList, Param p){
 
   int q = p.q;
   int Levels = p.Levels;
-  int T = p.t;
+  int T = p.Lt;
   int TotNumber = T*(endNode(Levels,p)+1);
   int t_offset  = 0;
   T == 1 ? t_offset = 0 : t_offset = 2;
@@ -150,7 +150,7 @@ void hypRadGraph(vector<Vertex> &NodeList, Param &p){
 
   int q = p.q;
   int Levels = p.Levels;
-  int T = p.t;
+  int T = p.Lt;
   int TotNumber = T*(endNode(Levels,p)+1);
   int t_offset  = 0;
   T == 1 ? t_offset = 0 : t_offset = 2;
@@ -217,7 +217,7 @@ void buildGraph(vector<Vertex> &NodeList, Param p) {
   
   int q = p.q;
   int Levels = p.Levels;
-  int T = p.t;
+  int T = p.Lt;
   int offset = endNode(Levels,p) + 1;
   
   if(p.Vcentre == true) {

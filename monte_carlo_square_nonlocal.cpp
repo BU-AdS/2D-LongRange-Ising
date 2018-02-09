@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <omp.h>
 #include <chrono>
+#include <algorithm>
 
 #include "util.h"
 #include "hyp_util.h"
@@ -87,14 +88,11 @@ double actionSqNL(double *phi_arr, int *s, Param p,
     PE += musqr_p  * phi_sq;
 
     //KE terms
-    double val = 0.0;
-#pragma omp parallel for private(val) reduction(+:KE)
     for(int j=0; j<p.surfaceVol; j++) {      
       //Here we are overcounting by a factor of two, hence the 0.25
       //coefficient.
       //FIXME
-      val = 0.25*(phi - phi_arr[j])*(phi - phi_arr[j])*LR_couplings[i+j*p.surfaceVol]*LR_couplings[i+j*p.surfaceVol];
-      KE += val;
+      KE += 0.25*(phi - phi_arr[j])*(phi - phi_arr[j])*LR_couplings[i+j*p.surfaceVol]*LR_couplings[i+j*p.surfaceVol];
     }
   }
   return PE + KE;
@@ -142,11 +140,8 @@ int metropolisUpdateSqNL(double *phi_arr, int *s, Param &p,
     //KE
     double pmpn = phi-phi_new;
     double pnsmps = 0.5*phi_new_sq-phi_sq;
-    double val = 0.0;
-#pragma omp parallel for private(val) reduction(+:DeltaE)
     for(int j=0; j<p.surfaceVol; j++) {
-      val = (pmpn*phi_arr[j] + pnsmps)*LR_couplings[i+j*p.surfaceVol]*LR_couplings[i+j*p.surfaceVol];
-      DeltaE += val;
+      DeltaE += (pmpn*phi_arr[j] + pnsmps)*LR_couplings[i+j*p.surfaceVol]*LR_couplings[i+j*p.surfaceVol];
     }
     
     sqnl_tries++;
@@ -310,7 +305,6 @@ void wolffUpdateSqNL(double *phi_arr, int *s, Param p,
   
   //Tracks which sites are potentially in the cluster.
   bool *Pcluster = new bool[p.surfaceVol];
-#pragma omp parallel for
   for (int i = 0; i < p.surfaceVol; i++)
     Pcluster[i] = false;
 
@@ -337,7 +331,6 @@ void wolffUpdateSqNL(double *phi_arr, int *s, Param p,
     setprecision(4);
     cout<<"Using "<<p.n_cluster<<" Wolff hits."<<endl; 
     cout<<"Ave. cluster size at iter "<<iter<<" = "<<sqnl_wc_ave<<"/"<<sqnl_wc_calls<<" = "<<1.0*sqnl_wc_ave/sqnl_wc_calls<<endl;
-
   }
   
   delete[] Pcluster;
@@ -384,19 +377,24 @@ void clusterPossibleSqNL(int i, int *s, int cSpin,
   }
 }
 
+
+//int *added = (int*)malloc(sqnl_wc_poss*sizeof(int));
+//int newSites = 0;
+//for(int k=0; k<sqnl_wc_poss; k++) 
+//added[k] = -1;
+
 void clusterAddSqNL(int i, int *s, int cSpin, vector<int> &Rcluster, 
 		    double *LR_couplings,
 		    double *phi_arr, Param p) {
   
   // The site belongs to the cluster, so flip it.
   s[i] *= -1;
-  phi_arr[i] *= -1;
+  phi_arr[i] *= -1;  
 
   double prob = 0.0;
   double rand = 0.0;
-
   int idx = 0;
-  
+
   //We now loop over the possible lattice sites, adding sites
   //(creating bonds) with the specified LR probablity.
   for(int j=0; j<sqnl_wc_poss; j++) {
@@ -407,9 +405,48 @@ void clusterAddSqNL(int i, int *s, int cSpin, vector<int> &Rcluster,
       if(rand < prob) {
 	sqnl_wc_size++;
 	clusterAddSqNL(idx, s, cSpin, Rcluster, LR_couplings, phi_arr, p);
-      }    
+      }
     }
   }
+
+  /*
+  vector<int> added(sqnl_wc_poss,-1);
+  int newSites = 0;
+  
+  //We now loop over the possible lattice sites, adding sites
+  //(creating bonds) with the specified LR probablity.
+#pragma omp parallel for reduction(+:newSites)
+  for(int j=0; j<sqnl_wc_poss; j++) {
+    idx = Rcluster[j];
+    if(LR_couplings[i + idx*p.surfaceVol] > 1e-7 && added[j] < 0){
+      cout<<"hit2"<<endl;
+      prob = 1 - exp(-2*phi_arr[i]*phi_arr[idx]*LR_couplings[i + idx*p.surfaceVol]);
+      rand = unif(rng);
+      cout<<prob<<" "<<rand<<endl;
+      if(rand < prob) {
+	cout<<"hit3"<<endl;
+	sqnl_wc_size++;
+	added[j] = Rcluster[j];
+	newSites += 1;
+	// The site belongs to the cluster, so flip it.
+	//s[Rcluster[j]] *= -1;
+	//phi_arr[Rcluster[j]] *= -1;
+      }
+    }
+  }
+  
+  if(newSites > 0) {
+    //'added' now contains all of the spins on the wave front. Each
+    //of these new sites must be explored, but no new exploration 
+    //need test these sites. First, sort the added array so that all
+    //the hits are at the beginning (sort descending)  
+    sort(added.begin(), added.begin()+sqnl_wc_poss, greater<int>());
+    //for(int i=0; i<newSites; i++) cout<<i<<" "<<added[i]<<endl;  
+    
+    for(int i=0; i<newSites; i++)
+      clusterAddSqNL(added[i], s, cSpin, Rcluster, LR_couplings, phi_arr, p);
+  }
+  */
 }
 
 //------------- Monte Carlo Update  ----------------//
@@ -426,7 +463,6 @@ void runMonteCarloSqNL(vector<Vertex> &NodeList, Param p) {
   double r_y = 0.0;
 
   for(int i=0; i<p.surfaceVol; i++) {
-#pragma omp parallel for
     for(int j=0; j<p.surfaceVol; j++) {
       
       r_x = abs(i%p.S1 - j%p.S1);
@@ -457,6 +493,9 @@ void runMonteCarloSqNL(vector<Vertex> &NodeList, Param p) {
   double Phi_arr[p.n_meas];
   double Phi2_arr[p.n_meas];
   double Phi4_arr[p.n_meas];
+  double Suscep[p.n_meas];
+  double Spec_heat[p.n_meas];
+  double Binder[p.n_meas];
   for(int i=0; i<p.n_meas; i++) {
     E_arr[i]     = 0.0;
     E2_arr[i]    = 0.0;
@@ -464,6 +503,9 @@ void runMonteCarloSqNL(vector<Vertex> &NodeList, Param p) {
     Phi_arr[i]   = 0.0;
     Phi2_arr[i]  = 0.0;
     Phi4_arr[i]  = 0.0;
+    Suscep[i]    = 0.0;
+    Spec_heat[i] = 0.0;
+    Binder[i]    = 0.0;
   }
 
   //Running averages
@@ -507,9 +549,9 @@ void runMonteCarloSqNL(vector<Vertex> &NodeList, Param p) {
       ind_corr_s[i][j] = 0.0;
     }
   }
+
   //The correlation functions must be weighted by how frequently
-  //the i,j separation occurs
-  
+  //the i,j separation occurs  
   //correlation norms array.
   int **corr_norms = (int**)malloc((p.S1/2+1)*sizeof(int*));
   for(int i=0; i<p.S1/2+1; i++) {
@@ -540,19 +582,35 @@ void runMonteCarloSqNL(vector<Vertex> &NodeList, Param p) {
   
   int idx = 0;
   double norm = 0.0;
-  double val = 0.0;  
+  long long metro = 0.0;
+  long long cluster = 0.0;
   for(int iter = p.n_therm; iter < p.n_therm + p.n_skip*p.n_meas; iter++) {
+
+    auto start = std::chrono::high_resolution_clock::now();    
     for(int i=0; i<p.n_cluster; i++) {
       if(p.useWolff) 
 	wolffUpdateSqNL(phi, s, p, LR_couplings, delta_mag_phi, iter);      
       else 
 	swendsenWangUpdateSqNL(phi, s, p, LR_couplings, delta_mag_phi, iter);
-    }    
+    }
+    auto elapsed = std::chrono::high_resolution_clock::now() - start;
+    cluster += std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();
+
+    start = std::chrono::high_resolution_clock::now();
     metropolisUpdateSqNL(phi, s, p, LR_couplings, delta_mag_phi, iter);
+    elapsed = std::chrono::high_resolution_clock::now() - start;
+    metro += std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();
     
+
     //Take measurements.
     //------------------
     if((iter+1) % p.n_skip == 0) {
+
+      cout<<"Measurement "<<(iter+1 - p.n_therm)/p.n_skip;
+      cout<<" Sweep "<<iter+1<<endl;
+      cout<<"Average cluster time = "<<cluster/((idx+1)*1.0e6)<<"s"<<endl;
+      cout<<"Average Metrop. time = "<<metro/((idx+1)*1.0e6)<<"s"<<endl;
+      
       
       tmpE   = actionSqNL(phi, s, p, LR_couplings, KE, PE);
       aveKE += rhoVol*KE;
@@ -561,17 +619,17 @@ void runMonteCarloSqNL(vector<Vertex> &NodeList, Param p) {
       aveE2 += rhoVol2*tmpE*tmpE;
 
       MagPhi = 0.0;      
-#pragma omp parallel for private(val) reduction(+:MagPhi)
-      for(int i = 0;i < p.surfaceVol; i++) {
-	val = phi[i];
-	MagPhi += val;
-      }
+      for(int i = 0;i < p.surfaceVol; i++) MagPhi += phi[i];
+
       MagPhi *= rhoVol;
       
       avePhiAb  += abs(MagPhi);
       avePhi    += MagPhi;
       avePhi2   += MagPhi*MagPhi;
       avePhi4   += MagPhi*MagPhi*MagPhi*MagPhi;
+
+      //Ensemble normalisation.
+      norm = 1.0/(idx+1);
       
       E_arr[idx]     = rhoVol*tmpE;
       E2_arr[idx]    = rhoVol*tmpE*tmpE;
@@ -579,16 +637,19 @@ void runMonteCarloSqNL(vector<Vertex> &NodeList, Param p) {
       Phi_arr[idx]   = MagPhi;
       Phi2_arr[idx]  = MagPhi*MagPhi;
       Phi4_arr[idx]  = MagPhi*MagPhi*MagPhi*MagPhi;
+      //Record the running averages, look for convergence. If deeper
+      //analysis is required, use the above raw quantities. Multiply
+      //(rather than divide) by the lattice size to keep the values
+      //about O(1).
+      Suscep[idx]    = (avePhi2*norm-pow(avePhiAb*norm,2))/rhoVol;
+      Spec_heat[idx] = (aveE2*norm-pow(aveE*norm,2))/rhoVol;
+      Binder[idx]    = 1.0-avePhi4/(3.0*avePhi2*avePhi2*norm);
       
+      //Increment the measurement counter 
       idx++;
       
+      //Dump running averages to log file.
       cout<<setprecision(8);
-      norm = 1.0/(idx);
-
-      //Dump to stdout
-      cout<<"Measurement "<<(iter+1 - p.n_therm)/p.n_skip;
-      cout<<" Sweep "<<iter+1<<endl;
-
       cout<<"Ave Energy= "<<aveE*norm<<endl;
       cout<<"Ave KE    = "<<aveKE*norm<<endl;
       cout<<"Ave PE    = "<<avePE*norm<<endl;
@@ -607,42 +668,48 @@ void runMonteCarloSqNL(vector<Vertex> &NodeList, Param p) {
       correlators(ind_corr_t, idx-1, run_corr_t, true,  phi, avePhi*norm, p);
       correlators(ind_corr_s, idx-1, run_corr_s, false, phi, avePhi*norm, p);
 
-      double *auto_corr = (double*)malloc(idx*sizeof(double));
-      if(idx > 10) autocorrelation(PhiAb_arr, avePhiAb*norm, idx, auto_corr);
-      free(auto_corr);
-
-      //dump the data
+      //Jacknife and dump the data
       if(idx%10 == 0) {
 
+	//The observable (spec heat, suscep, etc) are used only as a guide
+	//to discern criticality, The real quantities of interest are
+	//The critical exponents, especally \eta, and its dependence
+	//on \sigma, hence we MUST have proper error estimates of the
+	//correlation function values. Hardoced to dump result every 10th
+	//measurement, with a jk block of 5.
 	double *jk_err_t = (double*)malloc((p.Lt/2+1)*sizeof(double));
 	jackknife(ind_corr_t, run_corr_t, jk_err_t, 5, idx, p.Lt/2+1, p); 
 	ofstream filet("correlators_t.dat");
 	for(int i=0; i<p.Lt/2+1; i++) {
 	  filet<<i<<" "<<(run_corr_t[i]/corr_norms[0][i])*norm;
 	  filet<<" "<<(jk_err_t[i]/corr_norms[0][i])<<endl;
-	  cout<<(run_corr_t[i]/corr_norms[0][i])*norm<<" ";
-	  cout<<(jk_err_t[i]/corr_norms[0][i])<<" ";
 	}
 	filet.close();
 	free(jk_err_t);
-	cout<<endl;
 	
 	double *jk_err_s = (double*)malloc((p.S1/2+1)*sizeof(double));
-	jackknife(ind_corr_t, run_corr_t, jk_err_s, 2, idx, p.S1/2+1, p);
+	jackknife(ind_corr_t, run_corr_t, jk_err_s, 5, idx, p.S1/2+1, p);
 	ofstream files("correlators_s.dat");
 	for(int i=0; i<p.S1/2+1; i++) {
 	  files<<i<<" "<<(run_corr_s[i]/corr_norms[i][0])*norm;
 	  files<<" "<<(jk_err_s[i]/corr_norms[i][0])<<endl;
-	  cout<<(run_corr_s[i]/corr_norms[i][0])*norm<<" ";
-	  cout<<(jk_err_s[i]/corr_norms[i][0])<<" ";
 	}
 	files.close();
 	free(jk_err_s);
+	
+	ofstream file_obs("observables.dat");
+	for(int i=0; i<idx; i++) {
+	  file_obs<<i<<" "<<Suscep[i]<<" "<<Spec_heat[i]<<" "<<Binder[i]<<endl;
+	}
+	file_obs.close();
       }
+      
+      //Dump auto correlation function data to log file.
+      //double *auto_corr = (double*)malloc(idx*sizeof(double));
+      //if(idx > 10) autocorrelation(PhiAb_arr, avePhiAb*norm, idx, auto_corr);
+      //free(auto_corr);
     }
   }
-
-
   
   free(run_corr_t);
   free(run_corr_s);
@@ -653,32 +720,46 @@ void runMonteCarloSqNL(vector<Vertex> &NodeList, Param p) {
 
 void thermaliseSqNL(double *phi, int *s, Param p,
 		    double &delta_mag_phi, double *LR_couplings) {
-  
+
   long long metro = 0.0;
   long long cluster = 0.0;
-  for(int iter = 0; iter < p.n_therm; iter++) {
 
-    auto start = std::chrono::high_resolution_clock::now();    
+  cout<<"Begin Metropolis cool down."<<endl;
+  //Perform n_therm/2 pure metropolis hits during the hot phase.
+  auto start = std::chrono::high_resolution_clock::now();        
+  for(int iter = 0; iter < p.n_therm/4; iter++) {
+    metropolisUpdateSqNL(phi, s, p, LR_couplings, delta_mag_phi, iter);  
+    if((iter+1)%100 == 0) cout<<"Metro cool down iter "<<iter+1<<endl;
+  }
+  auto elapsed = std::chrono::high_resolution_clock::now() - start;
+  metro = std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();
+  cout<<"Metro cool down complete. "<<p.n_therm/4<<" iters in "<<metro/(1.e6)<<"s"<<endl;
+  metro = 0.0;
+
+  //Cluster/Metro steps
+  for(int iter = 0; iter < p.n_therm; iter++) {
+    start = std::chrono::high_resolution_clock::now();        
+    //Cluster steps.
     for(int i=0; i<p.n_cluster; i++) {
       if(p.useWolff) 
 	wolffUpdateSqNL(phi, s, p, LR_couplings, delta_mag_phi, iter);      
       else 
 	swendsenWangUpdateSqNL(phi, s, p, LR_couplings, delta_mag_phi, iter);
     }
-    auto elapsed = std::chrono::high_resolution_clock::now() - start;
-
-    cluster += std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();
-    
-    start = std::chrono::high_resolution_clock::now();
-    metropolisUpdateSqNL(phi, s, p, LR_couplings, delta_mag_phi, iter);
     elapsed = std::chrono::high_resolution_clock::now() - start;
+    cluster += std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();
 
+    //Metro step.
+    start = std::chrono::high_resolution_clock::now();
+    metropolisUpdateSqNL(phi, s, p, LR_couplings, delta_mag_phi, iter);  
+    elapsed = std::chrono::high_resolution_clock::now() - start;
     metro += std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();
 
     if((iter+1)%p.n_skip == 0) {
-      cout<<"Therm sweep "<<iter+1<<" Cluster time = "<<cluster/(1e6)<<"s Metropolis time = "<<metro/(1e6)<<endl;
-      cluster = 0.0;
-      metro = 0.0;
+      cout<<"Therm sweep "<<iter+1<<endl;
+      cout<<"Average cluster time = "<<cluster/((iter+1)*1.0e6)<<"s"<<endl;
+      cout<<"Average Metrop. time = "<<metro/((iter+1)*1.0e6)<<"s"<<endl;
     }
   }
+  cout<<endl<<"Thermalisaton complete."<<endl<<endl;  
 }

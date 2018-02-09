@@ -28,7 +28,6 @@ class Param{
   
   int MaxIter = 100000;
   double tol = pow(10,-6);
-  int t = 32;
   double msqr = 1.0;
   double C_msqr = 10.0;
   
@@ -45,7 +44,7 @@ class Param{
   char fname[256];
 
   int S1 = 0;
-  int Lt = 0;
+  int Lt = 32;
   int AdSVol = 0;
   int R = 9;
   int surfaceVol = 0;

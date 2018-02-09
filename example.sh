@@ -23,26 +23,31 @@ LATTICE='sq_nonlocal'
 CLUSTER='wolff'
 
 Q=8
+LEVELS=2
+TIMESLICES=32
+CIRCUMFERENCE=32
+
+SRC_POS=-1
 MAX_ITER=100000
 TOL=1e-80
-TIMESLICES=32
+
 MSQR=1.0
-LEVELS=2
-SRC_POS=-1
+delta_MSQR=0.0
 g_MSQR=1.0
 g_LATT=1.0
-delta_MSQR=0.0
 N_SHIFT=1
 
 #Ensure these values are sensible!
 #Currently set for testing only.
-N_THERM=2000
+N_THERM=400
 N_MEAS=5000
-N_SKIP=20
+N_SKIP=100
 N_CLUSTER=4
+
 MUSQR=-1.2725
 LAMBDA=1.0
 SIGMA=$2
+
 TWS=$1
 
 make -j 12
@@ -53,9 +58,10 @@ rm -rf data_dump
 mkdir data_dump
 
 COMMAND="./adsrun ${BC} ${CENTRE} ${VERBOSITY} ${LATTICE} \
-	 	  ${MAX_ITER} ${TOL} ${TIMESLICES} ${MSQR} ${delta_MSQR} \
-	 	  ${LEVELS} ${SRC_POS} ${g_MSQR} ${g_LATT} ${Q} ${N_SHIFT} \
-		  ${N_THERM} ${N_MEAS} ${N_SKIP} ${N_CLUSTER} ${MUSQR} 
+	 	  ${MAX_ITER} ${TOL} ${TIMESLICES} ${CIRCUMFERENCE} \
+                  ${MSQR} ${delta_MSQR} ${LEVELS} ${SRC_POS} \
+                  ${g_MSQR} ${g_LATT} ${Q} ${N_SHIFT} ${N_THERM} \
+                  ${N_MEAS} ${N_SKIP} ${N_CLUSTER} ${MUSQR} \
                   ${LAMBDA} ${SIGMA} ${TWS} ${CLUSTER} "
 
 echo ${COMMAND}

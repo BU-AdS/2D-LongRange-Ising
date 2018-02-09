@@ -139,7 +139,7 @@ double greensM2D(complex<double> z, complex<double> w, Param p) {
   
   //First compute 2F1  
 
-  double delta = p.t > 1 ? 1.0+sqrt(1.0+p.msqr) : 0.5+sqrt(0.25+p.msqr);
+  double delta = p.Lt > 1 ? 1.0+sqrt(1.0+p.msqr) : 0.5+sqrt(0.25+p.msqr);
   double h = 1;
   double result = 0.0;
   double result_0 = 0.0;

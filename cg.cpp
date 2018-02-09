@@ -20,7 +20,7 @@ void Mphi(double *phi, const double *phi0,
 
   int Levels = P.Levels; 
   int q = P.q; 
-  int T = P.t; 
+  int T = P.Lt;
   double msqr = P.msqr; 
   double C_msqr = P.C_msqr; 
   
@@ -68,7 +68,7 @@ double Minv_phi(double *phi, double *b,
   //  see http://en.wikipedia.org/wiki/Conjugate_gradient_method 
   int Levels = P.Levels; 
   int diskN = endNode(Levels,P) + 1; 
-  int TotNumber = P.t*diskN; 
+  int TotNumber = P.Lt*diskN; 
   
   double *res, *resNew, *pvec, *Mpvec, *pvec_tmp;   
   res      = new double[TotNumber]; 
@@ -362,7 +362,7 @@ void Minv_phi_ms(double **phi, double *phi0,
 		 vector<Vertex> NodeList, Param p){
   
   int n_shift = p.n_shift;
-  int size = (endNode(p.Levels,p) + 1) * p.t;
+  int size = (endNode(p.Levels,p) + 1) * p.Lt;
   int resid_freq_check = 10;
   int max_iter = p.MaxIter;
   double msqr = p.msqr;
@@ -633,7 +633,7 @@ void oneLoopCorrection(double *LR_coupling,
   }
   
   //Propagate the one loop correction data...
-  for(int i=0; i<p.t; i++) {
+  for(int i=0; i<p.Lt; i++) {
     for(int q=0; q<p.q; q++) {    
       for(int s=0; s<sources; s++) {
 	NodeList[pos + s + q*sources + i*p.AdSVol].oneLoopCorr = NodeList[pos + s].oneLoopCorr;

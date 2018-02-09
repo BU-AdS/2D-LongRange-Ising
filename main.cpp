@@ -34,10 +34,9 @@ int main(int argc, char **argv) {
   if(argc > 1) p.init(argc, argv);
   
   //-- Populate problem dependent data. --//
-  //Nodes on the outer AdS perimeter.
-  p.S1 = endNode(p.Levels,p) - endNode(p.Levels-1,p);
-  //Timeslices.
-  p.Lt = p.t;
+  //Unless a specific positive input for the circumference is given,
+  //it will be the nodes on the outer AdS perimeter.
+  if(p.S1 <= 0)  p.S1 = endNode(p.Levels,p) - endNode(p.Levels-1,p);
   //Nodes on the 2D surface of the AdS space.
   p.surfaceVol = p.S1*p.Lt;
   //Nodes on the Poincare disk

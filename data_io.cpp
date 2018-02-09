@@ -15,18 +15,18 @@ using namespace std;
 //Data file for lattice/analytical propagator data,
 void dataDump(vector<Vertex> NodeList, double *phi, Param p, int level, int t_range, int shift) {
 
-  long unsigned int TotNumber = (endNode(p.Levels,p) + 1) * p.t;
+  long unsigned int TotNumber = (endNode(p.Levels,p) + 1) * p.Lt;
   double norm = 0.0;
   for(long unsigned int i = 0;i < TotNumber; i++) norm += phi[i]*phi[i];
   for(long unsigned int i = 0;i < TotNumber; i++) phi[i] /= sqrt(norm); 
   
   long unsigned int j = p.src_pos;
 
-  int T = p.t;
+  int T = p.Lt;
   int T_offset = 0;
   double theta = 0.0;
   //double msqr = (double)p.msqr + (double)p.delta_msqr*shift;
-  double delta = p.t < 2 ? 0.5 + sqrt(0.25 + p.msqr) : 1.0 + sqrt(1 + p.msqr);
+  double delta = p.Lt < 2 ? 0.5 + sqrt(0.25 + p.msqr) : 1.0 + sqrt(1 + p.msqr);
   complex<double> ratio;
   complex<double> src = NodeList[j].z;
   
@@ -41,7 +41,7 @@ void dataDump(vector<Vertex> NodeList, double *phi, Param p, int level, int t_ra
 	sprintf(p.fname, "./data_dump/q%d_Lev%d_T%d_BASEmsqr%.5e_LATTmsqr%.5e_srct0_srcpos%d_sinkt%dLev%d_%s_%s.dat",
 		p.q,
 		p.Levels,
-		p.t,
+		p.Lt,
 		(double)p.msqr,
 		(double)(p.C_msqr*p.msqr + shift*p.delta_msqr),
 		p.src_pos,
@@ -64,10 +64,10 @@ void dataDump(vector<Vertex> NodeList, double *phi, Param p, int level, int t_ra
 	  
 	  //index divided by disk size, using the int floor feature/bug,
 	  //gives the timeslice for each index.
-	  int t1 = j / (TotNumber/p.t);
-	  int t2 = i / (TotNumber/p.t);
+	  int t1 = j / (TotNumber/p.Lt);
+	  int t2 = i / (TotNumber/p.Lt);
 	  //Assume PBC.
-	  int delta_t = (t2-t1);// > p.t/2 ? (t2-t1) - p.t : (t2-t1);
+	  int delta_t = (t2-t1);// > p.Lt/2 ? (t2-t1) - p.Lt : (t2-t1);
 	  
 	  double r = abs(NodeList[i].z);
 	  double r_p = abs(NodeList[j].z);
@@ -106,7 +106,7 @@ void PrintNodeTables(const vector<Vertex> NodeList, Param P) {
 
   int q = P.q;
   int Levels = P.Levels;  
-  int T = P.t;
+  int T = P.Lt;
   int t_offset  = 0;
   T == 1 ? t_offset = 0 : t_offset = 2;
   

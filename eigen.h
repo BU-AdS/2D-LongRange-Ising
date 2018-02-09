@@ -30,7 +30,7 @@ int Mphi_ev(vector<Vertex> NodeList, Param p) {
   double *in_real;
   double *out_real;
   int Levels = p.Levels;
-  int N = p.t*(endNode(Levels,p)+1);
+  int N = p.Lt*(endNode(Levels,p)+1);
   double *phi  = (double*)malloc(N*sizeof(double));
   double *phi0 = (double*)malloc(N*sizeof(double));
   // Set output precision to be long.
@@ -111,7 +111,7 @@ int Mphi_ev(vector<Vertex> NodeList, Param p) {
 	  N, 
 	  p.q,
 	  p.Levels, 
-	  p.t, 
+	  p.Lt, 
 	  (double)p.msqr,
 	  p.src_pos,
 	  p.bc == true ? "Dirichlet" : "Neumann",

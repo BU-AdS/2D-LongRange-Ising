@@ -85,7 +85,7 @@ void autocorrelation(double *PhiAb_arr, double avePhiAbs,
 		       avePhiAbs*avePhiAbs)/(meas-k);
     }
     cout<<"Autocorrelation "<<k<<" = "<<auto_corr[k]/auto_corr[0]<<endl;
-    auto_corr_t -= k/log(auto_corr[k]);
+    if(k<100) auto_corr_t -= k/log(auto_corr[k]);
     cout<<"Autocorrelation time at k = "<<1+2*auto_corr_t<<endl;
   }
 
@@ -126,6 +126,5 @@ void jackknife(double **ind, double *run, double *jk_err, int block,
       jk_err[r] += pow(run[r]/data_points - resamp_ave[r][i],2);
     }
     jk_err[r] = sqrt(coeff*jk_err[r]);    
-  }
-  
+  }  
 }

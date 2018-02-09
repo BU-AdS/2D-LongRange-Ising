@@ -78,36 +78,37 @@ void Param::init(int argc, char **argv) {
   
   MaxIter    = atoi(argv[5]);
   tol        = atof(argv[6]);
-  t          = atoi(argv[7]);
-  msqr       = atof(argv[8]);
-  delta_msqr = atof(argv[9]);
-  Levels     = atoi(argv[10]);
-  src_pos    = atoi(argv[11]);
+  Lt         = atoi(argv[7]);  
+  S1         = atoi(argv[8]);
+  msqr       = atof(argv[9]);
+  delta_msqr = atof(argv[10]);
+  Levels     = atoi(argv[11]);
+  src_pos    = atoi(argv[12]);
   
-  if(atof(argv[12]) == 0) {
-    if(t > 1) C_msqr = (1.57557326 + 1.56565549/msqr);
+  if(atof(argv[13]) == 0) {
+    if(Lt > 1) C_msqr = (1.57557326 + 1.56565549/msqr);
     else C_msqr = -0.0126762/msqr + 0.0689398*msqr + 2.02509;
   }
-  else C_msqr = atof(argv[12]);
+  else C_msqr = atof(argv[13]);
   
-  if(atof(argv[13]) == 0) N_latt = 0.294452/(msqr + 0.766901) + 0.0788137;
-  else N_latt = atof(argv[13]);
+  if(atof(argv[14]) == 0) N_latt = 0.294452/(msqr + 0.766901) + 0.0788137;
+  else N_latt = atof(argv[14]);
   
-  q = atoi(argv[14]);
-  n_shift = atoi(argv[15]);
+  q = atoi(argv[15]);
+  n_shift = atoi(argv[16]);
   
   //MC params  
-  n_therm   = atoi(argv[16]);
-  n_meas    = atoi(argv[17]);
-  n_skip    = atoi(argv[18]);
-  n_cluster = atoi(argv[19]);
-  musqr     = atof(argv[20]);
-  lambda    = atof(argv[21]);
-  sigma     = atof(argv[22]);
+  n_therm   = atoi(argv[17]);
+  n_meas    = atoi(argv[18]);
+  n_skip    = atoi(argv[19]);
+  n_cluster = atoi(argv[20]);
+  musqr     = atof(argv[21]);
+  lambda    = atof(argv[22]);
+  sigma     = atof(argv[23]);
 
-  t_weight_scale = atof(argv[23]);  
+  t_weight_scale = atof(argv[24]);  
 
-  std::string WOLFF(argv[24]);
+  std::string WOLFF(argv[25]);
   if (WOLFF == "wolff" || 
       WOLFF == "Wolff" ||
       WOLFF == "WOLFF" ) {
@@ -125,19 +126,11 @@ void Param::init(int argc, char **argv) {
 void Param::print() {
   cout<<"Parameter status:"<<endl;
   cout<<"Triangulation = "<<q<<endl;
-  cout<<"B.C. = "<< (bc ? ("Dirichlet") : ("Neumann") ) << endl;
-  cout<<"Centre = "<< (Vcentre ? ("Vertex") : ("Circum") ) << endl;
-  cout<<"Source Position = "<<src_pos<<endl;
-  cout<<"CG MaxIter = "<<MaxIter<<endl;
-  cout<<"CG Tol = "<<tol<<endl;
-  cout<<"MCG Number of Shifts = "<<n_shift<<endl;
-  cout<<"MCG Msqr increment = "<<delta_msqr<<endl;
-  cout<<"TimeSlices = "<<t<<endl;
-  cout<<"Mass squared = "<<msqr<<endl;
-  cout<<"Levels = "<<Levels<<endl;
-  cout<<"Mass squared scaling = "<<C_msqr<<endl;
-  cout<<"Lattice normalisation = "<<N_latt<<endl;
-
+  cout<<"TimeSlices = "<<Lt<<endl;
+  cout<<"Circumference = "<<S1<<endl;
+  cout<<"AdS Mass squared = "<<msqr<<endl;
+  cout<<"Mu Mass squared = "<<musqr<<endl;
+  cout<<"Lambda = "<<lambda<<endl;  
 }
 
 //Using the formula c(n) = (q-4)*c(n-1) - c(n-2) where c is the
