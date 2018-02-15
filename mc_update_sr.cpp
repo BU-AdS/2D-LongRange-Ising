@@ -7,11 +7,14 @@
 #include <cstring>
 #include <random>
 #include <unistd.h>
+#include <omp.h>
+#include <chrono>
+#include <algorithm>
 
 #include "util.h"
 #include "data_proc.h"
-#include "data_io.h"
-#include "monte_carlo_square_local.h"
+#include "mc_util.h"
+#include "mc_update_sr.h"
 
 using namespace std;
 
@@ -49,7 +52,8 @@ inline int ttm(int i, Param p){
   return i % p.S1 + p.S1 * ((i / p.S1 - 1 + p.Lt) % p.Lt);
 }
 
-// declare variables to implement Wolff algorithm
+
+// declare variables to implement Cluster algorithms
 int sql_wc_ave = 0;
 int sql_wc_size = 0;
 int sql_wc_calls = 0;
@@ -62,40 +66,11 @@ int sql_sw_calls = 0;
 int sql_sw_t_size = 0;
 int sql_sw_s_size = 0;
 
-double actionSqL(double *phi_arr, int *s, Param p,
-		 double & KE, double & PE) {  
-  
-  KE = 0.0;
-  PE = 0.0;
-  double phi_sq;
-  double phi;
-  double lambda_p = 0.25*p.lambda;
-  double musqr_p  = 0.50*p.musqr;
-
-  for (int i = 0; i < p.surfaceVol; i++)
-    if (s[i] * phi_arr[i] < 0)
-      printf("ERROR s and phi NOT aligned (actionPhi Square) ! \n");
-  
-  //PE terms
-  for (int i = 0; i < p.surfaceVol; i++) {    
-    phi = phi_arr[i];
-    phi_sq = phi*phi;
-    
-    PE += lambda_p * phi_sq*phi_sq;
-    PE += musqr_p  * phi_sq;
-    
-    KE += 0.5 * (phi - phi_arr[xp(i,p)]) * (phi - phi_arr[xp(i,p)]);
-    KE += 0.5 * (phi - phi_arr[tp(i,p)]) * (phi - phi_arr[tp(i,p)]);
-  }
-  
-  return PE + KE;
-}
-
 int sql_accept = 0;
 int sql_tries  = 0;
 
-int metropolisUpdateSqL(double *phi_arr, int *s, Param &p,
-			double &delta_mag_phi, int iter) {
+int metropolisUpdateSR(double *phi_arr, int *s, Param &p,
+		       double &delta_mag_phi, int iter) {
 
   delta_mag_phi = 0.0;
   
@@ -174,7 +149,7 @@ int metropolisUpdateSqL(double *phi_arr, int *s, Param &p,
   return delta_mag;
 }
 
-void swendsenWangUpdateSqL(double *phi_arr, int *s, Param p,
+void swendsenWangUpdateSR(double *phi_arr, int *s, Param p,
 			   double &delta_mag_phi, int iter) {
   
   sql_sw_calls++;  
@@ -200,7 +175,8 @@ void swendsenWangUpdateSqL(double *phi_arr, int *s, Param p,
       
       //This function will call itself recursively until it fails to 
       //add to the cluster
-      SWclusterAddSqL(i, s, clusterSpin[clusterNum], clusterNum, clusterDef, phi_arr, p);
+      swendsenWangClusterAddSR(i, s, clusterSpin[clusterNum], clusterNum, 
+				clusterDef, phi_arr, p);
     }
   }
   
@@ -221,54 +197,54 @@ void swendsenWangUpdateSqL(double *phi_arr, int *s, Param p,
   delete[] clusterSpin;
 }
 
-void SWclusterAddSqL(int i, int *s, int cSpin, int clusterNum, 
-		     int *clusterDef, double *phi_arr, Param p) {
+void swendsenWangClusterAddSR(int i, int *s, int cSpin, int clusterNum, 
+			       int *clusterDef, double *phi_arr, Param p) {
   
   //The site belongs to the (clusterNum)th cluster
   clusterDef[i] = clusterNum;
 
-  //ferromagnetic coupling
-  const double J = 1.0;
-  
   //If the (aligned) neighbor spin does not already belong to the
   // cluster, then try to add it to the cluster.
   // - If the site has already been added, then we may skip the test.
 
   //Forward in T
   if(clusterDef[tp(i,p)] == 0 && s[tp(i,p)] == cSpin) {
-    if(unif(rng) < 1 - exp(-2*J*phi_arr[i]*phi_arr[tp(i,p)])) {
+    if(unif(rng) < 1 - exp(-2*phi_arr[i]*phi_arr[tp(i,p)])) {
       //cout<<"->tp";
-      SWclusterAddSqL(tp(i,p), s, cSpin, clusterNum, clusterDef, phi_arr, p);
+      swendsenWangClusterAddSR(tp(i,p), s, cSpin, clusterNum, 
+				clusterDef, phi_arr, p);
     }
   }
 
   //Forward in X
   if(clusterDef[xp(i,p)] == 0 && s[xp(i,p)] == cSpin) {
-    if(unif(rng) < 1 - exp(-2*J*phi_arr[i]*phi_arr[xp(i,p)])) {
+    if(unif(rng) < 1 - exp(-2*phi_arr[i]*phi_arr[xp(i,p)])) {
       //cout<<"->xp";
-      SWclusterAddSqL(xp(i,p), s, cSpin, clusterNum, clusterDef, phi_arr, p);
+      swendsenWangClusterAddSR(xp(i,p), s, cSpin, clusterNum, 
+				clusterDef, phi_arr, p);
     }
   }
   
   //Backard in T 
   if(clusterDef[ttm(i,p)] == 0 && s[ttm(i,p)] == cSpin) {  
-    if(unif(rng) < 1 - exp(-2*J*phi_arr[i]*phi_arr[ttm(i,p)])) {
+    if(unif(rng) < 1 - exp(-2*phi_arr[i]*phi_arr[ttm(i,p)])) {
       //cout<<"->tm";
-      SWclusterAddSqL(ttm(i,p), s, cSpin, clusterNum, clusterDef, phi_arr, p);
+      swendsenWangClusterAddSR(ttm(i,p), s, cSpin, clusterNum, 
+				clusterDef, phi_arr, p);
     }
   }
   
   //Backward in X
   if(clusterDef[xm(i,p)] == 0 && s[xm(i,p)] == cSpin) {
-    if (unif(rng) < 1 - exp(-2*J*phi_arr[i]*phi_arr[xm(i,p)])) {
+    if (unif(rng) < 1 - exp(-2*phi_arr[i]*phi_arr[xm(i,p)])) {
       //cout<<"->xm";
-      SWclusterAddSqL(xm(i,p), s, cSpin, clusterNum, clusterDef, phi_arr, p);
+      swendsenWangClusterAddSR(xm(i,p), s, cSpin, clusterNum, 
+				clusterDef, phi_arr, p);
     }
   } 
 }
 
-
-void wolffUpdateSqL(double *phi_arr, int *s, Param p,
+void wolffUpdateSR(double *phi_arr, int *s, Param p,
 		    double &delta_mag_phi, int iter) {
   
   sql_wc_calls++;
@@ -285,7 +261,7 @@ void wolffUpdateSqL(double *phi_arr, int *s, Param p,
   //until all four attempts in the lattice directions
   // (+x, -x, +t, -t) have failed to ncrease the cluster.
   sql_wc_size = 1;
-  clusterAddSqL(i, s, cSpin, cluster, phi_arr, p);
+  wolffClusterAddSR(i, s, cSpin, cluster, phi_arr, p);
 
   sql_wc_ave += sql_wc_size;
 
@@ -298,233 +274,248 @@ void wolffUpdateSqL(double *phi_arr, int *s, Param p,
   delete[] cluster;
 }
 
-void clusterAddSqL(int i, int *s, int cSpin,
-		   bool *cluster, double *phi_arr, Param p) {
+void wolffClusterAddSR(int i, int *s, int cSpin,
+			bool *cluster, double *phi_arr, Param p) {
   
   // The site belongs to the cluster, so flip it.
   cluster[i] = true;
   s[i] *= -1;
   phi_arr[i] *= -1;
 
-  // ferromagnetic coupling
-  const double J = 1.0;
-  
   // - If the (aligned) neighbor spin does not already belong to the
   // cluster, then try to add it to the cluster.
   // - If the site has already been added, then we may skip the test.
 
   //Forward in T
   if(!cluster[ tp(i,p) ] && s[tp(i,p)] == cSpin) {
-    if(unif(rng) < 1 - exp(2*J*phi_arr[i]*phi_arr[tp(i,p)])) {
+    if(unif(rng) < 1 - exp(2*phi_arr[i]*phi_arr[tp(i,p)])) {
       sql_wc_size++;
       sql_wc_t_size++;
       //cout<<"->tp";
-      clusterAddSqL(tp(i,p), s, cSpin, cluster, phi_arr, p);
+      wolffClusterAddSR(tp(i,p), s, cSpin, cluster, phi_arr, p);
     }
   }
 
   //Forward in X
   if(!cluster[ xp(i,p) ] && s[xp(i,p)] == cSpin) {
-    if(unif(rng) < 1 - exp(2*J*phi_arr[i]*phi_arr[xp(i,p)])) {
+    if(unif(rng) < 1 - exp(2*phi_arr[i]*phi_arr[xp(i,p)])) {
       sql_wc_size++;
       sql_wc_s_size++;
       //cout<<"->xp";
-      clusterAddSqL(xp(i,p), s, cSpin, cluster, phi_arr, p);
+      wolffClusterAddSR(xp(i,p), s, cSpin, cluster, phi_arr, p);
     }
   }
 
   
   //Backard in T 
   if(!cluster[ ttm(i,p) ] && s[ttm(i,p)] == cSpin) {  
-    if(unif(rng) < 1 - exp(2*J*phi_arr[i]*phi_arr[ttm(i,p)])) {
+    if(unif(rng) < 1 - exp(2*phi_arr[i]*phi_arr[ttm(i,p)])) {
       sql_wc_size++;
       sql_wc_t_size++;
       //cout<<"->tm";
-      clusterAddSqL(ttm(i,p), s, cSpin, cluster, phi_arr, p);
+      wolffClusterAddSR(ttm(i,p), s, cSpin, cluster, phi_arr, p);
     }
   }
 
   //Backward in X
   if(!cluster[ xm(i,p) ] && s[xm(i,p)] == cSpin) {
-    if (unif(rng) < 1 - exp(2*J*phi_arr[i]*phi_arr[xm(i,p)])) {
+    if (unif(rng) < 1 - exp(2*phi_arr[i]*phi_arr[xm(i,p)])) {
       sql_wc_size++;
       sql_wc_s_size++;
       //cout<<"->xm";
-      clusterAddSqL(xm(i,p), s, cSpin, cluster, phi_arr, p);
+      wolffClusterAddSR(xm(i,p), s, cSpin, cluster, phi_arr, p);
     }
   } 
 }
 
-//------------- Monte Carlo Update  ----------------//
-void runMonteCarloSqL(vector<Vertex> &NodeList, Param p) {
-  
-  double KE = 0.0, PE = 0.0;
-  double mag_phi = 0.0;
-  double delta_mag_phi = 0.0;
 
+
+/*
+//------------- Monte Carlo Update  ----------------//
+void runMonteCarloSR(Param p) {
+  
+  //Create structure to hold observable data.
+  observables obs(p.n_meas);
+  
+  //Create the LR couplings 
+  //(if needed)
+  double *LR_couplings;
+  createLRcouplings(LR_couplings, p);
+
+  //Create structures to hold spin and phi values.
   int *s = (int*)malloc(p.surfaceVol*sizeof(int));
-  double *phi;
-  phi = (double*)malloc(p.surfaceVol*sizeof(double));
+  double *phi = (double*)malloc(p.surfaceVol*sizeof(double));
   for(int i = 0;i < p.surfaceVol; i++) {
     phi[i] = 2.0*unif(rng) - 1.0;
     s[i] = (phi[i] > 0) ? 1:-1;
-    mag_phi += phi[i];
+    obs.MagPhi += phi[i];
   }  
-  thermaliseSqL(phi, s, p, delta_mag_phi);
-  
-  //Arrays holding measurements for error analysis
-  double E_arr[p.n_meas];
-  double E2_arr[p.n_meas];
-  double PhiAb_arr[p.n_meas];
-  double Phi_arr[p.n_meas];
-  double Phi2_arr[p.n_meas];
-  double Phi4_arr[p.n_meas];
+  thermaliseSR(phi, s, p, obs.delta_mag_phi);
+
+  //Running correlation function arrays.
+  double *run_corr_t = (double*)malloc((p.Lt/2+1)*sizeof(double));
+  for(int i=0; i<p.Lt/2+1; i++) {
+    run_corr_t[i] = 0.0;
+  }
+  double *run_corr_s = (double*)malloc((p.S1/2+1)*sizeof(double));
+  for(int i=0; i<p.S1/2+1; i++) {
+    run_corr_s[i] = 0.0;
+  }
+
+  //Individual correlation functions.
+  double **ind_corr_t = (double**)malloc((p.n_meas)*sizeof(double*));
   for(int i=0; i<p.n_meas; i++) {
-    E_arr[i]     = 0.0;
-    E2_arr[i]    = 0.0;
-    PhiAb_arr[i] = 0.0;
-    Phi_arr[i]   = 0.0;
-    Phi2_arr[i]  = 0.0;
-    Phi4_arr[i]  = 0.0;
+    ind_corr_t[i] = (double*)malloc((p.Lt/2+1)*sizeof(double));
+    for(int j=0; j<p.Lt/2+1; j++) {
+      ind_corr_t[i][j] = 0.0;
+    }
+  }
+  double **ind_corr_s = (double**)malloc((p.n_meas)*sizeof(double*));
+  for(int i=0; i<p.n_meas; i++) {
+    ind_corr_s[i] = (double*)malloc((p.S1/2+1)*sizeof(double));
+    for(int j=0; j<p.S1/2+1; j++) {
+      ind_corr_s[i][j] = 0.0;
+    }
   }
 
-  //Running averages
-  double tmpE     = 0.0;  
-  double aveE     = 0.0;
-  double aveKE    = 0.0;
-  double avePE    = 0.0;
-  double aveE2    = 0.0;
-  double avePhiAb = 0.0;
-  double avePhi   = 0.0;
-  double avePhi2  = 0.0;
-  double avePhi4  = 0.0;
-  double MagPhi   = 0.0;
-
-  //Density of lattice sites
-  double rhoVol  = 1.0/(double)p.surfaceVol;
-  double rhoVol2 = rhoVol*rhoVol;
-
-  //correlation function arrays. One keeps the running average,
-  //one is temporary to pass around single measurent values. 
-  double **corr_tmp = (double**)malloc((p.S1/2)*sizeof(double*));
-  double **corr_ave = (double**)malloc((p.S1/2)*sizeof(double*));
-  for(int i=0; i<p.S1/2; i++) {
-    corr_tmp[i] = (double*)malloc((p.Lt/2)*sizeof(double));
-    corr_ave[i] = (double*)malloc((p.Lt/2)*sizeof(double));
+  //The correlation functions must be weighted by how frequently
+  //the i,j separation occurs  
+  //correlation norms array.
+  int **corr_norms = (int**)malloc((p.S1/2+1)*sizeof(int*));
+  for(int i=0; i<p.S1/2+1; i++) {
+    corr_norms[i] = (int*)malloc((p.Lt/2+1)*sizeof(int));
   }
-  for(int i=0; i<p.S1/2; i++)
-    for(int j=0; j<p.Lt/2; j++) 
-      corr_ave[i][j] = 0.0;
+  for(int i=0; i<p.S1/2+1; i++)
+    for(int j=0; j<p.Lt/2+1; j++) 
+      corr_norms[i][j] = 0;
   
-  double **phi_sq_arr = (double**)malloc(p.S1*sizeof(double*));
-  for(int i=0; i<p.S1; i++) {
-    phi_sq_arr[i] = (double*)malloc(p.Lt*sizeof(double));
-    for(int j=0; j<p.Lt; j++) phi_sq_arr[i][j] = 0.0;
-  }
+  int s_idx = 0;
+  int t_idx = 0;
+  int s_size = p.S1;
+  int t_size = p.Lt;
 
+  //loop over sink/source *theta*
+  for(int is=0; is<s_size; is++)
+    for(int js=0; js<s_size; js++) {      
+      s_idx = abs(is-js);
+      if(s_idx > s_size/2) s_idx = s_size - s_idx ;      
+      //loop over sink/source *temporal*
+      for(int il=0; il<t_size; il++) 	  
+	for(int jl=0; jl<t_size; jl++) {
+	  t_idx = abs(il-jl);
+	  if(t_idx >= t_size/2) t_idx = t_size - t_idx;
+	  ++corr_norms[s_idx][t_idx];
+	}
+    }
+    
   int idx = 0;
   double norm;
-  
+
+  long long metro = 0.0;
+  long long cluster = 0.0;
   for(int iter = p.n_therm; iter < p.n_therm + p.n_skip*p.n_meas; iter++) {
-    
+
+    auto start = std::chrono::high_resolution_clock::now();    
     for(int i=0; i<p.n_cluster; i++) {
-      if(p.useWolff) wolffUpdateSqL(phi, s, p, delta_mag_phi, iter);
-      else swendsenWangUpdateSqL(phi, s, p, delta_mag_phi, iter);
+      if(p.useWolff) 
+	wolffUpdateSR(phi, s, p, obs.delta_mag_phi, iter);      
+      else 
+	swendsenWangUpdateSR(phi, s, p, obs.delta_mag_phi, iter);
     }
-    metropolisUpdateSqL(phi, s, p, delta_mag_phi, iter);
+    auto elapsed = std::chrono::high_resolution_clock::now() - start;
+    cluster += std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();
+    
+    start = std::chrono::high_resolution_clock::now();
+    metropolisUpdateSR(phi, s, p, obs.delta_mag_phi, iter);
+    elapsed = std::chrono::high_resolution_clock::now() - start;
+    metro += std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();
     
     //Take measurements.
     if((iter+1) % p.n_skip == 0) {
-      
-      for(int i = 0;i < p.S1; i++) {
-	for(int j=0; j<p.Lt; j++) 
-	  phi_sq_arr[i][j] += pow(phi[i + p.S1*j],2);
-      }
-      
-      tmpE   = actionSqL(phi, s, p, KE, PE);
-      aveKE += rhoVol*KE;
-      avePE += rhoVol*PE;
-      aveE  += rhoVol*tmpE;
-      aveE2 += rhoVol2*tmpE*tmpE;
 
-      MagPhi = 0.0;
-      for(int i = 0;i < p.surfaceVol; i++) MagPhi += phi[i];
-      MagPhi *= rhoVol;
-      
-      avePhiAb  += abs(MagPhi);
-      avePhi    += MagPhi;
-      avePhi2   += MagPhi*MagPhi;
-      avePhi4   += MagPhi*MagPhi*MagPhi*MagPhi;
-      
-      E_arr[idx]     = rhoVol*tmpE;
-      E2_arr[idx]    = rhoVol*tmpE*tmpE;
-      PhiAb_arr[idx] = abs(MagPhi);
-      Phi_arr[idx]   = MagPhi;
-      Phi2_arr[idx]  = MagPhi*MagPhi;
-      Phi4_arr[idx]  = MagPhi*MagPhi*MagPhi*MagPhi;
-      
-      idx++;
-      
-      cout<<setprecision(8);
-      norm = 1.0/(idx);
-
-      //Dump to stdout
-      cout<<"Measurement "<<(iter+1 - p.n_therm)/p.n_skip<<" Sweep "<<iter+1<<endl;
-      cout<<"Ave Energy= "<<aveE*norm<<endl;
-      cout<<"Ave KE    = "<<aveKE*norm<<endl;
-      cout<<"Ave PE    = "<<avePE*norm<<endl;
-      cout<<"Ave |phi| = "<<avePhiAb*norm<<endl;
-      cout<<"Ave phi   = "<<avePhi*norm<<endl;
-      cout<<"Ave phi^2 = "<<avePhi2*norm<<endl;
-      cout<<"Ave phi^4 = "<<avePhi4*norm<<endl;
-      cout<<"Suscep    = "<<(avePhi2*norm-pow(avePhiAb*norm,2))/rhoVol<<endl;
-      cout<<"Spec Heat = "<<(aveE2*norm-pow(aveE*norm,2))/rhoVol<<endl;
-      cout<<"Binder    = "<<1.0-avePhi4/(3.0*avePhi2*avePhi2*norm)<<endl;
+      //update running average, dump to stdout. 
+      //'idx' is ++ incremented in this function.
+      measure(obs, phi, s, LR_couplings, idx, p);
       
       //Visualisation tools
       //visualiserSqr(phi, avePhiAb*norm, p);
-      //visualiserPhi2(phi_sq_arr, p, idx);      
 
-      //Calculate correlaton functions and update the average.
-      //correlators(corr_tmp, corr_ave, idx, phi, avePhi*norm, p);
+      norm = 1.0/(idx);
       
-      ofstream filet("correlators_t.dat");
-      for(int i=0; i<p.Lt/2; i++) {
-	filet << i << " " << corr_tmp[0][i] << endl;
-      }
-      filet.close();
+      correlators(ind_corr_t, idx-1, run_corr_t, 
+		  true,  phi, obs.avePhi*norm, p);
+      correlators(ind_corr_s, idx-1, run_corr_s, 
+		  false, phi, obs.avePhi*norm, p);
       
-      ofstream files("correlators_s.dat");
-      for(int i=0; i<p.S1/2; i++) {
-	files << i << " " << corr_tmp[i][0] << endl;
-      }
-      files.close();
-      //if(idx%50 == 0) corr_eigs(corr_run, p);
       
+      //correlatorsSRImp(ind_corr_t, idx-1, run_corr_t, 
+      //true,  phi, obs.avePhi*norm, s, p);
+      //correlatorsSRImp(ind_corr_s, idx-1, run_corr_s, 
+      //false, phi, obs.avePhi*norm, s, p);
+      
+      //Jacknife and dump the data
+      if(idx%10 == 0) {	
+	writeObservables(ind_corr_t, run_corr_s, ind_corr_t, run_corr_s,
+			 corr_norms, idx, obs, p);
+      }      
     }
   }
 
-  //autocorrelation(PhiAb_arr, avePhiAb, p.n_meas);
-  
-  //correlators(corr_run, corr_ave, idx, phi_cyl, avePhi*norm, p);
-  //corr_eigs(corr_run, p);
-  
-  //free(corr_run);
-  //free(corr_ave);
-
+  free(run_corr_t);
+  free(run_corr_s);
+  free(corr_norms);
   free(s);
   free(phi);
+
 }
 
-void thermaliseSqL(double *phi, int *s, 
-		   Param p, double &delta_mag_phi) {
-  
-  for(int iter = 0; iter < p.n_therm; iter++) {
-    for(int i=0; i<p.n_cluster; i++) {
-      if(p.useWolff == true) wolffUpdateSqL(phi, s, p, delta_mag_phi, iter);
-      else swendsenWangUpdateSqL(phi, s, p, delta_mag_phi, iter);
-    }
-    metropolisUpdateSqL(phi, s, p, delta_mag_phi, iter);
-    if((iter+1)%p.n_skip == 0) cout<<"Therm sweep "<<iter+1<<endl;
+
+
+void thermalise(double *phi, int *s, 
+		Param p, double &delta_mag_phi) {
+
+  long long metro = 0.0;
+  long long cluster = 0.0;
+
+  cout<<"Begin Metropolis cool down."<<endl;
+  //Perform n_therm/2 pure metropolis hits during the hot phase.
+  auto start = std::chrono::high_resolution_clock::now();        
+  for(int iter = 0; iter < p.n_therm/4; iter++) {
+    metropolisUpdateSR(phi, s, p, delta_mag_phi, iter);  
+    if((iter+1)%100 == 0) cout<<"Metro cool down iter "<<iter+1<<endl;
   }
+  auto elapsed = std::chrono::high_resolution_clock::now() - start;
+  metro = std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();
+  cout<<"Metro cool down complete. "<<p.n_therm/4<<" iters in "<<metro/(1.e6)<<"s"<<endl;
+  metro = 0.0;
+
+  //Cluster/Metro steps
+  for(int iter = 0; iter < p.n_therm; iter++) {
+    start = std::chrono::high_resolution_clock::now();        
+    //Cluster steps.
+    for(int i=0; i<p.n_cluster; i++) {
+      if(p.useWolff) 
+	wolffUpdateSR(phi, s, p, delta_mag_phi, iter);      
+      else 
+	swendsenWangUpdateSR(phi, s, p, delta_mag_phi, iter);
+    }
+    elapsed = std::chrono::high_resolution_clock::now() - start;
+    cluster += std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();
+
+    //Metro step.
+    start = std::chrono::high_resolution_clock::now();
+    metropolisUpdateSR(phi, s, p, delta_mag_phi, iter);  
+    elapsed = std::chrono::high_resolution_clock::now() - start;
+    metro += std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();
+
+    if((iter+1)%p.n_skip == 0) {
+      cout<<"Therm sweep "<<iter+1<<endl;
+      cout<<"Average cluster time = "<<cluster/((iter+1)*1.0e6)<<"s"<<endl;
+      cout<<"Average Metrop. time = "<<metro/((iter+1)*1.0e6)<<"s"<<endl;
+    }
+  }
+  cout<<endl<<"Thermalisaton complete."<<endl<<endl;  
+
 }
+
+*/

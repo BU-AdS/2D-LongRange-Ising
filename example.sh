@@ -12,20 +12,26 @@ CENTRE='v'
 #v=verbose,q=quiet
 VERBOSITY='q'
 
-#sq_local    = Square Local
-#sq_nonlocal = Square Non-Local
-#sq_ads      = Square AdS
-#ads_local   = AdS Lattice
-LATTICE='sq_nonlocal'
+#2D  = rectangular
+#ADS = AdS_{2+1}
+LATTICE='2D'
 
 #wolff = Wolff algorithm
 #sw    = Swednsen Wang algorithm
 CLUSTER='wolff'
 
+#SR = Short range
+#LR = Long range
+COUPLING='LR'
+
+#POW    = 1/r^a type
+#RADIAL = 1/(cosh(t) = cos(theta))
+COUPLING_TYPE='POW'
+
 Q=8
 LEVELS=2
-TIMESLICES=32
-CIRCUMFERENCE=32
+TIMESLICES=48
+CIRCUMFERENCE=24
 
 SRC_POS=-1
 MAX_ITER=100000
@@ -39,16 +45,16 @@ N_SHIFT=1
 
 #Ensure these values are sensible!
 #Currently set for testing only.
-N_THERM=400
+N_THERM=1000
 N_MEAS=5000
-N_SKIP=100
+N_SKIP=50
 N_CLUSTER=4
 
-MUSQR=-1.2725
+MUSQR=$2
 LAMBDA=1.0
-SIGMA=$2
+SIGMA=$1
 
-TWS=$1
+TWS=$3
 
 make -j 12
 
@@ -57,12 +63,12 @@ rm ads_wisdom
 rm -rf data_dump
 mkdir data_dump
 
-COMMAND="./adsrun ${BC} ${CENTRE} ${VERBOSITY} ${LATTICE} \
+COMMAND="./adsrun ${BC} ${CENTRE} ${VERBOSITY} ${LATTICE} ${COUPLING} \
 	 	  ${MAX_ITER} ${TOL} ${TIMESLICES} ${CIRCUMFERENCE} \
                   ${MSQR} ${delta_MSQR} ${LEVELS} ${SRC_POS} \
                   ${g_MSQR} ${g_LATT} ${Q} ${N_SHIFT} ${N_THERM} \
                   ${N_MEAS} ${N_SKIP} ${N_CLUSTER} ${MUSQR} \
-                  ${LAMBDA} ${SIGMA} ${TWS} ${CLUSTER} "
+                  ${LAMBDA} ${SIGMA} ${TWS} ${CLUSTER} ${COUPLING_TYPE} "
 
 echo ${COMMAND}
 

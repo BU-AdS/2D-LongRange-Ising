@@ -24,8 +24,8 @@ void getComplexPositions(std::vector<Vertex> &NodeList, Param& p){
   if(p.Vcentre == true) {
     //Assume for now that the origin (level 0) is a vertex
     NodeList[0].z = 0.0;
-    NodeList[0].temporal_weight = p.t_weight_scale;
-    cout<<"L="<<0<<" n="<<0<<" "<<NodeList[0].temporal_weight<<endl;
+    NodeList[0].temporal_weight = p.t_scale;
+    //cout<<"L="<<0<<" n="<<0<<" "<<NodeList[0].temporal_weight<<endl;
     //Assert that node 1 is on the real axis
     complex<double> init(edgeLength(q),0.0);
     NodeList[1].z = init;
@@ -43,8 +43,8 @@ void getComplexPositions(std::vector<Vertex> &NodeList, Param& p){
 	    NodeList[NodeList[n].nn[k]].z = newVertex(NodeList[NodeList[n].nn[0]].z, NodeList[n].z, k, q);
 	  }
 	}
-	NodeList[n].temporal_weight = p.t_weight_scale/(1+pow(abs(NodeList[n].z),2));	   
-	cout<<"L="<<l<<" n="<<n<<" "<<NodeList[n].temporal_weight<<endl;
+	NodeList[n].temporal_weight = p.t_scale/(1+pow(abs(NodeList[n].z),2));	   
+	//cout<<"L="<<l<<" n="<<n<<" "<<NodeList[n].temporal_weight<<endl;
       }
     }    
   }

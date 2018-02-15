@@ -10,6 +10,7 @@
 #include "util.h"
 #include "hyp_util.h"
 #include "data_proc.h"
+#include "mc_update_sr.h"
 
 using namespace std;
 
@@ -34,19 +35,20 @@ void correlators(double **ind_corr, int meas, double *run_corr,
   
   int s_size = p.S1;
   int t_size = p.Lt;
-  int vol    = p.surfaceVol;
   int idx    = 0;
 
   double val = 0.0;
 
   //loop over all sources
-  for(int i=0; i<vol; i++) {
-
+  for(int i=0; i<p.surfaceVol; i++) {
+    
     //loop over all sinks in the specified direction
     if(temporalDir) {
       for(int j=0; j<t_size; j++) {
+
 	idx = abs(i/s_size-j);
 	if(idx > t_size/2) idx = t_size - idx;
+
 	val = ((phi[i] - avePhi) *
 	       (phi[i%s_size + j*s_size] - avePhi));
 
@@ -68,6 +70,105 @@ void correlators(double **ind_corr, int meas, double *run_corr,
     }
   }
 }
+
+// Improved Correlation Functions.
+//--------------------------------
+
+//Overloaded version to handle AdS lattices
+void correlatorsSqLImp(double **ind_corr, int meas, double *run_corr,
+		       bool dir, vector<Vertex> NodeList, 
+		       double avePhi, int *s, Param p) {
+  
+  double *phi = (double*)malloc(p.S1*p.Lt*sizeof(double));
+  int offset = endNode(p.Levels-1,p)+1;
+  int disk   = p.AdSVol;  
+  for(int i=0; i<p.S1*p.Lt; i++) {    
+    phi[i] = NodeList[disk*(i/p.S1) + offset + i%p.S1].phi;
+  }
+  correlatorsSqLImp(ind_corr, meas, run_corr, dir, phi, avePhi, s, p);
+  free(phi);  
+}
+
+
+void correlatorsSqLImp(double **ind_corr, int meas, double *run_corr, 
+		       bool temporalDir, double *phi, double avePhi, int *s,
+		       Param p){
+  
+  int s_size = p.S1;
+  int t_size = p.Lt;
+  int idx    = 0;
+
+  double val = 0.0;
+  
+  //Here, the objective is to identify SW clusters, identify a point in the
+  //lattice, and assert that only correlations values within the cluster 
+  //will contribute. This way, there are no cancellations from opposite sign.
+  
+  int clusterNum = 0;
+  
+  //Integer array holding the cluster number each site
+  //belongs to. If zero, the site is unchecked.
+  int *clusterDef = new int[p.surfaceVol];
+  for (int i = 0; i < p.surfaceVol; i++)
+    clusterDef[i] = 0;
+  
+  //Integer array holding the spin value of each cluster,
+  int *clusterSpin = new int[p.surfaceVol];
+  for (int i = 0; i < p.surfaceVol; i++)
+    clusterSpin[i] = 1;
+
+  for (int i = 0; i < p.surfaceVol; i++) {
+    if(clusterDef[i] == 0) {
+      //This is the start of a new cluster.
+      clusterNum++; 
+      clusterDef[i] = clusterNum;
+      s[i] < 0 ? clusterSpin[clusterNum] = -1 : clusterSpin[clusterNum] = 1;
+      
+      //This function will call itself recursively until it fails to 
+      //add to the cluster.
+      swendsenWangClusterAddSR(i, s, clusterSpin[clusterNum], 
+			       clusterNum, clusterDef, phi, p);
+    }
+  }
+  
+  //loop over all sources
+  for(int i=0; i<p.surfaceVol; i++) {
+    
+    //loop over all sinks in the specified direction
+    if(temporalDir) {
+      for(int j=0; j<t_size; j++) {
+
+	if(clusterDef[j] == clusterDef[i]) {
+	  
+	  idx = abs(i/s_size-j);
+	  if(idx > t_size/2) idx = t_size - idx;
+	  
+	    val = ((phi[i]    - avePhi) *
+		   (phi[i%s_size + j*s_size] - avePhi));
+	    
+	    ind_corr[meas][idx] += val;
+	    run_corr[idx] += val;
+	}
+      }    
+    } else {
+      for(int j=0; j<s_size; j++) {
+
+	if(clusterDef[j] == clusterDef[i]) {
+	  
+	  idx = abs(i%s_size-j);
+	  if(idx > s_size/2) idx = s_size - idx;
+	  
+	  val = ((phi[i]    - avePhi) *
+		 (phi[s_size*(i/s_size) + j] - avePhi));
+	  
+	  ind_corr[meas][idx] += val;
+	  run_corr[idx] += val;
+	}
+      }
+    }
+  }
+}
+
 
 //Calculate the autocorrelation of |phi|
 void autocorrelation(double *PhiAb_arr, double avePhiAbs, 

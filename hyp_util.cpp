@@ -48,12 +48,18 @@ double d12(complex<double> z, complex<double> w) {
 double sigma(complex<double> z, complex<double> w, double delta_t) {
   
   double theta = atan2( (w/z).imag() , (w/z).real() );
-  double r = abs(z);
-  double r_p = abs(w);  
-  double xi = (cosh(delta_t)*(1+r)*(1+r_p) - 4*r*r_p*cos(theta)) / ((1-r)*(1-r_p)); 
-  
+  double r  = abs(z);
+  double rp = abs(w);  
+  double xi = (cosh(delta_t)*(1+r*r)*(1+rp*rp) - 4*r*rp*cos(theta)) / ((1-r*r)*(1-rp*rp));
   return acosh(xi);
-    
+  
+}
+
+//Geodesic distance from z1,t1 to z2,t2
+double sigmad(double dt, double dth, double r) {
+  
+  double xi = (cosh(dt)*(1+r*r)*(1+r*r) - 4*r*r*cos(dth))/((1-r*r)*(1-r*r)); 
+  return acosh(xi);  
 }
 
 //Geodesic distance from z1,t1 to z2,t2
@@ -63,8 +69,8 @@ double sigmaL(complex<long double> z,
   
   long double theta = atan2( (w/z).imag() , (w/z).real() );
   long double r = abs(z);
-  long double r_p = abs(w);  
-  long double xi = (cosh(delta_t)*(1.0L+r)*(1.0L+r_p) - 4*r*r_p*cos(theta)) / ((1.0L-r)*(1.0L-r_p)); 
+  long double rp = abs(w);  
+  long double xi = (cosh(delta_t)*(1.0L+r*r)*(1.0L+rp*rp) - 4*r*rp*cos(theta)) / ((1.0L-r*r)*(1.0L-rp*rp)); 
   return acosh(xi);   
 }
 

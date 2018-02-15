@@ -1,5 +1,6 @@
 #ifndef HYP_UTIL_H
 #define HYP_UTIL_H
+
 #include <complex>
 #include <cstring>
 #include <vector>

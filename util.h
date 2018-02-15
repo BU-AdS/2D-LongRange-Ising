@@ -7,11 +7,14 @@
 #define I std::complex<double>(0.0,1.0)
 
 typedef enum latType_s {
-  SQ_LOCAL,
-  SQ_NONLOCAL,
-  SQ_ADS,
-  ADS_LOCAL
+  TWO_D,
+  ADS
 } latType;
+
+typedef enum couplingType_s {
+  SR,
+  LR
+} couplingType;
 
 class Param{
 
@@ -24,7 +27,11 @@ class Param{
                           //If false, use circumcentre.
   bool verbosity = false; //If true, print all data. If false, print summary.
   bool useWolff  = true;  //If true, use Wolff. Else, use SW.
-  latType lat_type = SQ_LOCAL;
+  bool usePowLaw = true;  //If true, use the 1/r^a LR coupling, else use the
+                          //user defined LR.
+
+  latType lat_type = TWO_D;
+  couplingType coupling_type = LR;
   
   int MaxIter = 100000;
   double tol = pow(10,-6);
@@ -39,7 +46,7 @@ class Param{
   double hyp_rad = 5.0;
   int r_min_pos = 0;
   int r_max_pos = 0;
-  double t_weight_scale = 2.0;
+  double t_scale = 2.0;
   
   char fname[256];
 

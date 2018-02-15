@@ -20,9 +20,8 @@ uniform_real_distribution<double> unif(0.0,1.0);
 #include "graph.h"
 #include "cg.h"
 #include "eigen.h"
-#include "monte_carlo_square_local.h"
-#include "monte_carlo_square_nonlocal.h"
-#include "monte_carlo_square_ads.h"
+#include "mc_update_sr.h"
+#include "mc_update_lr.h"
 #include "monte_carlo_ads_local.h"
 
 int main(int argc, char **argv) {
@@ -64,8 +63,7 @@ int main(int argc, char **argv) {
     for(int mu = 0; mu < p.q+2; mu++) 
       NodeList[n].nn[mu] = -1;
   
-  switch(p.lat_type) {
-  case (ADS_LOCAL) : {
+  if(p.lat_type == ADS) {
     
     //Construct neighbour table.
     buildGraph(NodeList, p);
@@ -78,30 +76,10 @@ int main(int argc, char **argv) {
     //oneLoopCorrection(LR_couplings, NodeList, p);
     
     runMonteCarloAdSL(NodeList, p);    
-    break;
-  }    
-  case (SQ_LOCAL) : {
-    runMonteCarloSqL(NodeList, p);
-    break;
-  }
-  case (SQ_NONLOCAL) : {
-    runMonteCarloSqNL(NodeList, p);
-    break;
-  }
-  case (SQ_ADS) : {
-    //Construct neighbour table.
-    buildGraph(NodeList, p);
-    //Get the z-coords
-    getComplexPositions(NodeList, p);
-    
-    runMonteCarloSqAdS(NodeList, p);
-    break;
-  }
-  default : {
-    cout<<"Unkown lattice type given"<<endl;
-  }
+  } else {
+    MonteCarlo2DIsing Sim(p);
+    Sim.runSimulation(p);
   }
   
-  return 0;
-
+  return 0;  
 }

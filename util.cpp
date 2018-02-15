@@ -46,69 +46,72 @@ void Param::init(int argc, char **argv) {
 
   std::string latType_in(argv[4]);
   
-  if (latType_in == "sq_local"  ||
-      latType_in == "SQ_LOCAL"  ||
-      latType_in == "Sq_Local") {
-    lat_type = SQ_LOCAL;
+  if (latType_in == "2d"  ||
+      latType_in == "2D") {
+    lat_type = TWO_D;
     
-  } else if(latType_in == "sq_nonlocal" ||
-	    latType_in == "SQ_NONLOCAL" ||
-	    latType_in == "Sq_NonLocal") {
-    lat_type = SQ_NONLOCAL;
-    
-  } else if (latType_in == "sq_ads"  ||
-	     latType_in == "SQ_ADS"  ||
-	     latType_in == "Sq_AdS") {
-    lat_type = SQ_ADS;
-    
-  } else if(latType_in == "ads_local" ||
-	    latType_in == "AdS_Locall" ||
-	    latType_in == "ADS_LOCAL") {
-    lat_type = ADS_LOCAL;
-    
-    
+  } else if(latType_in == "AdS" ||
+	    latType_in == "ADS" ||
+	    latType_in == "ads") {
+    lat_type = ADS;
   } else {
     cout<<"Invalid Lattice type given. Options are "<<endl;
-    cout<<"SQ_LOCAL:    Square lattice with local interacton"<<endl;
-    cout<<"SQ_NONLOCAL: Square lattice with non-local interacton"<<endl;
-    cout<<"SQ_ADS:      Square lattice with non-local AdS coupling. "<<endl;
-    cout<<"ADS_LOCAL:   AdS lattice with local interacton "<<endl;
+    cout<<"2D:  Square lattice."<<endl;
+    cout<<"AdS: AdS lattice."<<endl;
+    exit(0);
+  }
+
+  std::string couplingType_in(argv[5]);
+    
+  if (couplingType_in == "sr"  ||
+      couplingType_in == "SR"  ||
+      couplingType_in == "Sr") {
+    coupling_type = SR;
+    
+  } else if(couplingType_in == "lr" ||
+	    couplingType_in == "Lr" ||
+	    couplingType_in == "LR") {
+    coupling_type = LR;
+  } else {
+    cout<<"Invalid coupling type given. Options are "<<endl;
+    cout<<"SR: Short range (local) interacton"<<endl;
+    cout<<"LR: Long range (non-local) interacton"<<endl;    
     exit(0);
   }
   
-  MaxIter    = atoi(argv[5]);
-  tol        = atof(argv[6]);
-  Lt         = atoi(argv[7]);  
-  S1         = atoi(argv[8]);
-  msqr       = atof(argv[9]);
-  delta_msqr = atof(argv[10]);
-  Levels     = atoi(argv[11]);
-  src_pos    = atoi(argv[12]);
+  MaxIter    = atoi(argv[6]);
+  tol        = atof(argv[7]);
+  Lt         = atoi(argv[8]);  
+  S1         = atoi(argv[9]);
+  msqr       = atof(argv[10]);
+  delta_msqr = atof(argv[11]);
+  Levels     = atoi(argv[12]);
+  src_pos    = atoi(argv[13]);
   
-  if(atof(argv[13]) == 0) {
+  if(atof(argv[14]) == 0) {
     if(Lt > 1) C_msqr = (1.57557326 + 1.56565549/msqr);
     else C_msqr = -0.0126762/msqr + 0.0689398*msqr + 2.02509;
   }
-  else C_msqr = atof(argv[13]);
+  else C_msqr = atof(argv[14]);
   
-  if(atof(argv[14]) == 0) N_latt = 0.294452/(msqr + 0.766901) + 0.0788137;
-  else N_latt = atof(argv[14]);
+  if(atof(argv[15]) == 0) N_latt = 0.294452/(msqr + 0.766901) + 0.0788137;
+  else N_latt = atof(argv[15]);
   
-  q = atoi(argv[15]);
-  n_shift = atoi(argv[16]);
+  q = atoi(argv[16]);
+  n_shift = atoi(argv[17]);
   
   //MC params  
-  n_therm   = atoi(argv[17]);
-  n_meas    = atoi(argv[18]);
-  n_skip    = atoi(argv[19]);
-  n_cluster = atoi(argv[20]);
-  musqr     = atof(argv[21]);
-  lambda    = atof(argv[22]);
-  sigma     = atof(argv[23]);
+  n_therm   = atoi(argv[18]);
+  n_meas    = atoi(argv[19]);
+  n_skip    = atoi(argv[20]);
+  n_cluster = atoi(argv[21]);
+  musqr     = atof(argv[22]);
+  lambda    = atof(argv[23]);
+  sigma     = atof(argv[24]);
 
-  t_weight_scale = atof(argv[24]);  
-
-  std::string WOLFF(argv[25]);
+  t_scale = atof(argv[25]);  
+  
+  std::string WOLFF(argv[26]);
   if (WOLFF == "wolff" || 
       WOLFF == "Wolff" ||
       WOLFF == "WOLFF" ) {
@@ -121,9 +124,24 @@ void Param::init(int argc, char **argv) {
     cout<<"Invalid cluster algorithm given. Use WOLFF for Wolff or SW for Swendsen Wang."<<endl;
     exit(0);
   }  
+  std::string PowLaw(argv[27]);
+  if (PowLaw == "pow" || 
+      PowLaw == "Pow" ||
+      PowLaw == "POW" ) {
+    usePowLaw = true;
+  } else if (PowLaw == "radial" || 
+	     PowLaw == "Radial" ||
+	     PowLaw == "RADIAL" ) {
+    usePowLaw = false;
+  } else {
+    cout<<"Invalid Coupling given. Use POW for 1/r^a definition, ";
+    cout<<"or RADIAL for 1/(cosh(t) - cos(theta)) definition."<<endl;
+    exit(0);
+  }  
+  
 }
 
-void Param::print() {
+void Param::print() {//FIXME
   cout<<"Parameter status:"<<endl;
   cout<<"Triangulation = "<<q<<endl;
   cout<<"TimeSlices = "<<Lt<<endl;
