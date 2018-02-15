@@ -6,9 +6,11 @@ GSL=/Users/deanhowarth/BU-AdS/gsl
 GSL_LIBS= -lgsl -lgslcblas -lm
 
 TARGET	 = adsrun
-SOURCES  = main.cpp util.cpp cg.cpp hyp_util.cpp graph.cpp data_io.cpp data_proc.cpp monte_carlo_square_local.cpp monte_carlo_square_nonlocal.cpp monte_carlo_ads_local.cpp monte_carlo_square_ads.cpp
-OBJS     = main.o util.o cg.o hyp_util.o graph.o data_io.o data_proc.o monte_carlo_square_local.o monte_carlo_square_nonlocal.o monte_carlo_ads_local.o monte_carlo_square_ads.o
-INCLUDES = util.h graph.h cg.h eigen.h monte_carlo_square_local.h monte_carlo_square_nonlocal.h monte_carlo_ads_local.h monte_carlo_square_ads.h
+
+SOURCES  = main.cpp util.cpp cg.cpp hyp_util.cpp graph.cpp data_io.cpp data_proc.cpp mc_util.cpp mc_update_sr.cpp mc_update_lr.cpp monte_carlo_ads_local.cpp 
+OBJS     = main.o util.o cg.o hyp_util.o graph.o data_io.o data_proc.o mc_util.o mc_update_sr.o mc_update_lr.o monte_carlo_ads_local.o 
+INCLUDES = util.h graph.h cg.h eigen.h mc_util.h mc_update_lr.h mc_update_sr.h monte_carlo_ads_local.h
+
 LIBS= -L${GSL} ${GSL_LIBS}
 
 ERRS=-Wall -Wno-sign-compare -Wno-int-in-bool-context -Wno-unused-but-set-variable -Wno-unknown-warning-option
@@ -43,14 +45,14 @@ data_proc.o: data_proc.cpp $(INCLUDES)
 cg.o: cg.cpp $(INCLUDES) 
 	${CXX} ${CXXFLAGS} -c cg.cpp
 
-monte_carlo_square_nonlocal.o: monte_carlo_square_nonlocal.cpp $(INCLUDES) 
-	${CXX} ${CXXFLAGS} -c monte_carlo_square_nonlocal.cpp
+mc_util.o: mc_util.cpp $(INCLUDES) 
+	${CXX} ${CXXFLAGS} -c mc_util.cpp
 
-monte_carlo_square_local.o: monte_carlo_square_local.cpp $(INCLUDES) 
-	${CXX} ${CXXFLAGS} -c monte_carlo_square_local.cpp
+mc_update_lr.o: mc_update_lr.cpp $(INCLUDES) 
+	${CXX} ${CXXFLAGS} -c mc_update_lr.cpp
 
-monte_carlo_square_ads.o: monte_carlo_square_ads.cpp $(INCLUDES) 
-	${CXX} ${CXXFLAGS} -c monte_carlo_square_ads.cpp
+mc_update_sr.o: mc_update_sr.cpp $(INCLUDES) 
+	${CXX} ${CXXFLAGS} -c mc_update_sr.cpp
 
 monte_carlo_ads_local.o: monte_carlo_ads_local.cpp $(INCLUDES) 
 	${CXX} ${CXXFLAGS} -c monte_carlo_ads_local.cpp 
