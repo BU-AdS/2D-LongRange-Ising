@@ -110,13 +110,20 @@ int metropolisUpdateLR(double *phi_arr, int *s, Param &p,
     //KE
     double pmpn = phi-phi_new;
     double pnsmps = 0.5*phi_new_sq-phi_sq;
+    int omp_nt = omp_get_num_threads();
+
 #pragma omp parallel 
     {
       double local = 0;
 #pragma omp for nowait
-      for(int j=0; j<p.surfaceVol; j++) {
-	double val = (pmpn*phi_arr[j] + pnsmps)*LR_couplings[i+j*p.surfaceVol]*LR_couplings[i+j*p.surfaceVol];
-	local += val;
+      for(int j=0; j<p.surfaceVol/omp_nt; j++) {
+	for(int k=0; k<omp_nt; k++) {
+	  
+	  //double val = (pmpn*phi_arr[j*omp_nt + k] + pnsmps)*LR_couplings[i+(j*omp_nt + k)*p.surfaceVol]*LR_couplings[i+(j*omp_nt + k)*p.surfaceVol];
+	  double val = (pmpn*phi_arr[j*omp_nt + k] + pnsmps)*LR_couplings[j*omp_nt + k + i*p.surfaceVol]*LR_couplings[j*omp_nt + k + i*p.surfaceVol];
+	  local += val;
+
+	}
       }
 #pragma omp atomic 
       DeltaE += local;
@@ -144,7 +151,7 @@ int metropolisUpdateLR(double *phi_arr, int *s, Param &p,
     }     
   }// end loop over lattice volume 
 
-  if(iter < p.n_therm) {
+  if( iter < p.n_therm && iter%p.n_skip == 0 ) {
     cout<<"At iter "<<iter<<" the Metro acceptance rate is "<<(double)sqnl_accept/(double)sqnl_tries<<endl;
     cout<<"and delta_phi is "<<p.delta_phi<<endl;
   }

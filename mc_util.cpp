@@ -133,17 +133,32 @@ MonteCarlo2DIsing::MonteCarlo2DIsing(Param p) {
 void MonteCarlo2DIsing::runSimulation(Param p) {
 
   observables obs(p.n_meas);
-
   createLRcouplings(LR_couplings, p);
+
+#ifdef USE_OMP
+  //Here we reorder the phi, s, and LR_coupling arrays to be better consumed
+  //by the omp threads. At present, the LR_couplng arrays is symmetric, so
+  //we can just be smart about how we access the elements. The phi and s 
+  //array are in t,x order (i.e. spatal coordinate running fastest.
   
+#endif
+
+
   thermalise(phi, s, p, obs);
   
+  //reset timing variables.
+  metro = 0.0;
+  cluster = 0.0;
   for(int iter = p.n_therm; iter < p.n_therm + p.n_skip*p.n_meas; iter++) {
 
     updateIter(obs, p, iter);
     
     //Take measurements.
     if((iter+1) % p.n_skip == 0) {
+
+      //Timing
+      cout<<"(Thermalised) Average time per Metro update   = "<<metro/((iter+1)*1.0e6)<<"s"<<endl;
+      cout<<"(Thermalised) Average time per Cluster update = "<<cluster/((iter+1)*p.n_cluster*1.0e6)<<"s"<<endl;
       
       //update running average, dump to stdout. 
       //'meas' is ++ incremented in this function.
@@ -195,30 +210,37 @@ void MonteCarlo2DIsing::updateIter(observables obs, Param p, int iter) {
     metropolisUpdate(phi, s, p, obs.delta_mag_phi, iter);
     elapsed = std::chrono::high_resolution_clock::now() - start;
     metro += std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();
-
 }
 
 void MonteCarlo2DIsing::thermalise(double *phi, int *s, Param p, 
 				   observables obs) {
-  
-  long long metro = 0.0;
-  long long cluster = 0.0;
 
   cout<<"Begin Metropolis cool down."<<endl;
   //Perform n_therm pure metropolis hits during the hot phase.
   auto start = std::chrono::high_resolution_clock::now();        
   for(int iter = 0; iter < p.n_therm; iter++) {
     metropolisUpdate(phi, s, p, obs.delta_mag_phi, iter);  
-    if((iter+1)%p.n_skip == 0) cout<<"Metro cool down iter "<<iter+1<<endl;
+
+    if((iter+1)%p.n_skip == 0){
+      auto elapsed = std::chrono::high_resolution_clock::now() - start;
+      metro = std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();
+      cout<<"Metro cool down iter "<<iter+1<<" average time per update = "<<metro/((iter+1)*1.0e6)<<"s"<<endl;      
+    }
   }
   auto elapsed = std::chrono::high_resolution_clock::now() - start;
   metro = std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();
-  cout<<"Metro cool down complete. "<<p.n_therm<<" iters in "<<metro/(1.e6)<<"s"<<endl;
+  cout<<"Metro cool down complete. "<<p.n_therm<<" iters at "<<metro/((p.n_therm)*1.0e6)<<"s per iter."<<endl;
+
   metro = 0.0;
+  cluster = 0.0;
 
   //Cluster/Metro steps
   for(int iter = 0; iter < p.n_therm; iter++) {
     updateIter(obs, p, iter);
+    if( (iter+1)%p.n_skip == 0 ) {
+      cout<<"Average time per Metro update   = "<<metro/((iter+1)*1.0e6)<<"s"<<endl;  
+      cout<<"Average time per Cluster update = "<<cluster/((iter+1)*p.n_cluster*1.0e6)<<"s"<<endl;  
+    }      
   }
   cout<<endl<<"Thermalisaton complete."<<endl<<endl;  
 }
@@ -458,9 +480,8 @@ void writeObservables(double **ind_corr_t, double *run_corr_t,
 void createLRcouplings(double *LR_couplings, Param p) {
   
   double sigma = p.sigma;
-  double r_x = 0.0;
-  double r_y = 0.0;
-
+  int t1,t2,dt,x1,x2,dx;
+  
   if(p.coupling_type == SR) {
     //do nothing, no LR interactions
   } else {    
@@ -471,21 +492,15 @@ void createLRcouplings(double *LR_couplings, Param p) {
 
 	  //Index divided by circumference, using the int floor feature/bug,
 	  //gives the timeslice index.
-	  int t1 = i / p.S1;
-	  int t2 = j / p.S1;
-	  int dt = abs(t2-t1) > p.Lt/2 ? p.Lt - abs(t2-t1) : abs(t2-t1);
-		  
+	  t1 = i / p.S1;
+	  t2 = j / p.S1;
+	  dt = abs(t2-t1) > p.Lt/2 ? p.Lt - abs(t2-t1) : abs(t2-t1);
+	  
 	  //The index modulo the circumference gives the spatial index.
-	  int x1 = i % p.S1;
-	  int x2 = j % p.S1;            
-	  double dx = abs(x2-x1) > p.S1/2 ? p.S1-abs(x2-x1) : abs(x2-x1);      
+	  x1 = i % p.S1;
+	  x2 = j % p.S1;            
+	  dx = abs(x2-x1) > p.S1/2 ? p.S1-abs(x2-x1) : abs(x2-x1);      
 		  
-	  // r_x = abs(i%p.S1 - j%p.S1);
-	  // if(r_x > p.S1/2) r_x = p.S1 - r_x;
-	  
-	  // r_y = abs(i/p.Lt - j/p.Lt);
-	  // if(r_y > p.Lt/2) r_y = p.Lt - r_y;
-	  
 	  if(i != j) {
 	    LR_couplings[i+j*p.surfaceVol] = pow(sqrt(dx*dx + dt*dt),-(2+sigma));
 	    

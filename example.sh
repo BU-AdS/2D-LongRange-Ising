@@ -31,7 +31,7 @@ COUPLING_TYPE='POW'
 Q=8
 LEVELS=2
 TIMESLICES=48
-CIRCUMFERENCE=24
+CIRCUMFERENCE=16
 
 SRC_POS=-1
 MAX_ITER=100000
@@ -45,7 +45,7 @@ N_SHIFT=1
 
 #Ensure these values are sensible!
 #Currently set for testing only.
-N_THERM=1000
+N_THERM=400
 N_MEAS=5000
 N_SKIP=50
 N_CLUSTER=4
@@ -54,7 +54,7 @@ MUSQR=$2
 LAMBDA=1.0
 SIGMA=$1
 
-TWS=$3
+TWS=1.0
 
 make -j 12
 
