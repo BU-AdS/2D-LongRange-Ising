@@ -22,6 +22,25 @@ extern int seed;
 extern mt19937 rng;
 extern uniform_real_distribution<double> unif;
 
+#define CACHE_LINE_SIZE sysconf(_SC_LEVEL1_DCACHE_LINESIZE)
+
+int **added;
+
+void init_connectivity(Param p) {
+
+  added = (int**)malloc(p.surfaceVol*sizeof(int*));  
+  for(int i=0; i<p.surfaceVol; i++) {
+    added[i] = (int*)malloc(p.surfaceVol*sizeof(int));
+#ifdef USE_OMP
+#pragma omp parallel for
+#endif
+    for(int j=0; j<p.surfaceVol; j++) {
+      added[i][j] = -1;
+    }
+  }
+}
+  
+
 //Basic utilites
 // x = 0,1,..., p.S1-1  and
 // t = 0,1,..., p.Lt-1
@@ -71,8 +90,8 @@ int sqnl_accept = 0;
 int sqnl_tries  = 0;
 
 int metropolisUpdateLR(double *phi_arr, int *s, Param &p,
-			 double *LR_couplings,
-			 double &delta_mag_phi, int iter) {
+		       double *LR_couplings,
+		       double &delta_mag_phi, int iter) {
 
   delta_mag_phi = 0.0;
   
@@ -85,7 +104,6 @@ int metropolisUpdateLR(double *phi_arr, int *s, Param &p,
   double phi_sq = 0.0;
   double lambda_p = 0.25*p.lambda;
   double musqr_p  = 0.50*p.musqr;
-  
   double DeltaE = 0.0;
   
   for (int i = 0; i < p.surfaceVol; i++) {
@@ -110,25 +128,25 @@ int metropolisUpdateLR(double *phi_arr, int *s, Param &p,
     //KE
     double pmpn = phi-phi_new;
     double pnsmps = 0.5*phi_new_sq-phi_sq;
-    int omp_nt = omp_get_num_threads();
-
-#pragma omp parallel 
-    {
-      double local = 0;
-#pragma omp for nowait
-      for(int j=0; j<p.surfaceVol/omp_nt; j++) {
-	for(int k=0; k<omp_nt; k++) {
-	  
-	  //double val = (pmpn*phi_arr[j*omp_nt + k] + pnsmps)*LR_couplings[i+(j*omp_nt + k)*p.surfaceVol]*LR_couplings[i+(j*omp_nt + k)*p.surfaceVol];
-	  double val = (pmpn*phi_arr[j*omp_nt + k] + pnsmps)*LR_couplings[j*omp_nt + k + i*p.surfaceVol]*LR_couplings[j*omp_nt + k + i*p.surfaceVol];
-	  local += val;
-
-	}
-      }
-#pragma omp atomic 
-      DeltaE += local;
-    }
     
+#ifdef USE_OMP
+    int chunk = p.surfaceVol/omp_get_num_threads();//;CACHE_LINE_SIZE/sizeof(double);
+#pragma omp parallel for reduction(+:DeltaE)
+    for(int j=0; j<p.surfaceVol; j+=chunk) {
+      for(int k=0; k<chunk; k++) {
+	int idx = j+k;
+	//cout<<omp_get_num_threads()<<" "<<omp_get_thread_num()<<" "<<idx<<endl;
+	//double val = (pmpn*phi_arr[j*omp_nt + k] + pnsmps)*LR_couplings[i+(j*omp_nt + k)*p.surfaceVol]*LR_couplings[i+(j*omp_nt + k)*p.surfaceVol];
+	//val = (pmpn*phi_arr[j+k] + pnsmps)*LR_couplings[j+k + i*p.surfaceVol]*LR_couplings[j+k + i*p.surfaceVol];
+	DeltaE += (pmpn*phi_arr[idx] + pnsmps)*LR_couplings[idx + i*p.surfaceVol]*LR_couplings[idx + i*p.surfaceVol];
+      }
+    }
+#elif
+    for(int j=0; j<p.surfaceVol; j++) {
+      DeltaE += (pmpn*phi_arr[j] + pnsmps)*LR_couplings[j+i*p.surfaceVol]*LR_couplings[j+i*p.surfaceVol];
+    }
+#endif
+
     sqnl_tries++;
     
     if(DeltaE < 0.0) {
@@ -266,56 +284,16 @@ void swendsenWangClusterAddLR(int i, int *s, int cSpin, int clusterNum,
   }
 }
 
-void wolffUpdateLR(double *phi_arr, int *s, Param p,
-		   double *LR_couplings,
-		   double &delta_mag_phi, int iter) {
-  
-  sqnl_wc_calls++;
-  sqnl_wc_poss = 0;
-  
-  //Tracks which sites are potentially in the cluster.
-  bool *Pcluster = new bool[p.surfaceVol];
-  for (int i = 0; i < p.surfaceVol; i++)
-    Pcluster[i] = false;
-
-  //Records which sites are potentially in the cluster.
-  //This will have a modifiable size, hence the vector
-  //style.
-  vector<int> Rcluster;
-  
-  //Choose a random spin and identify the possible cluster
-  //with a flood fill.
-  int i = int(unif(rng) * p.surfaceVol);
-  int cSpin = s[i];
-  clusterPossibleLR(i, s, cSpin, Pcluster, Rcluster, p);
-
-  //This function is recursive and will call itself
-  //until all attempts `to increase the cluster size
-  //have failed.
-  sqnl_wc_size = 1;
-  wolffClusterAddLR(i, s, cSpin, Rcluster, LR_couplings, phi_arr, p);
-
-  sqnl_wc_ave += sqnl_wc_size;
-
-  if( iter%p.n_skip == 0) {
-    setprecision(4);
-    cout<<"Using "<<p.n_cluster<<" Wolff hits."<<endl; 
-    cout<<"Ave. cluster size at iter "<<iter<<" = "<<sqnl_wc_ave<<"/"<<sqnl_wc_calls<<" = "<<1.0*sqnl_wc_ave/sqnl_wc_calls<<endl;
-  }
-  
-  delete[] Pcluster;
-}
-
 void clusterPossibleLR(int i, int *s, int cSpin,
-			 bool *Pcluster, vector<int> &Rcluster,
-			 Param p) {
+		       bool *Pcluster, vector<int> &Rcluster,
+		       Param p) {
 
   //The site possibily belongs to the cluster...
   Pcluster[i] = true;
   // ...so record it
   Rcluster.push_back(i);
   sqnl_wc_poss++;
-  
+
   //If the neighbor's spin matches the cluster spin (cSpin)
   //then it is a possible cluster candidate. This is all we
   //need to identify at this point. The routine checks that
@@ -327,19 +305,19 @@ void clusterPossibleLR(int i, int *s, int cSpin,
     //cout<<"->tp";
     clusterPossibleLR(tp(i,p), s, cSpin, Pcluster, Rcluster, p);
   }
-  
+
   //Forward in X
   if(!Pcluster[xp(i,p)] && s[xp(i,p)] == cSpin) {
     //cout<<"->xp";
     clusterPossibleLR(xp(i,p), s, cSpin, Pcluster, Rcluster, p);
   }
-  
-  //Backward in T 
-  if(!Pcluster[ttm(i,p)] && s[ttm(i,p)] == cSpin) {  
+
+  //Backward in T
+  if(!Pcluster[ttm(i,p)] && s[ttm(i,p)] == cSpin) {
     //cout<<"->tm";
     clusterPossibleLR(ttm(i,p), s, cSpin, Pcluster, Rcluster, p);
   }
-  
+
   //Backward in X
   if(!Pcluster[xm(i,p)] && s[xm(i,p)] == cSpin) {
     //cout<<"->xm";
@@ -347,66 +325,136 @@ void clusterPossibleLR(int i, int *s, int cSpin,
   }
 }
 
-void wolffClusterAddLR(int i, int *s, int cSpin, vector<int> &Rcluster, 
-			 double *LR_couplings, double *phi_arr, Param p) {
+void wolffUpdateLR(double *phi, int *s, Param p,
+		   double *LR_couplings,
+		   double &delta_mag_phi, int iter) {
+  
+  init_connectivity(p);
+
+  sqnl_wc_calls++;
+  sqnl_wc_poss = 0;
+  
+  //Choose a random spin and identify the possible cluster
+  //with a flood fill.
+  int i = int(unif(rng) * p.surfaceVol);
+  int cSpin = s[i];
   
   // The site belongs to the cluster, so flip it.
+  sqnl_wc_size = 1;
   s[i] *= -1;
-  phi_arr[i] *= -1;  
+  phi[i] *= -1;
+
+  //This function is recursive and will call itself
+  //until all attempts `to increase the cluster size
+  //have failed.
+  wolffClusterAddLR(i, s, cSpin, LR_couplings, phi, p);
+
+  sqnl_wc_ave += sqnl_wc_size;
+
+  if( iter%p.n_skip == 0) {
+    setprecision(4);
+    cout<<"Using "<<p.n_cluster<<" Wolff hits."<<endl; 
+    cout<<"Ave. cluster size at iter "<<iter<<" = "<<sqnl_wc_ave<<"/"<<sqnl_wc_calls<<" = "<<1.0*sqnl_wc_ave/sqnl_wc_calls<<endl;
+  }
+  for(int a=0; a<p.surfaceVol; a++) free(added[a]);
+  free(added);
+}
+
+void wolffClusterAddLR(int i, int *s, int cSpin, 
+		       double *LR_couplings, double *phi, Param p) {
+   
+  double phi_lc = phi[i];
   
-  double prob = 0.0;
-  double rand = 0.0;
-  int idx = 0;
+#ifdef USE_OMP
+
+  int newSites = 0;
+  int chunk = CACHE_LINE_SIZE/sizeof(double);
+  int lc_sze = p.surfaceVol/omp_get_num_threads();
 
   //We now loop over the possible lattice sites, adding sites
   //(creating bonds) with the specified LR probablity.
-  for(int j=0; j<sqnl_wc_poss; j++) {
-    idx = Rcluster[j];
-    if(s[idx] == cSpin){
-      prob = 1 - exp(2*phi_arr[i]*phi_arr[idx]*LR_couplings[i + idx*p.surfaceVol]);
-      rand = unif(rng);
-      if(rand < prob) {
-	sqnl_wc_size++;
-	wolffClusterAddLR(idx, s, cSpin, Rcluster, LR_couplings, phi_arr,p);
+#pragma omp parallel 
+  {
+    int newSites_local = 0;
+    int lc_pos = 0;
+    double prob = 0.0;
+    double rand = 0.0;
+    //double added_local[lc_sze];
+    //for(int k=0; k<lc_sze; k++) {
+    //added_local[k] = added[i][lc_sze*omp_get_thread_num()+k];
+    //}  
+#pragma omp for nowait 
+    for(int j=0; j<omp_get_num_threads(); j++) {
+      for(int k=0; k<lc_sze; k++) {
+	int idx = j*lc_sze+k;
+	if(s[idx] == cSpin) {
+	  prob = 1 - exp(2*phi_lc*phi[idx]*LR_couplings[idx + i*p.surfaceVol]);
+	  rand = unif(rng);
+	  if(rand < prob) {
+	    sqnl_wc_size++;
+	    added[i][idx] = 1;
+	    ++newSites_local;
+	  }
+	}
       }
     }
+#pragma omp atomic
+    newSites += newSites_local;
   }
-  /*
-  vector<int> added(sqnl_wc_poss,-1);
-  int newSites = 0;
   
-  //We now loop over the possible lattice sites, adding sites
-  //(creating bonds) with the specified LR probablity.
-  for(int j=0; j<sqnl_wc_poss; j++) {
-    idx = Rcluster[j];
-    if(LR_couplings[i + idx*p.surfaceVol] > 1e-7 && added[j] < 0){
-      cout<<"hit2"<<endl;
-      prob = 1 - exp(-2*phi_arr[i]*phi_arr[idx]*LR_couplings[i + idx*p.surfaceVol]);
-      rand = unif(rng);
-      cout<<prob<<" "<<rand<<endl;
-      if(rand < prob) {
-	cout<<"hit3"<<endl;
-	sqnl_wc_size++;
-	added[j] = Rcluster[j];
-	newSites += 1;
-	// The site belongs to the cluster, so flip it.
-	//s[Rcluster[j]] *= -1;
-	//phi_arr[Rcluster[j]] *= -1;
-      }
-    }
-  }
+  
+  //cout<<newSites<<endl;
   
   if(newSites > 0) {
     //'added' now contains all of the spins on the wave front. Each
     //of these new sites must be explored, but no new exploration 
     //need test these sites. First, sort the added array so that all
-    //the hits are at the beginning (sort descending)  
-    sort(added.begin(), added.begin()+sqnl_wc_poss, greater<int>());
-    //for(int i=0; i<newSites; i++) cout<<i<<" "<<added[i]<<endl;  
+    //the hits are at the beginning, order is unimportant.
+    int pos = 0;
+    int l = 0;
+    for(l=0; l<p.surfaceVol; l++) {
+      if(added[i][l] > 0) {
+	added[i][pos] = l;
+	pos++;
+      }
+    }
+
+    //for(l=0; l<pos; l++) cout<<added[i][l]<<" ";
+    //cout<<endl;
+
+    //sort(added.begin(), added.begin()+p.surfaceVol, greater<int>());
+
+    // These sites belongs to the cluster, so flip them.
+    for(int k=0; k<newSites; k++) {
+      s[added[i][k]] *= -1;
+      phi[added[i][k]] *= -1;
+    }
     
-    for(int i=0; i<newSites; i++)
-      clusterAddLR(added[i], s, cSpin, Rcluster, LR_couplings, phi_arr, p);
+    for(int k=0; k<newSites; k++)
+      wolffClusterAddLR(added[i][k], s, cSpin, LR_couplings, phi, p);
   }
-  */
+  
+#elif
+
+  double prob = 0.0;
+  double rand = 0.0;
+  
+  //We now loop over the possible lattice sites, adding sites
+  //(creating bonds) with the specified LR probablity.
+  for(int j=0; j<p.surfaceVol; j++) {
+    if(s[j] == cSpin) {
+      idx = j;
+      prob = 1 - exp(2*phi[i]*phi[idx]*LR_couplings[i + idx*p.surfaceVol]);
+      rand = unif(rng);
+      if(rand < prob) {
+	sqnl_wc_size++;
+	// The site belongs to the cluster, so flip it.
+	s[idx] *= -1;
+	phi[idx] *= -1;  
+	wolffClusterAddLR(idx, s, cSpin, Rcluster, LR_couplings, phi, p);
+      }
+    }
+  }
+#endif
 }
 

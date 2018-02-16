@@ -16,7 +16,6 @@ void wolffUpdateLR(double *phi_arr, int *s, Param p,
 		   double &delta_mag_phi, int iter);
 
 void wolffClusterAddLR(int i, int *s, int cSpin, 
-		       std::vector<int> &Rcluster, 
 		       double *LR_couplings, double *phi, Param p);
 
 void swendsenWangUpdateLR(double *phi_arr, int *s, Param p,
@@ -29,13 +28,13 @@ void swendsenWangClusterAddLR(int i, int *s, int cSpin, int clusterNum,
 			      double *phi_arr, Param p);
 
 void clusterPossibleLR(int i, int *s, int cSpin,
-		       bool *Pcluster, std::vector<int> &Rcluster, 
+		       bool *Pcluster, std::vector<int> &Rcluster,
 		       Param p);
-
 
 int metropolisUpdateLR(double *phi_arr, int *s, Param &p,
 		       double *LR_couplings_sq,
 		       double & delta_mag_phi, int iter);
 
+void init_connectivity(Param p);
 
 #endif
