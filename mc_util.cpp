@@ -59,17 +59,17 @@ inline int ttm(int i, Param p){
 //Square 2D Ising Monte Carlo base class //
 //---------------------------------------//
 MonteCarlo2DIsing::MonteCarlo2DIsing(Param p) {
-
+  
+  
   //Long Range coupling array
+#ifndef USE_OMP
   LR_couplings = (double*)malloc(p.surfaceVol*p.surfaceVol*sizeof(double));
-#ifdef USE_OMP
-#pragma omp parallel for
-#endif
   for(int j=0; j<p.surfaceVol; j++){
     for(int i=0; i<p.surfaceVol; i++){
-      LR_couplings[i+j*p.surfaceVol] = 0.0;;
+      LR_couplings[i+j*p.surfaceVol] = 0.0;
     }
   }
+#endif  
   
   //Create arrays to hold spin and phi values.  
   s = (int*)malloc(p.surfaceVol*sizeof(int));
@@ -142,22 +142,17 @@ void MonteCarlo2DIsing::runSimulation(Param p) {
 
   observables obs(p.n_meas);
 
+#ifndef USE_OMP
   long long time = 0.0;
-  auto start1 = std::chrono::high_resolution_clock::now();        
+  auto start1 = std::chrono::high_resolution_clock::now();
   createLRcouplings(LR_couplings, p);
   auto elapsed1 = std::chrono::high_resolution_clock::now() - start1;
   time = std::chrono::duration_cast<std::chrono::microseconds>(elapsed1).count();
   cout<<"Coupling creation time = "<<time/(1.0e6)<<endl;
-  
-#ifdef USE_OMP
-  //Here we reorder the phi, s, and LR_coupling arrays to be better consumed
-  //by the omp threads. At present, the LR_couplng arrays is symmetric, so
-  //we can just be smart about how we access the elements. The phi and s 
-  //array are in t,x order (i.e. spatal coordinate running fastest.
-  
+#else
+  cout<<"Couplings created on the fly"<<endl;
 #endif
-
-
+  
   thermalise(phi, s, p, obs);
   
   //reset timing variables.
@@ -348,37 +343,62 @@ double actionLR(double *phi_arr, int *s, Param p,
   for (int i = 0; i < p.surfaceVol; i++) {    
     phi = phi_arr[i];
     phi_sq = phi*phi;
-
+    
     //PE terms
     PE += lambda_p * phi_sq*phi_sq;
     PE += musqr_p  * phi_sq;
 
     //KE terms
-    int chunk = CACHE_LINE_SIZE/sizeof(double);
 #ifdef USE_OMP
+
+    int t1,x1;
+    t1 = i / p.S1;
+    x1 = i % p.S1;
+    int chunk = CACHE_LINE_SIZE/sizeof(double);
+    double sigma = p.sigma;
+
 #pragma omp parallel 
     {
+
       double local = 0.0;
       double val = 0.0;
-#pragma omp for nowait schedule (static, chunk)
-      for(int j=0; j<p.surfaceVol/chunk; j++) {
+      int t2,dt,x2,dx;
+      double denom = 0.0;
+
+#pragma omp for nowait 
+      for(int j=0; j<p.surfaceVol; j+=chunk) {
 	for(int k=0; k<chunk; k++) { 
-	  //Here we are overcounting by a factor of two, hence the 0.25
-	  //coefficient.
-	  //FIXME
-	  val = 0.25*(phi - phi_arr[j*chunk+k])*(phi - phi_arr[j*chunk+k])*LR_couplings[j*chunk+k+i*p.surfaceVol]*LR_couplings[j*chunk+k+j*p.surfaceVol];
-	  local += val;
+
+	  if( (j+k) != i ) {
+	    //Index divided by circumference, using the int floor feature/bug,
+	    //gives the timeslice index.
+	    t2 = (j+k) / p.S1;
+	    dt = abs(t2-t1) > p.Lt/2 ? p.Lt - abs(t2-t1) : abs(t2-t1);
+	    
+	    //The index modulo the circumference gives the spatial index.
+	    x2 = (j+k) % p.S1;            
+	    dx = abs(x2-x1) > p.S1/2 ? p.S1-abs(x2-x1) : abs(x2-x1);      
+	    
+	    //Here we are overcounting by a factor of two, hence the 0.25
+	    //coefficient.
+	    //FIXME	  
+	    val = 0.25*(phi - phi_arr[j+k])*(phi - phi_arr[j+k])/sqrt(dx*dx + dt*dt);
+	    
+	    local += val;
+	  }
 	}
       }
 #pragma omp atomic 
       KE += local;
-    }
-#elif
+    }    
+#else
     for(int j=0; j<p.surfaceVol; j++) {
       KE += 0.25*(phi - phi_arr[j])*(phi - phi_arr[j])*LR_couplings[j+i*p.surfaceVol]*LR_couplings[j+i*p.surfaceVol];
+      //cout<<"KE="<<KE<<" "<<LR_couplings[j+i*p.surfaceVol]<<endl;
     }
 #endif
   }
+  cout<<PE<<" "<<KE<<endl;
   return PE + KE;
 }
 
@@ -524,46 +544,21 @@ void createLRcouplings(double *LR_couplings, Param p) {
     
     if(p.usePowLaw) {
       //Square lattice, 1/r^{d+\sigma} coupling
-#ifdef USE_OMP
-#pragma omp parallel for
-#endif
-      for(int j=0; j<p.surfaceVol/2; j++){
-	int idx1 = j;
-	int idx2 = (p.surfaceVol-1) - j;
-	for(int i=0; i<idx1; i++) { 
+      for(int j=0; j<p.surfaceVol; j++){
+	for(int i=0; i<j; i++) { 
 	  //Index divided by circumference, using the int floor feature/bug,
 	  //gives the timeslice index.
 	  t1 = i / p.S1;
-	  t2 = idx1 / p.S1;
+	  t2 = j / p.S1;
 	  dt = abs(t2-t1) > p.Lt/2 ? p.Lt - abs(t2-t1) : abs(t2-t1);
 	  
 	  //The index modulo the circumference gives the spatial index.
 	  x1 = i % p.S1;
-	  x2 = idx1 % p.S1;            
+	  x2 = j % p.S1;            
 	  dx = abs(x2-x1) > p.S1/2 ? p.S1-abs(x2-x1) : abs(x2-x1);      
 	  
-	  LR_couplings[i+idx1*p.surfaceVol] = pow(sqrt(dx*dx + dt*dt),-(2+sigma));
-	  LR_couplings[idx1+i*p.surfaceVol] = LR_couplings[i+idx1*p.surfaceVol];
-	  //Temporal
-	  //if(i==0 && j%p.S1==0) cout<<"time "<<j/p.S1<<" "<<LR_couplings[i+j*p.surfaceVol]<<endl;
-	  //Spatial
-	  //if(i==0 && j<p.S1) cout<<"space "<<j<<" "<<LR_couplings[i+j*p.surfaceVol]<<endl;
-	}
-	for(int i=0; i<idx2; i++) { 
-	  //Index divided by circumference, using the int floor feature/bug,
-	  //gives the timeslice index.
-	  t1 = i / p.S1;
-	  t2 = idx2 / p.S1;
-	  dt = abs(t2-t1) > p.Lt/2 ? p.Lt - abs(t2-t1) : abs(t2-t1);
-	  
-	  //The index modulo the circumference gives the spatial index.
-	  x1 = i % p.S1;
-	  x2 = idx2 % p.S1;            
-	  dx = abs(x2-x1) > p.S1/2 ? p.S1-abs(x2-x1) : abs(x2-x1);      
-	  
-	  LR_couplings[i+idx2*p.surfaceVol] = pow(sqrt(dx*dx + dt*dt),-(2+sigma));
-	  LR_couplings[idx2+i*p.surfaceVol] = LR_couplings[i+idx2*p.surfaceVol];
-
+	  LR_couplings[j+i*p.surfaceVol] = pow(sqrt(dx*dx + dt*dt),-(2+sigma));
+	  LR_couplings[i+j*p.surfaceVol] = LR_couplings[j+i*p.surfaceVol];
 	  //Temporal
 	  //if(i==0 && j%p.S1==0) cout<<"time "<<j/p.S1<<" "<<LR_couplings[i+j*p.surfaceVol]<<endl;
 	  //Spatial
@@ -595,52 +590,24 @@ void LRAdSCouplings(double *LR_couplings, Param &p){
   double couplingNorm = 1.0/Coupling(0, M_PI/p.S1, p);
   p.t_scale = M_PI/p.S1;
 
-#ifdef USE_OMP
-#pragma omp parallel for
-#endif    
-  for(int j=0; j<p.surfaceVol/2; j++){
-    int idx1 = j;
-    int idx2 = (p.surfaceVol-1) - j;
-    for(int i=0; i<idx1; i++){
+  for(int j=0; j<p.surfaceVol; j++){
+    for(int i=0; i<j; i++){
       //Index divided by circumference, using the int floor feature/bug,
       //gives the timeslice for each index.
       t1 = i / p.S1;
-      t2 = idx1 / p.S1;
+      t2 = j / p.S1;
       dt = abs(t2-t1) > p.Lt/2 ? p.Lt - abs(t2-t1) : abs(t2-t1);
       dt *= p.t_scale;
       
       //The index modulo the circumference gives the 'angle'
       //for each index.
       th1 = i % p.S1;
-      th2 = idx1 % p.S1;            
+      th2 = j % p.S1;            
       dth = abs(th2-th1) > p.S1/2 ? p.S1-abs(th2-th1) : abs(th2-th1);      
       dth *= M_PI/p.S1;
       
-      LR_couplings[i+idx1*p.surfaceVol] = pow(couplingNorm*Coupling(dt, dth, p), (2+sigma)/2);
-      LR_couplings[idx1+i*p.surfaceVol] = LR_couplings[i+idx1*p.surfaceVol];
-      
-      //Temporal
-      //if(i==0 && j%p.S1==0) cout<<0<<" "<<j/p.S1<<" "<<dt<<" "<<LR_couplings[i+j*p.surfaceVol]<<endl;
-      //Spatial
-      //if(i==0 && j<p.S1) cout<<0<<" "<<j<<" "<<dth<<" "<<LR_couplings[i+j*p.surfaceVol]<<endl;
-    }
-    for(int i=0; i<idx2; i++){
-      //Index divided by circumference, using the int floor feature/bug,
-      //gives the timeslice for each index.
-      t1 = i / p.S1;
-      t2 = idx2 / p.S1;
-      dt = abs(t2-t1) > p.Lt/2 ? p.Lt - abs(t2-t1) : abs(t2-t1);
-      dt *= p.t_scale;
-      
-      //The index modulo the circumference gives the 'angle'
-      //for each index.
-      th1 = i % p.S1;
-      th2 = idx2 % p.S1;            
-      dth = abs(th2-th1) > p.S1/2 ? p.S1-abs(th2-th1) : abs(th2-th1);      
-      dth *= M_PI/p.S1;
-      
-      LR_couplings[i+idx2*p.surfaceVol] = pow(couplingNorm*Coupling(dt, dth, p), (2+sigma)/2);
-      LR_couplings[idx2+i*p.surfaceVol] = LR_couplings[i+idx2*p.surfaceVol];
+      LR_couplings[j+i*p.surfaceVol] = pow(couplingNorm*Coupling(dt, dth, p), (2+sigma)/2);
+      LR_couplings[i+j*p.surfaceVol] = LR_couplings[j+i*p.surfaceVol];
       
       //Temporal
       //if(i==0 && j%p.S1==0) cout<<0<<" "<<j/p.S1<<" "<<dt<<" "<<LR_couplings[i+j*p.surfaceVol]<<endl;

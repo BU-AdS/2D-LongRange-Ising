@@ -3,6 +3,8 @@
 #One must pass the CL variables to the executables in the specific order
 #given. Options are listed as comments above the variable.
 
+export OMP_NUM_THREADS=16
+
 #d=Dirichlet, n=Neumann
 BC='d'
 
@@ -30,8 +32,8 @@ COUPLING_TYPE='POW'
 
 Q=8
 LEVELS=2
-TIMESLICES=96
-CIRCUMFERENCE=96
+TIMESLICES=32
+CIRCUMFERENCE=32
 
 SRC_POS=-1
 MAX_ITER=100000
@@ -45,9 +47,9 @@ N_SHIFT=1
 
 #Ensure these values are sensible!
 #Currently set for testing only.
-N_THERM=400
+N_THERM=500
 N_MEAS=5000
-N_SKIP=50
+N_SKIP=100
 N_CLUSTER=4
 
 MUSQR=$2
