@@ -128,7 +128,7 @@ int metropolisUpdateLR(double *phi_arr, int *s, Param &p,
     
     //KE
     double pmpn = phi-phi_new;
-    double pnsmps = 0.5*phi_new_sq-phi_sq;
+    double pnsmps = 0.5*(phi_new_sq-phi_sq);
 
 #ifdef USE_OMP
 
@@ -148,7 +148,9 @@ int metropolisUpdateLR(double *phi_arr, int *s, Param &p,
 
 	  if( (j+k) != i ) {
 	    int t2,dt,x2,dx;
-	    double coupling = 0.0;
+
+	    //combined coupling and denominator.
+	    double coupling_p_denom = 0.0;
 	    
 	    //Index divided by circumference, using the int floor feature/bug,
 	    //gives the timeslice index.
@@ -159,9 +161,10 @@ int metropolisUpdateLR(double *phi_arr, int *s, Param &p,
 	    x2 = (j+k) % p.S1;            
 	    dx = abs(x2-x1) > p.S1/2 ? p.S1-abs(x2-x1) : abs(x2-x1);      
 	    
-	    coupling = pow(sqrt(dx*dx + dt*dt),-(2+sigma));
+	    coupling_p_denom = pow(sqrt(dx*dx + dt*dt),-(4+sigma));
+	    //denom = pow(sqrt(dx*dx + dt*dt),-2.0);
 	    //cout<<dx<<" "<<dt<<" "<<coupling<<endl;
-	    val = (pmpn*phi_arr[j+k] + pnsmps)*coupling;
+	    val = (pmpn*phi_arr[j+k] + pnsmps)*coupling_p_denom;
 	    local += val;
 	  }
 	}
@@ -411,8 +414,8 @@ void wolffClusterAddLR(int i, int *s, int cSpin,
 #ifdef USE_OMP
 
   int newSites = 0;
-  int chunk = CACHE_LINE_SIZE/sizeof(double);
-  int lc_sze = p.surfaceVol/omp_get_num_threads();
+  int omp_nt = omp_get_num_threads();
+  int lc_sze = p.surfaceVol/omp_nt;  
   double sigma = p.sigma;
 
   int t1,x1;
@@ -424,21 +427,21 @@ void wolffClusterAddLR(int i, int *s, int cSpin,
 #pragma omp parallel 
   {
     int newSites_local = 0;
-    int lc_pos = 0;
     double prob = 0.0;
     double rand = 0.0;
-    //double added_local[lc_sze];
-    //for(int k=0; k<lc_sze; k++) {
-    //added_local[k] = added[i][lc_sze*omp_get_thread_num()+k];
-    //}
+    double added_local[lc_sze];
+    int num = omp_get_thread_num();
+    for(int k=0; k<lc_sze; k++) {
+      added_local[k] = -1;
+    }
     int t2,dt,x2,dx;
     double coupling = 0.0;
 
 #pragma omp for nowait 
-    for(int j=0; j<p.surfaceVol; j+=chunk) {
-      for(int k=0; k<chunk; k++) {
+    for(int j=0; j<p.surfaceVol; j+=lc_sze) {
+      for(int k=0; k<lc_sze; k++) {
 	int idx = j+k;
-	if(s[idx] == cSpin && added[i][idx] < 0) {
+	if(s[idx] == cSpin) {
 	  
 	  //Index divided by circumference, using the int floor feature/bug,
 	  //gives the timeslice index.
@@ -455,15 +458,23 @@ void wolffClusterAddLR(int i, int *s, int cSpin,
 	  rand = unif(rng);
 	  if(rand < prob) {
 	    sqnl_wc_size++;
-	    added[i][idx] = 1;
+	    added_local[k] = 1;
 	    ++newSites_local;
 	  }
 	}
       }
     }
-#pragma omp atomic
+#pragma omp critical
     newSites += newSites_local;
+#pragma omp for
+    for(int j=0; j<p.surfaceVol; j+=lc_sze) {
+      for(int k=0; k<lc_sze; k++) {
+	int idx = j+k;
+	if(added_local[k] > 0) added[i][idx] = added_local[k];
+      }
+    }
   }
+  
   
   if(newSites > 0) {
     //'added' now contains all of the spins on the wave front. Each

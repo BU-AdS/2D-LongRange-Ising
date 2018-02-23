@@ -3,7 +3,7 @@
 #One must pass the CL variables to the executables in the specific order
 #given. Options are listed as comments above the variable.
 
-export OMP_NUM_THREADS=16
+export OMP_NUM_THREADS=4
 
 #d=Dirichlet, n=Neumann
 BC='d'

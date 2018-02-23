@@ -131,6 +131,7 @@ int metropolisUpdateSR(double *phi_arr, int *s, Param &p,
     }     
   }// end loop over lattice volume 
 
+  /*
   // TUNING ACCEPTANCE 
   if (iter < p.n_therm/2 && (iter+1) % p.n_skip/10 == 0) {
     if ((double) sql_accept / (double) sql_tries < 0.5) {
@@ -144,6 +145,12 @@ int metropolisUpdateSR(double *phi_arr, int *s, Param &p,
       p.n_cluster--;
       if(p.n_cluster < 3) p.n_cluster++;
     }
+  }
+  */
+
+  if( iter < p.n_therm && iter%p.n_skip == 0 ) {
+    cout<<"At iter "<<iter<<" the Metro acceptance rate is "<<(double)sql_accept/(double)sql_tries<<endl;
+    cout<<"and delta_phi is "<<p.delta_phi<<endl;
   }
 
   return delta_mag;
@@ -265,7 +272,7 @@ void wolffUpdateSR(double *phi_arr, int *s, Param p,
 
   sql_wc_ave += sql_wc_size;
 
-  if( iter%p.n_skip == 0 && iter < p.n_therm) {
+  if( iter%p.n_skip == 0) {
     setprecision(4);
     cout<<"Using "<<p.n_cluster<<" Wolff hits."<<endl; 
     cout<<"Ave. cluster size at iter "<<iter<<" = "<<sql_wc_ave<<"/"<<sql_wc_calls<<" = "<<1.0*sql_wc_ave/sql_wc_calls<<endl;
