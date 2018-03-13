@@ -3,7 +3,7 @@
 #One must pass the CL variables to the executables in the specific order
 #given. Options are listed as comments above the variable.
 
-export OMP_NUM_THREADS=4
+export OMP_NUM_THREADS=2
 
 #d=Dirichlet, n=Neumann
 BC='d'
@@ -20,34 +20,18 @@ LATTICE='2D'
 
 #wolff = Wolff algorithm
 #sw    = Swednsen Wang algorithm
-CLUSTER='wolff'
+CLUSTER='WOLFF'
 
 #SR = Short range
-#LR = Long range
-COUPLING='LR'
+#POW = 1/|x-y}^{2+sigma} type
+#RAD = 1/(cosh(dt) - cos(dtheta))^{1+sigma/2}
+COUPLING_TYPE='RAD'
 
-#POW    = 1/r^a type
-#RADIAL = 1/(cosh(t) = cos(theta))
-COUPLING_TYPE='POW'
-
-Q=8
-LEVELS=2
-TIMESLICES=32
-CIRCUMFERENCE=32
-
-SRC_POS=-1
-MAX_ITER=100000
-TOL=1e-80
-
-MSQR=1.0
-delta_MSQR=0.0
-g_MSQR=1.0
-g_LATT=1.0
-N_SHIFT=1
-
+TIMESLICES="32"
+CIRCUMFERENCE="32"
 #Ensure these values are sensible!
 #Currently set for testing only.
-N_THERM=500
+N_THERM=1000
 N_MEAS=5000
 N_SKIP=100
 N_CLUSTER=4
@@ -55,32 +39,32 @@ N_CLUSTER=4
 MUSQR=$2
 LAMBDA=1.0
 SIGMA=$1
-
 TWS=1.0
+
+Q=7
+LEVELS=3
+SRC_POS=-1
+MAX_ITER=100000
+TOL=1e-16
+
+MSQR=$3
+delta_MSQR=0.0
+g_MSQR=1.0
+g_LATT=1.0
+N_SHIFT=1
 
 make -j 12
 
-rm ads_wisdom
+COMMAND="./adsrun --BC ${BC} --centre ${CENTRE} --verbosity ${VERBOSITY} --latType ${LATTICE} --couplingType ${COUPLING_TYPE} \
+		  --maxIter ${MAX_ITER} --tol ${TOL} --Lt ${TIMESLICES} --S1 ${CIRCUMFERENCE} \
+                  --mSqr ${MSQR} --deltaMsqr ${delta_MSQR} --levels ${LEVELS} --srcPos ${SRC_POS} \
+                  --cMsqr ${cMSQR} --cLatt ${cLATT} --q ${Q} --nShift ${N_SHIFT} --nTherm ${N_THERM} \
+                  --nMeas ${N_MEAS} --nSkip ${N_SKIP} --nCluster ${N_CLUSTER} --muSqr ${MUSQR} \
+                  --lambda ${LAMBDA} --sigma ${SIGMA} --tScale ${TWS} --clusterAlg ${CLUSTER} "
 
-rm -rf data_dump
-mkdir data_dump
-
-COMMAND="./adsrun ${BC} ${CENTRE} ${VERBOSITY} ${LATTICE} ${COUPLING} \
-	 	  ${MAX_ITER} ${TOL} ${TIMESLICES} ${CIRCUMFERENCE} \
-                  ${MSQR} ${delta_MSQR} ${LEVELS} ${SRC_POS} \
-                  ${g_MSQR} ${g_LATT} ${Q} ${N_SHIFT} ${N_THERM} \
-                  ${N_MEAS} ${N_SKIP} ${N_CLUSTER} ${MUSQR} \
-                  ${LAMBDA} ${SIGMA} ${TWS} ${CLUSTER} ${COUPLING_TYPE} "
-
+echo ""
+echo "Command  given:"
 echo ${COMMAND}
+echo ""
 
 ${COMMAND}
-
-#Q=7, L=3, M=1
-#N_latt  = 0.09435 C_msqr = 4.383623689
-
-#M=2
-#N_latt  = 0.08435 C_msqr = 3.959558488
-
-#M=0.1
-#N_latt  = 1.318378533 C_msqr = 85.51228172

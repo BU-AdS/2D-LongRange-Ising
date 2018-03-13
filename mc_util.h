@@ -63,6 +63,9 @@ class MonteCarlo2DIsing {
   //Array for the LR couplings.
   double *LR_couplings;
 
+  //Array for the LR kinetic denominators
+  double *denom;
+
   //Arrays to hold spin and phi values.  
   int *s;
   double *phi;
@@ -126,7 +129,9 @@ void writeObservables(double **ind_corr_t, double *run_corr_t,
 		      double **ind_corr_s, double *run_corr_s,
 		      int **corr_norms, int idx, observables obs, Param p);
 
-void createLRcouplings(double *LR_c, Param p);
+void createDenom(double *denom, Param p);
+
+void createLRcouplings(double *LR_c, double *denom, Param p);
 
 //Square 2D Ising short range utils
 double actionSR(double *phi_arr, int *s, 

@@ -30,40 +30,42 @@ int main(int argc, char **argv) {
   
   Param p;
   //Process Command line arguments
-  if(argc > 1) p.init(argc, argv);
-  
-  //-- Populate problem dependent data. --//
-  //Unless a specific positive input for the circumference is given,
-  //it will be the nodes on the outer AdS perimeter.
-  if(p.S1 <= 0)  p.S1 = endNode(p.Levels,p) - endNode(p.Levels-1,p);
-  //Nodes on the 2D surface of the AdS space.
-  p.surfaceVol = p.S1*p.Lt;
-  //Nodes on the Poincare disk
-  p.AdSVol = endNode(p.Levels,p) + 1;
-  //Nodes in the entire lattice Volume.
-  p.latVol = p.AdSVol * p.Lt;
+  for (int i=1; i<argc; i++){
+    if(p.init(argc, argv, &i) == 0){
+      continue;
+    }
+    printf("ERROR: Invalid option: %s\n", argv[i-1]);
+    p.usage(argv);
+    exit(0);
+  }
 
-  //Print endnode data for reference.
-  for(int i=1;i<10;i++) cout<<"Endnode("<<i<<") = "<<endNode(i,p)<<endl;
-  cout<<"Total Surface nodes = "<<p.surfaceVol<<endl;
-  cout<<"Total AdS nodes     = "<<p.latVol<<endl;
-  
-  //Print paramters
-  p.print();
-  
-  //Object to hold graph data
-  vector<Vertex> NodeList(p.latVol);
-  
-  //-1 in NodeList indicates that node n has no connections.
-  //This is used during construction to indicate if the node is yet
-  //to be populated. During truncation, nodes to be removed are
-  //assigned a position of -1, and all connections to that node are
-  //removed.
-  for(int n = 0; n < p.latVol; n++)
-    for(int mu = 0; mu < p.q+2; mu++) 
-      NodeList[n].nn[mu] = -1;
-  
+  int k=0;
+  if(argc > 1) p.init(argc, argv, &k);
+      
   if(p.lat_type == ADS) {
+   
+    
+    //Nodes on the 2D surface of the AdS space.
+    p.surfaceVol = p.S1*p.Lt;
+    //Nodes on the Poincare disk
+    p.AdSVol = endNode(p.Levels,p) + 1;
+    //Nodes in the entire lattice Volume.
+    p.latVol = p.AdSVol * p.Lt;
+
+    //Print paramters
+    p.print();
+
+    //Object to hold graph data
+    vector<Vertex> NodeList(p.latVol);
+    
+    //-1 in NodeList indicates that node n has no connections.
+    //This is used during construction to indicate if the node is yet
+    //to be populated. During truncation, nodes to be removed are
+    //assigned a position of -1, and all connections to that node are
+    //removed.
+    for(int n = 0; n < p.latVol; n++)
+      for(int mu = 0; mu < p.q+2; mu++) 
+	NodeList[n].nn[mu] = -1;
     
     //Construct neighbour table.
     buildGraph(NodeList, p);
@@ -74,9 +76,21 @@ int main(int argc, char **argv) {
     //Calculate the one loop corrections, store in NodeList,
     //populate LR AdS Couplings
     //oneLoopCorrection(LR_couplings, NodeList, p);
+
+    //Print endnode data for reference.
+    for(int i=1;i<10;i++) cout<<"Endnode("<<i<<") = "<<endNode(i,p)<<endl;
+    cout<<"Total Surface nodes = "<<p.surfaceVol<<endl;
+    cout<<"Total AdS nodes     = "<<p.latVol<<endl;
     
     runMonteCarloAdSL(NodeList, p);    
   } else {
+
+    //Nodes on the 2D surface of the AdS space.
+    p.surfaceVol = p.S1*p.Lt;
+
+    //Print paramters
+    p.print();
+    
     MonteCarlo2DIsing Sim(p);
     Sim.runSimulation(p);
   }

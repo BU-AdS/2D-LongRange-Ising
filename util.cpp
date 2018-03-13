@@ -12,143 +12,528 @@
 
 using namespace std;
 
-void Param::init(int argc, char **argv) {
+void Param::usage(char **argv) {
+
+  printf("\n\n");
+  printf("This is an exhaustive list of run-time options. Those not set at\n");
+  printf("run time will be given a default value. All input options will\n");
+  printf("dumped to stdout at execution. Please ensure that they are sensible!\n\n");
+
+  // The user is advised to study these parameters and set them explicitly.
+  //-----------------------------------------------------------------------
+  printf("--latType <2D, AdS>              A 2D lattice is a periodic, Euclidean lattice. Use the --Lt <n> and --S1 <m> options to set the extents.\n");  
+  printf("--couplingType <SR, POW, RAD>    Set the coupling between the lattice sites. For SR the coupling is nearest neighbour.\n");
+  printf("                                 For POW the coupling is of the form |x - y|^{-(d+sigma)}. For RAD the coupling is of the form (cosh(dt) - cos(dtheta))^{-(d+sigma)/2}\n");
+  printf("--clusterAlg <WOLFF, SW>         Use either the Wolff or Swendsen-Wang cluster algorithm.\n");
+  printf("--Lt <n>                         The temporal extent of both the 2D and AdS lattice types.\n");
+  printf("--S1 <n>                         The spatial extent of both the 2D lattice. For AdS lattice type, the circumference is set by the --Q and --Levels options.\n");
+  printf("--muSqr <Float>                  The phi^4 mass^2 term. This is usually negative...\n");
+  printf("--lambda <Float>                 The phi^4 interaction term.\n");
+  printf("--sigma <Float>                  The exponent in the LR power law.\n");
+  //MC params
+  printf("--nMetroCool <n>                 The number of pure Metropolis steps to perfom in the initial cooldown\n");
+  printf("--nTherm <n>                     The number of thermalisation steps (1 x metro + nCluster x Cluster)\n");
+  printf("--nSkip  <n>                     The number of samples to skip between measuremnets.\n");
+  printf("--nMeas  <n>                     The number of measurements to make.\n");
+  printf("--nCluster <n>                   The number of cluster sweeps to make per Metropolis step.\n");
+
+  printf("--tScale <Float>                 The scale by which the temporal distance is scaled.\n");
   
-  std::string BC(argv[1]);
-  if (BC == "D" || BC == "d") {
-    bc = true;
-  } else if (BC == "N" || BC == "n") {
-    bc = false;
-  } else {
-    cout<<"Invalid boundary condition given. Use D/d for Dirichlet or N/n for Neumann."<<endl;
-    exit(0);
-  }
+  //AdS params
+  printf("--q <n>                          The triangulation of the Poincare disk.\n");
+  printf("--levels <n>                     The number of levels to which the Poincare Disk is generated.\n");
+  printf("--centre <V/v, C/c>              Place a vertex at the centre of the Poincare disk, or the centre of a hyperbolic triangle.\n");  
+  printf("--mSqr <Float>                   The AdS mass.\n");
+  printf("--deltaMsqr <Float>              The increment in AdS mass used in the multishift inverter.\n");
+  printf("--nShift <n>                     The number of (positive) shifts to perform in the multishift inverter.\n");
+  printf("--BC <D/d, N,n>                  Use either Neumann or Dirichlet Boundary conditions in the inverter.\n");
+  printf("--maxIter <n>                    Maximum iterations of the inverter.\n");
+  printf("--tol <Float>                    Tolerance of the inverter.\n");
+  printf("--srcPos <n>                     Position of the point source in the inverter.\n");
+  printf("--cMsqr <Float>                  Factor by which to scale the bulk mass^2.\n");
+  printf("--cLatt <Float>                  Factor by which to scale the bulk correlation functions.\n");
   
-  std::string Centre(argv[2]);
-  if (Centre == "V" || Centre == "v") {
-    Vcentre = true;
-  } else if (Centre == "C" || Centre == "c") {
-    Vcentre = false;
-  } else {
-    cout<<"Invalid centre condition given. Use V/v for Vertexcentred or C/c for Circumcentred."<<endl;
-    exit(0);
-  }
+  printf("--verbosity <V/v, Q/q>           Sets the verbosity as either Verbose or Quiet.\n");
   
-  std::string verbose(argv[3]);
-  if (verbose == "V" || verbose == "v") {
-    verbosity = true;
-  } else if(verbose == "Q" || verbose == "q") {
-    verbosity = false;
-  } else {
-    cout<<"Invalid Verbosity conditions given. Use v/q for verbose/quiet"<<endl;
-    exit(0);
+}
+
+
+
+int Param::init(int argc, char **argv, int *idx) {
+
+  int ret = -1;
+  int i = *idx;
+
+  if( strcmp(argv[i], "--help")== 0){
+    usage(argv);
   }
 
-  std::string latType_in(argv[4]);
-  
-  if (latType_in == "2d"  ||
+  //Lattice Type
+  if( strcmp(argv[i], "--latType") == 0){
+    if (i+1 >= argc){
+      usage(argv);
+    }  
+    std::string latType_in(argv[i+1]);
+    if (latType_in == "2d"  ||
       latType_in == "2D") {
     lat_type = TWO_D;
     
-  } else if(latType_in == "AdS" ||
-	    latType_in == "ADS" ||
-	    latType_in == "ads") {
-    lat_type = ADS;
-  } else {
-    cout<<"Invalid Lattice type given. Options are "<<endl;
-    cout<<"2D:  Square lattice."<<endl;
-    cout<<"AdS: AdS lattice."<<endl;
-    exit(0);
+    } else if(latType_in == "AdS" ||
+	      latType_in == "ADS" ||
+	      latType_in == "ads") {
+      lat_type = ADS;
+    } else {
+      cout<<"Invalid Lattice type ("<<latType_in<<") given. Options are "<<endl;
+      cout<<"2D:  Square lattice."<<endl;
+      cout<<"AdS: AdS lattice."<<endl;
+      exit(0);
+    }
+    i++;
+    ret = 0;
+    goto out;
   }
 
-  std::string couplingType_in(argv[5]);
-    
-  if (couplingType_in == "sr"  ||
-      couplingType_in == "SR"  ||
-      couplingType_in == "Sr") {
-    coupling_type = SR;
-    
-  } else if(couplingType_in == "lr" ||
-	    couplingType_in == "Lr" ||
-	    couplingType_in == "LR") {
-    coupling_type = LR;
-  } else {
-    cout<<"Invalid coupling type given. Options are "<<endl;
-    cout<<"SR: Short range (local) interacton"<<endl;
-    cout<<"LR: Long range (non-local) interacton"<<endl;    
-    exit(0);
-  }
-  
-  MaxIter    = atoi(argv[6]);
-  tol        = atof(argv[7]);
-  Lt         = atoi(argv[8]);  
-  S1         = atoi(argv[9]);
-  msqr       = atof(argv[10]);
-  delta_msqr = atof(argv[11]);
-  Levels     = atoi(argv[12]);
-  src_pos    = atoi(argv[13]);
-  
-  if(atof(argv[14]) == 0) {
-    if(Lt > 1) C_msqr = (1.57557326 + 1.56565549/msqr);
-    else C_msqr = -0.0126762/msqr + 0.0689398*msqr + 2.02509;
-  }
-  else C_msqr = atof(argv[14]);
-  
-  if(atof(argv[15]) == 0) N_latt = 0.294452/(msqr + 0.766901) + 0.0788137;
-  else N_latt = atof(argv[15]);
-  
-  q = atoi(argv[16]);
-  n_shift = atoi(argv[17]);
-  
-  //MC params  
-  n_therm   = atoi(argv[18]);
-  n_meas    = atoi(argv[19]);
-  n_skip    = atoi(argv[20]);
-  n_cluster = atoi(argv[21]);
-  musqr     = atof(argv[22]);
-  lambda    = atof(argv[23]);
-  sigma     = atof(argv[24]);
+  //Coupling Type
+  if( strcmp(argv[i], "--couplingType") == 0){
+    if (i+1 >= argc){
+      usage(argv);
+    }
+    std::string couplingType_in(argv[i+1]);    
+    if (couplingType_in == "sr"  ||
+	couplingType_in == "SR"  ||
+	couplingType_in == "Sr") {
+      coupling_type = SR;      
+    } else if(couplingType_in == "pow" ||
+	      couplingType_in == "POW" ||
+	      couplingType_in == "Pow") {
+      coupling_type = POW;
+      usePowLaw = true;
+    } else if(couplingType_in == "rad" ||
+	      couplingType_in == "RAD" ||
+	      couplingType_in == "Rad") {
+      coupling_type = RAD;
+      usePowLaw = false;      
+    } else {
+      cout<<"Invalid coupling type "<<couplingType_in<<" given. Options are "<<endl;
+      cout<<"SR: Short range (local) interacton"<<endl;
+      cout<<"Pow: Long range (non-local) |x-y|^{d+s}"<<endl;
+      cout<<"Rad: Long range (non-local) (cosh(dt) - cos(dtheta))^{d+s}"<<endl;    
+      exit(0);
+    }
 
-  t_scale = atof(argv[25]);  
+    i++;
+    ret = 0;
+    goto out;
+  } 
   
-  std::string WOLFF(argv[26]);
-  if (WOLFF == "wolff" || 
-      WOLFF == "Wolff" ||
-      WOLFF == "WOLFF" ) {
-    useWolff = true;
-  } else if (WOLFF == "SW" || 
-	     WOLFF == "sw" ||
-	     WOLFF == "Sw" ) {
-    useWolff = false;
-  } else {
-    cout<<"Invalid cluster algorithm given. Use WOLFF for Wolff or SW for Swendsen Wang."<<endl;
-    exit(0);
-  }  
-  std::string PowLaw(argv[27]);
-  if (PowLaw == "pow" || 
-      PowLaw == "Pow" ||
-      PowLaw == "POW" ) {
-    usePowLaw = true;
-  } else if (PowLaw == "radial" || 
-	     PowLaw == "Radial" ||
-	     PowLaw == "RADIAL" ) {
-    usePowLaw = false;
-  } else {
-    cout<<"Invalid Coupling given. Use POW for 1/r^a definition, ";
-    cout<<"or RADIAL for 1/(cosh(t) - cos(theta)) definition."<<endl;
-    exit(0);
-  }  
+  //Cluster Algorithm
+  if( strcmp(argv[i], "--clusterAlg") == 0){
+    if (i+1 >= argc){
+      usage(argv);
+    }
+    std::string CLUSTER(argv[i+1]);
+    if (CLUSTER == "wolff" || 
+	CLUSTER == "Wolff" ||
+	CLUSTER == "WOLFF" ) {
+      useWolff = true;
+    } else if (CLUSTER == "SW" || 
+	       CLUSTER == "sw" ||
+	       CLUSTER == "Sw" ) {
+      useWolff = false;
+    } else {
+      cout<<"Invalid cluster algorithm ("<<CLUSTER<<") given. Use WOLFF for Wolff or SW for Swendsen Wang."<<endl;
+      exit(0);
+    }
+    i++;
+    ret = 0;
+    goto out;
+  }
+
+  //TimeSlices
+  if( strcmp(argv[i], "--Lt") == 0){
+    if (i+1 >= argc){
+      usage(argv);
+    }
+    Lt = atoi(argv[i+1]);
+    if(Lt<2) {
+      cout<<"Invalid number of timeslices ("<<Lt<<") given. Please ensure that Lt >= 2."<<endl;
+      exit(0);
+    }
+    i++;
+    ret = 0;
+    goto out;
+  }
+
+  //Spatial sites on the boundary
+  if( strcmp(argv[i], "--S1") == 0){
+    if (i+1 >= argc){
+      usage(argv);
+    }
+    S1 = atoi(argv[i+1]);
+    if(Lt<2) {
+      cout<<"Invalid number of spatial sites ("<<S1<<") given. Please ensure that S1 >= 2."<<endl;
+      exit(0);
+    }
+    i++;
+    ret = 0;
+    goto out;
+  }
+
+  //Boundary (mu) mass^2
+  if( strcmp(argv[i], "--muSqr") == 0){
+    if (i+1 >= argc){
+      usage(argv);
+    }
+    musqr = atof(argv[i+1]);
+    i++;
+    ret = 0;
+    goto out;
+  }
+
+  //Boundary (lambda) interaction
+  if( strcmp(argv[i], "--lambda") == 0){
+    if (i+1 >= argc){
+      usage(argv);
+    }
+    lambda = atof(argv[i+1]);
+    i++;
+    ret = 0;
+    goto out;
+  }
+
+  //Long-range coupling exponent
+  if( strcmp(argv[i], "--sigma") == 0){
+    if (i+1 >= argc){
+      usage(argv);
+    }
+    sigma = atof(argv[i+1]);
+    i++;
+    ret = 0;
+    goto out;
+  }
+
+  //--------------------//
+  //     MC params      //
+  //--------------------//
+  
+  //Metro cool-down steps.
+  if( strcmp(argv[i], "--nMetroCool") == 0){
+    if (i+1 >= argc){
+      usage(argv);
+    }
+    n_metro_cool = atoi(argv[i+1]);
+    if(n_metro_cool < 0) {
+      cout<<"Invalid number of metro cool down steps ("<<n_metro_cool<<") given. Please ensure that n_metro_cool >= 0."<<endl;
+      exit(0);
+    }
+    i++;
+    ret = 0;
+    goto out;
+  }
+
+  //Thermalisation sweeps
+  if( strcmp(argv[i], "--nTherm") == 0){
+    if (i+1 >= argc){
+      usage(argv);
+    }
+    n_therm = atoi(argv[i+1]);
+    if(n_therm < 0) {
+      cout<<"Invalid number of thermalisation steps ("<<n_therm<<") given. Please ensure that n_therm >= 0."<<endl;
+      exit(0);
+    }
+    i++;
+    ret = 0;
+    goto out;
+  }
+
+  //Measurements
+  if( strcmp(argv[i], "--nMeas") == 0){
+    if (i+1 >= argc){
+      usage(argv);
+    }
+    n_meas = atoi(argv[i+1]);
+    if(n_meas < 0) {
+      cout<<"Invalid number of measurements ("<<n_meas<<") given. Please ensure that n_meas >= 0."<<endl;
+      exit(0);
+    }
+    i++;
+    ret = 0;
+    goto out;
+  }
+
+   //Skip steps
+  if( strcmp(argv[i], "--nSkip") == 0){
+    if (i+1 >= argc){
+      usage(argv);
+    }
+    n_skip = atoi(argv[i+1]);
+    if(n_skip < 0) {
+      cout<<"Invalid number of skip steps ("<<n_skip<<") given. Please ensure that n_skip >= 0."<<endl;
+      exit(0);
+    }
+    i++;
+    ret = 0;
+    goto out;
+  }
+
+  //Cluster steps
+  if( strcmp(argv[i], "--nCluster") == 0){
+    if (i+1 >= argc){
+      usage(argv);
+    }
+    n_cluster = atoi(argv[i+1]);
+    if(n_cluster < 0) {
+      cout<<"Invalid number of cluster steps ("<<n_cluster<<") given. Please ensure that n_cluster >= 0."<<endl;
+      exit(0);
+    }
+    i++;
+    ret = 0;
+    goto out;
+  }
+  
+  //Temporal scaling
+  if( strcmp(argv[i], "--tScale") == 0){
+    if (i+1 >= argc){
+      usage(argv);
+    }
+    t_scale = atof(argv[i+1]);
+    if(t_scale < 0) {
+      cout<<"Invalid t_scale ("<<t_scale<<") given. Please ensure that tscale > 0."<<endl;
+      exit(0);
+    }
+    i++;
+    ret = 0;
+    goto out;
+  }
+
+  //----------------//
+  //   AdS params   //
+  //----------------// 
+
+  //Triangulation
+  if( strcmp(argv[i], "--q") == 0){
+    if (i+1 >= argc){
+      usage(argv);
+    }
+    q = atoi(argv[i+1]);
+    if(q < 7) {
+      cout<<"Invalid triangulation ("<<q<<") given. Please ensure that q >= 7."<<endl;
+      exit(0);
+    }
+    i++;
+    ret = 0;
+    goto out;
+  }
+  
+  //Levels
+  if( strcmp(argv[i], "--levels") == 0){
+    if (i+1 >= argc){
+      usage(argv);
+    }
+    Levels = atoi(argv[i+1]);
+    if(Levels < 3) {
+      cout<<"Invalid number of levels ("<<Levels<<") given. Please ensure that Levels >= 3."<<endl;
+      exit(0);
+    }
+    i++;
+    ret = 0;
+    goto out;
+  }
+  
+  //Vertex or body centred.
+  if( strcmp(argv[i], "--centre") == 0){
+    if (i+1 >= argc){
+      usage(argv);
+    }  
+    std::string Centre(argv[i+1]);
+    if (Centre == "V" || Centre == "v") {
+      Vcentre = true;
+    } else if (Centre == "C" || Centre == "c") {
+      Vcentre = false;
+    } else {
+      cout<<"Invalid centre condition ("<<Centre<<") given. Use V/v for Vertexcentred or C/c for Circumcentred."<<endl;
+      exit(0);
+    }
+    i++;
+    ret = 0;
+    goto out;
+  }
+
+  //Bulk (M) mass^2
+  if( strcmp(argv[i], "--mSqr") == 0){
+    if (i+1 >= argc){
+      usage(argv);
+    }
+    msqr = atof(argv[i+1]);
+    i++;
+    ret = 0;
+    goto out;
+  }
+
+  //Bulk (M) mass^2 increment (Multishift inverter)
+  if( strcmp(argv[i], "--deltaMsqr") == 0){
+    if (i+1 >= argc){
+      usage(argv);
+    }
+    delta_msqr = atof(argv[i+1]);
+    i++;
+    ret = 0;
+    goto out;
+  }
+
+  //Levels
+  if( strcmp(argv[i], "--nShift") == 0){
+    if (i+1 >= argc){
+      usage(argv);
+    }
+    n_shift = atoi(argv[i+1]);
+    if(n_shift < 0) {
+      cout<<"Invalid number of shifts ("<<n_shift<<") given. Please ensure that n_shift >= 0."<<endl;
+      exit(0);
+    }
+    i++;
+    ret = 0;
+    goto out;
+  }
+  
+  //Boundary Conditions
+  if( strcmp(argv[i], "--BC") == 0){
+    if (i+1 >= argc){
+      usage(argv);
+    }
+    std::string BC(argv[i+1]);
+    if (BC == "D" || BC == "d") {
+      bc = true;
+    } else if (BC == "N" || BC == "n") {
+      bc = false;
+    } else {
+      cout<<"Invalid boundary condition ("<<BC<<") given. Use D/d for Dirichlet or N/n for Neumann."<<endl;
+      exit(0);
+    }
+    i++;
+    ret = 0;
+    goto out;
+  }
+
+  //Maximum CG iterations
+  if( strcmp(argv[i], "--maxIter") == 0){
+    if (i+1 >= argc){
+      usage(argv);
+    }
+    MaxIter = atoi(argv[i+1]);
+    if(n_shift < 0) {
+      cout<<"Invalid number of maxIter ("<<MaxIter<<") given. Please ensure that maxIter > 0."<<endl;
+      exit(0);
+    }
+    i++;
+    ret = 0;
+    goto out;
+  }
+
+  //CG tolerance
+  if( strcmp(argv[i], "--tol") == 0){
+    if (i+1 >= argc){
+      usage(argv);
+    }
+    tol = atof(argv[i+1]);
+    if(tol < 0) {
+      cout<<"Invalid tolerance ("<<tol<<") given. Please ensure that tol > 0."<<endl;
+      exit(0);
+    }
+    i++;
+    ret = 0;
+    goto out;
+  }
+
+  //Source position
+  if( strcmp(argv[i], "--srcPos") == 0){
+    if (i+1 >= argc){
+      usage(argv);
+    }
+    src_pos = atoi(argv[i+1]);
+    i++;
+    ret = 0;
+    goto out;
+  }
+
+  //Run-time Verbosity
+  if( strcmp(argv[i], "--verbosity") == 0){
+    if (i+1 >= argc){
+      usage(argv);
+    }  
+    std::string verbose(argv[i+1]);
+    if (verbose == "V" || verbose == "v") {
+      verbosity = true;
+    } else if(verbose == "Q" || verbose == "q") {
+      verbosity = false;
+    } else {
+      cout<<"Invalid Verbosity condition ("<<verbose<<") given. Use v/q for verbose/quiet"<<endl;
+      exit(0);
+    }
+    i++;
+    ret = 0;
+    goto out;
+  } 
+
+  //Bulk mass scaling factor
+  if( strcmp(argv[i], "--cMsqr") == 0){
+    if (i+1 >= argc){
+      usage(argv);
+    }
+    C_msqr = atof(argv[i+1]);
+    i++;
+    ret = 0;
+    goto out;
+  }
+
+  //Bulk correlation scaling factor
+  if( strcmp(argv[i], "--clatt") == 0){
+    if (i+1 >= argc){
+      usage(argv);
+    }
+    N_latt = atof(argv[i+1]);
+    i++;
+    ret = 0;
+    goto out;
+  }
+
+ out:
+  *idx = i;
+  return ret ;
   
 }
 
 void Param::print() {//FIXME
-  cout<<"Parameter status:"<<endl;
-  cout<<"Triangulation = "<<q<<endl;
+  cout<<endl;
+  cout<<"********************************"<<endl;
+  cout<<"*      Parameter status        *"<<endl;
+  cout<<"********************************"<<endl;
+  cout<<endl;
+  cout<<"Lattice type = "<<(lat_type == TWO_D ? "2D" : "AdS")<<endl;
+  cout<<"Coupling type = "<<(coupling_type == SR ? "Shor-Range" :
+			     coupling_type == POW ? "Power Law" : "Radial")<<endl;
+  cout<<"Cluster Algorithm = "<<(useWolff == true ? "Wolff" : "Swendsen-Wang")<<endl;
   cout<<"TimeSlices = "<<Lt<<endl;
   cout<<"Circumference = "<<S1<<endl;
-  cout<<"AdS Mass squared = "<<msqr<<endl;
-  cout<<"Mu Mass squared = "<<musqr<<endl;
-  cout<<"Lambda = "<<lambda<<endl;  
+  cout<<"Boundary Mass squared (mu^2) = "<<musqr<<endl;  
+  cout<<"Boundary coupling (Lambda) = "<<lambda<<endl;
+  cout<<"Long-Range coupling sigma = "<<sigma<<endl;
+  cout<<"Temporal Scaling = "<<t_scale<<endl;
+  
+  cout<<endl<<"* MC Params *"<<endl;
+  cout<<"Metro Cool-Down = "<<n_metro_cool<<endl;
+  cout<<"Thermalisations = "<<n_therm<<endl;
+  cout<<"Skip steps = "<<n_skip<<endl;
+  cout<<"Measurements = "<<n_meas<<endl;
+  cout<<"Cluster steps per Metro = "<<n_cluster<<endl;
+  
+  if(lat_type == ADS) {
+    cout<<endl<<"* AdS Params *"<<endl;
+    cout<<"Triangulation = "<<q<<endl;
+    cout<<"Levels = "<<Levels<<endl;
+    cout<<"Centreing = "<<(Vcentre == true ? "Vertex" : "Circum")<<" centred"<<endl;
+  }
+  cout<<endl;
 }
 
 //Using the formula c(n) = (q-4)*c(n-1) - c(n-2) where c is the

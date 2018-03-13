@@ -32,7 +32,7 @@ void clusterPossibleLR(int i, int *s, int cSpin,
 		       Param p);
 
 int metropolisUpdateLR(double *phi_arr, int *s, Param &p,
-		       double *LR_couplings_sq,
+		       double *LR_couplings, double *denom,
 		       double & delta_mag_phi, int iter);
 
 void init_connectivity(Param p);

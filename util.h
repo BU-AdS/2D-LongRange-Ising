@@ -13,7 +13,8 @@ typedef enum latType_s {
 
 typedef enum couplingType_s {
   SR,
-  LR
+  POW,
+  RAD
 } couplingType;
 
 class Param{
@@ -31,7 +32,7 @@ class Param{
                           //user defined LR.
 
   latType lat_type = TWO_D;
-  couplingType coupling_type = LR;
+  couplingType coupling_type = RAD;
   
   int MaxIter = 100000;
   double tol = pow(10,-6);
@@ -50,7 +51,7 @@ class Param{
   
   char fname[256];
 
-  int S1 = 0;
+  int S1 = 32;
   int Lt = 32;
   int AdSVol = 0;
   int R = 9;
@@ -60,14 +61,17 @@ class Param{
   double lambda = 1.0;
   double sigma = 1.33;
 
+  int n_metro_cool = 1000;
   int n_therm = 100000;
   int n_meas = 1000;
   int n_skip = 1000;
   int n_cluster = 8;
   double delta_phi = 1.5;
 
+  void usage(char **argv);
   void print();
-  void init(int argc, char **argv);
+  int init(int argc, char **argv, int *idx);
+  
 };
 
 class Vertex{
