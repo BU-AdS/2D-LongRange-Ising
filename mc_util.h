@@ -7,6 +7,14 @@
 #include <stdlib.h>
 #include <vector>
 
+#ifdef USE_GPU
+#include <cuda.h>
+#include <curand.h>
+#include <curand_kernel.h>
+#include <cuda_runtime.h>
+#endif
+
+
 #include "util.h"
 
 class observables {
@@ -65,11 +73,11 @@ class MonteCarlo2DIsing {
 
   //Array for the LR kinetic denominators
   double *denom;
-
+  
   //Arrays to hold spin and phi values.  
   int *s;
   double *phi;
-
+  
   //Running correlation function arrays.
   double *run_corr_t;
   double *run_corr_s;
@@ -92,6 +100,26 @@ class MonteCarlo2DIsing {
   long long metro = 0.0;
   long long cluster = 0.0;
 
+#ifdef USE_GPU
+  //GPU objects
+  // CUDA's random number library uses curandState_t to keep track of the seed value
+  // we will store a random state for every thread  
+  curandState_t* states;
+
+  //Array of random numbers on the GPU
+  double* gpu_rands;
+  
+  double *gpu_LR_couplings;
+  double *gpu_denom;
+  double *gpu_phi;
+  int *gpu_s;
+  
+  void GPU_wolffClusterAddLR(Param p, int cSpin);
+  
+  void GPU_wolffUpdateLR(Param p, int iter);
+    
+#endif  
+  
   //Constructor
   MonteCarlo2DIsing(Param p);
 
@@ -101,9 +129,11 @@ class MonteCarlo2DIsing {
   //Do some initial Metro updates, then run updateIter
   //until thermalisation.
   void thermalise(double *phi, int *s, Param p, observables obs);
-  
-  //Take measurements.
+
+  //Self explanatory...
   void runSimulation(Param p);
+  void createDenom(Param p);
+  void createLRcouplings(Param p);
   
   //--------------------------------------------------------//
   // Wrappers for the different LR and SR cluster functions //
@@ -129,10 +159,6 @@ void writeObservables(double **ind_corr_t, double *run_corr_t,
 		      double **ind_corr_s, double *run_corr_s,
 		      int **corr_norms, int idx, observables obs, Param p);
 
-void createDenom(double *denom, Param p);
-
-void createLRcouplings(double *LR_c, double *denom, Param p);
-
 //Square 2D Ising short range utils
 double actionSR(double *phi_arr, int *s, 
 		Param p, double &KE, double &PE);
@@ -142,7 +168,7 @@ double actionLR(double *phi_arr, int *s, Param p,
 		double *LR_couplings,
 		double &KE, double &PE);
 
-//User defined coupling function
+//Coupling creation function
 void LRAdSCouplings(double *LR_couplings, Param &p);
 
 

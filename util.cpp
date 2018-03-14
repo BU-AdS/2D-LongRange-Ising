@@ -504,11 +504,23 @@ int Param::init(int argc, char **argv, int *idx) {
 }
 
 void Param::print() {//FIXME
+
+  bool useGPU = false;
+  bool useOMP = false;
+
+#ifdef USE_GPU
+  useGPU = true;
+#endif
+#ifdef USE_OMP
+  useOMP = true;
+#endif
+  
   cout<<endl;
   cout<<"********************************"<<endl;
   cout<<"*      Parameter status        *"<<endl;
   cout<<"********************************"<<endl;
   cout<<endl;
+  cout<<"Architecture type "<<(useGPU == true ? "GPU" : (useOMP == true ? "CPU (OMP)" : "CPU (serial)"))<<endl; 
   cout<<"Lattice type = "<<(lat_type == TWO_D ? "2D" : "AdS")<<endl;
   cout<<"Coupling type = "<<(coupling_type == SR ? "Shor-Range" :
 			     coupling_type == POW ? "Power Law" : "Radial")<<endl;

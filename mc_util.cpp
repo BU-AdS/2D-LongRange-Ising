@@ -18,6 +18,10 @@
 #include "mc_update_lr.h"
 #include "mc_update_sr.h"
 
+#ifdef USE_GPU
+#include "gpu_mc_update_lr.cuh"
+#endif
+
 using namespace std;
 
 extern int seed;
@@ -151,8 +155,8 @@ void MonteCarlo2DIsing::runSimulation(Param p) {
   //Create LR couplings and kinetic term denomnators
   long long time = 0.0;
   auto start1 = std::chrono::high_resolution_clock::now();
-  createDenom(denom, p);
-  createLRcouplings(LR_couplings, denom, p);
+  createDenom(p);
+  createLRcouplings(p);
   auto elapsed1 = std::chrono::high_resolution_clock::now() - start1;
   time = std::chrono::duration_cast<std::chrono::microseconds>(elapsed1).count();
   cout<<"Coupling + denom creation time = "<<time/(1.0e6)<<endl;
@@ -201,7 +205,10 @@ void MonteCarlo2DIsing::runSimulation(Param p) {
   free(corr_norms);
   free(s);
   free(phi);
+  
 }
+
+
 
 void MonteCarlo2DIsing::updateIter(observables obs, Param p, int iter) {
   
@@ -263,11 +270,17 @@ void MonteCarlo2DIsing::thermalise(double *phi, int *s, Param p,
 //------------------------------------------------//
 void MonteCarlo2DIsing::wolffUpdate(double *phi, int *s, Param p, 
 				    double &delta_mag_phi, int iter) {
-  
-  if(p.coupling_type == SR) 
-    wolffUpdateSR(phi, s, p, delta_mag_phi, iter); 
-  else
-    wolffUpdateLR(phi, s, p, LR_couplings, delta_mag_phi, iter); 
+
+  if(p.coupling_type == SR) {
+    wolffUpdateSR(phi, s, p, delta_mag_phi, iter);
+  }
+  else {
+#ifdef USE_GPU
+    GPU_wolffUpdateLR(p, iter);
+#else
+    wolffUpdateLR(phi, s, p, LR_couplings, delta_mag_phi, iter);
+#endif
+  }
 }
 
 void MonteCarlo2DIsing::swendsenWangUpdate(double *phi, int *s, Param p, 
@@ -288,9 +301,9 @@ void MonteCarlo2DIsing:: metropolisUpdate(double *phi, int *s, Param p,
     metropolisUpdateLR(phi, s, p, LR_couplings, denom, delta_mag_phi, iter); 
 }
 
-//-----------------------------------------------------------//
-// Container class for keeping hold of observable quantities //
-//-----------------------------------------------------------//
+//-------------------------------------------//
+// Container class for observable quantities //
+//-------------------------------------------//
 observables::observables(int meas) {
 
   n_meas = meas;
@@ -325,7 +338,7 @@ observables::observables(int meas) {
   avePhi   = 0.0;
   avePhi2  = 0.0;
   avePhi4  = 0.0;
-  MagPhi   = 0.0;  
+  MagPhi   = 0.0;
    
 }
 
@@ -423,7 +436,7 @@ double actionLR(double *phi_arr, int *s, Param p,
 }
 
 double actionSR(double *phi_arr, int *s, Param p,
-		 double & KE, double & PE) {  
+		double & KE, double & PE) {  
   
   KE = 0.0;
   PE = 0.0;
@@ -557,7 +570,7 @@ void writeObservables(double **ind_corr_t, double *run_corr_t,
 //on the 2D lattice with metric diag(1,1).
 //Scaling of the temporal direction diag(c,1) should be performed 
 //elsewhere in the calculation.
-void createDenom(double *denom, Param p) {
+void MonteCarlo2DIsing::createDenom(Param p) {
   
   int t1,t2,dt,x1,x2,dx;
   int S1 = p.S1;
@@ -589,11 +602,11 @@ void createDenom(double *denom, Param p) {
   }       
 }
 
-void createLRcouplings(double *LR_couplings, double *denom, Param p) {
+void MonteCarlo2DIsing::createLRcouplings(Param p) {
   
   double sigma = p.sigma;
   int t1,t2,dt,x1,x2,dx;
-  int arr_len = p.surfaceVol/2+1;  
+  int arr_len = p.surfaceVol/2+1;
   int S1 = p.S1;
   int Lt = p.Lt;
 
@@ -636,17 +649,26 @@ void createLRcouplings(double *LR_couplings, double *denom, Param p) {
       LRAdSCouplings(LR_couplings, p);
     }
   }
+
+#ifdef USE_GPU
+  // allocate space on the GPU for the couplings and distances and then copy
+  cudaMalloc((void**) &gpu_LR_couplings, arr_len*arr_len * sizeof(double));
+  cudaMemcpy(gpu_LR_couplings, LR_couplings,
+	     arr_len*arr_len*sizeof(double), cudaMemcpyHostToDevice);
+
+  cudaMalloc((void**) &gpu_denom, arr_len*arr_len * sizeof(double));
+  cudaMemcpy(gpu_denom, denom,
+	     arr_len*arr_len*sizeof(double), cudaMemcpyHostToDevice);
+
+#endif
 }
 
 inline double Coupling(double dt, double dth, Param p) {
  
   dt  *= M_PI/p.S1;
-  dth *= M_PI/p.S1;
-  
+  dth *= M_PI/p.S1;  
   return 1.0/pow(cosh(dt) - cos(dth),1+p.sigma/2);
-  //cout<<dt<<" "<<dth<<" "<<cosh(dt) - cos(dth)<<" "<<exp( -(acosh(cosh(dt) - cos(dth)))*(1+sqrt(1+p.msqr)) )<<endl;
-  
-  //return exp( -(cosh(cosh(dt) - cos(dth)))*(1+sqrt(1+p.msqr)) );
+
 }
 
 void LRAdSCouplings(double *LR_couplings, Param &p){

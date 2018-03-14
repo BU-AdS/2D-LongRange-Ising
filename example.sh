@@ -3,7 +3,7 @@
 #One must pass the CL variables to the executables in the specific order
 #given. Options are listed as comments above the variable.
 
-export OMP_NUM_THREADS=2
+export OMP_NUM_THREADS=4
 
 #d=Dirichlet, n=Neumann
 BC='d'
@@ -27,8 +27,8 @@ CLUSTER='WOLFF'
 #RAD = 1/(cosh(dt) - cos(dtheta))^{1+sigma/2}
 COUPLING_TYPE='RAD'
 
-TIMESLICES="32"
-CIRCUMFERENCE="32"
+TIMESLICES=16
+CIRCUMFERENCE=16
 #Ensure these values are sensible!
 #Currently set for testing only.
 N_THERM=1000

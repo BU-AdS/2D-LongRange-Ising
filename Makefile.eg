@@ -1,23 +1,31 @@
 #Your path to Eigen
-EIGEN=/share/pkg/eigen/3.3.4/install/include/eigen3
+EIGEN=/usr/include/eigen3
 
 #Your path to GSL
-GSL=/share/pkg/gsl/2.3/install
+GSL=/scratch/CPviolator/gsl-2.4
 GSL_LIBS= -lgsl -lgslcblas -lm
+
+#Your path to CUDA
+CUDA=/usr/local/cuda
+CUDA_LIBS= -lcuda -lcurand -lcudart 
 
 TARGET	 = adsrun
 
-SOURCES  = main.cpp util.cpp cg.cpp hyp_util.cpp graph.cpp data_io.cpp data_proc.cpp mc_util.cpp mc_update_sr.cpp mc_update_lr.cpp monte_carlo_ads_local.cpp 
-OBJS     = main.o util.o cg.o hyp_util.o graph.o data_io.o data_proc.o mc_util.o mc_update_sr.o mc_update_lr.o monte_carlo_ads_local.o 
-INCLUDES = util.h graph.h cg.h eigen.h mc_util.h mc_update_lr.h mc_update_sr.h monte_carlo_ads_local.h
+SOURCES  = main.cpp util.cpp cg.cpp hyp_util.cpp graph.cpp data_io.cpp data_proc.cpp mc_util.cpp mc_update_sr.cpp mc_update_lr.cpp monte_carlo_ads_local.cpp gpu_mc_update_lr.cu
+OBJS     = main.o util.o cg.o hyp_util.o graph.o data_io.o data_proc.o mc_util.o mc_update_sr.o mc_update_lr.o monte_carlo_ads_local.o gpu_mc_update_lr.o
+INCLUDES = util.h graph.h cg.h eigen.h mc_util.h mc_update_lr.h mc_update_sr.h monte_carlo_ads_local.h gpu_mc_update_lr.cuh
 
-LIBS= -L${GSL}/libs ${GSL_LIBS}
+LIBS= -L${GSL} ${GSL_LIBS} -L${CUDA}/lib64 ${CUDA_LIBS}
 
 ERRS=-Wall -Wno-sign-compare -Wno-int-in-bool-context -Wno-unused-but-set-variable -Wno-unknown-warning-option
 
-CXX = g++ 
+CXX = g++
 OMP_FLAG= -DUSE_OMP -fopenmp
-CXXFLAGS = -O3 -g -Wall -std=c++11 -I${EIGEN} -I. -I${GSL}/include/gsl ${ERRS} ${OMP_FLAG}
+GPU_FLAG= -DUSE_GPU 
+CXXFLAGS = -O3 -g -Wall -std=c++11  -I. -I${EIGEN} -I${GSL} -I${CUDA}/include ${ERRS} ${OMP_FLAG}
+
+NVCC = nvcc
+NVCCFLAGS = -O3 -std=c++11  -I. -I${EIGEN} -I${GSL} -I${CUDA}/include ${GPU_FLAG}
 
 #============================================================
 all: $(TARGET)
@@ -57,6 +65,9 @@ mc_update_sr.o: mc_update_sr.cpp $(INCLUDES)
 
 monte_carlo_ads_local.o: monte_carlo_ads_local.cpp $(INCLUDES) 
 	${CXX} ${CXXFLAGS} -c monte_carlo_ads_local.cpp 
+
+gpu_mc_update_lr.o: gpu_mc_update_lr.cu $(INCLUDES) 
+	${NVCC} ${NVCCFLAGS} -c gpu_mc_update_lr.cu
 
 ALL_SOURCES = Makefile $(SOURCES) $(INCLUDES) 
 
