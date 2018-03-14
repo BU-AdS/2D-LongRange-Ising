@@ -19,13 +19,10 @@ compute and store the lattice AdS scaling variables, need to scale the
 lattice AdS action against the analytic boundary-boundary propagator.
 One loop corrections can also be computed.
 
-## Local and non-local 2D Ising code
+## 2D phi**4 code
 
 For cross-checking purposes, we have also included a 2D Ising
-routine, with Wolff cluster updates. The spatial extent is set by
-the 'Level' parameter, as in the example.sh file. It is the number of
-nodes on the outer level. The number of timeslices is set manually.
-We have hardcoded the model to be ferromagnetic.
+routine with Metropolis, and Wolff and Swenden Wang cluster updates. 
 
 #### Local
 
@@ -36,11 +33,10 @@ spatial. The log file will keep a running tab of all the observables.
 
 #### Non-local
 
-The non-local routines use and exact form of the Wolff algorithm as
-described here https://arxiv.org/abs/1401.6805 At present it is in
-a very slow serial form, but improvements will come. One uses the
-command line input `sigma` to adjust the strength of the long range
-interaction, as in the paper.
+The non-local routines use an exact form of the Wolff algorithm as
+described here https://arxiv.org/abs/1401.6805. It is in serial, OMP
+parallel, and GPU form. One uses the command line input `sigma` to
+adjust the strength of the long range interaction, as detaled in the paper.
 
 ## Dependencies
 
@@ -58,7 +54,7 @@ using v2.4: https://www.gnu.org/software/gsl/
 
 ## Compilation
 
-Once you have ensured that `EIGEN` and 'GSL' are visible to `Makefile`,
+Once you have ensured that `EIGEN` and `GSL` are visible to `Makefile`,
 simply type `make -j {NUMBER OF PROCESSORS YOU HAVE}` to compile the
 executable `adsrun`. In addition, we have included options to
 `make clean` to clean the ojects created by `Makefile` and `make tar`
@@ -68,11 +64,10 @@ to create `ads_graph.tar`.
 
 Once the code is sucessfully compiled, a single executabe will be produced.
 One can run the execuatble with the default values defined in the Param 
-class (found in `util.h`) or by passing command line arguments. Note that 
-if you change the default values you must recompile the code. If you use 
+class (found in `util.h`) or by passing command line arguments. If you use 
 the command line to pass arguments, we suggest you make use of a shell 
 script to run the executable, as we have shown in the example file 
-`example.sh`
+`example.sh`.
 
 ## Contributing
 

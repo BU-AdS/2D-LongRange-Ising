@@ -114,7 +114,7 @@ class MonteCarlo2DIsing {
   double *gpu_phi;
   int *gpu_s;
   
-  void GPU_wolffClusterAddLR(Param p, int cSpin);
+  void GPU_wolffClusterAddLR(int i, Param p, int cSpin, double *gpu_rands, int *added);
   
   void GPU_wolffUpdateLR(Param p, int iter);
     

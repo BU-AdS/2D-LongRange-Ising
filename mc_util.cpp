@@ -65,18 +65,18 @@ inline int ttm(int i, Param p){
 //---------------------------------------//
 MonteCarlo2DIsing::MonteCarlo2DIsing(Param p) {
   
-  int LR_c_len = (p.surfaceVol/2 + 1);
+  int arr_len = (p.surfaceVol/2 + 1);
   //Long Range coupling array
-  LR_couplings = (double*)malloc(LR_c_len*LR_c_len*sizeof(double));
+  LR_couplings = (double*)malloc(arr_len*arr_len*sizeof(double));
   //array to hold denominators of LR kinetic terms
-  denom = (double*)malloc(LR_c_len*LR_c_len*sizeof(double));
+  denom = (double*)malloc(arr_len*arr_len*sizeof(double));
 #ifdef USE_OMP
 #pragma omp parallel for
 #endif
-  for(int j=0; j<LR_c_len; j++){
-    for(int i=0; i<LR_c_len; i++){
-      LR_couplings[i+j*LR_c_len] = 0.0;
-      denom[i+j*LR_c_len] = 0.0;
+  for(int j=0; j<arr_len; j++){
+    for(int i=0; i<arr_len; i++){
+      LR_couplings[i+j*arr_len] = 0.0;
+      denom[i+j*arr_len] = 0.0;
     }
   }
   
@@ -144,7 +144,14 @@ MonteCarlo2DIsing::MonteCarlo2DIsing(Param p) {
 	  if(t_idx >= t_size/2) t_idx = t_size - t_idx;
 	  ++corr_norms[s_idx][t_idx];
 	}
-    }  
+    }
+
+#ifdef USE_GPU
+  // allocate space on the GPU for the couplings and distances and then copy
+  cudaMalloc((void**) &gpu_LR_couplings, arr_len*arr_len * sizeof(double));  
+  cudaMalloc((void**) &gpu_denom, arr_len*arr_len * sizeof(double));  
+#endif
+  
 }
 
 void MonteCarlo2DIsing::runSimulation(Param p) {
@@ -152,17 +159,19 @@ void MonteCarlo2DIsing::runSimulation(Param p) {
   //Create object to hold observable data.
   observables obs(p.n_meas);
 
-  //Create LR couplings and kinetic term denomnators
-  long long time = 0.0;
-  auto start1 = std::chrono::high_resolution_clock::now();
-  createDenom(p);
-  createLRcouplings(p);
-  auto elapsed1 = std::chrono::high_resolution_clock::now() - start1;
-  time = std::chrono::duration_cast<std::chrono::microseconds>(elapsed1).count();
-  cout<<"Coupling + denom creation time = "<<time/(1.0e6)<<endl;
+  if(p.coupling_type != SR) {
+    //Create LR couplings and kinetic term denomnators
+    long long time = 0.0;
+    auto start1 = std::chrono::high_resolution_clock::now();
+    createDenom(p);
+    createLRcouplings(p);
+    auto elapsed1 = std::chrono::high_resolution_clock::now() - start1;
+    time = std::chrono::duration_cast<std::chrono::microseconds>(elapsed1).count();
+    cout<<"Coupling + denom creation time = "<<time/(1.0e6)<<endl;
+  }
   
   thermalise(phi, s, p, obs);
-  
+    
   //reset timing variables.
   metro = 0.0;
   cluster = 0.0;
@@ -592,14 +601,19 @@ void MonteCarlo2DIsing::createDenom(Param p) {
       
       denom[dx+dt*arr_len] = 1.0/(sqrt(dx*dx + dt*dt));
       denom[dt+dx*arr_len] = denom[dx+dt*arr_len];
- 
+      
       //Temporal
-      if(i==0 && j%S1==0) cout<<"time "<<j/S1<<" "<<denom[dt+dx*arr_len]<<endl;
+      //if(i==0 && j%S1==0) cout<<"time "<<j/S1<<" "<<denom[dt+dx*arr_len]<<endl;
       //Spatial
-      if(i==0 && j<S1) cout<<"space "<<j<<" "<<denom[dx+dt*arr_len]<<endl;
+      //if(i==0 && j<S1) cout<<"space "<<j<<" "<<denom[dx+dt*arr_len]<<endl;
 
     }
-  }       
+  }
+#ifdef USE_GPU
+  cudaMemcpy(gpu_denom, denom,
+	     arr_len*arr_len*sizeof(double), cudaMemcpyHostToDevice);
+#endif
+
 }
 
 void MonteCarlo2DIsing::createLRcouplings(Param p) {
@@ -610,57 +624,47 @@ void MonteCarlo2DIsing::createLRcouplings(Param p) {
   int S1 = p.S1;
   int Lt = p.Lt;
 
-  if(p.coupling_type == SR) {
-    //do nothing, no LR interactions
-  } else {        
-    if(p.usePowLaw) {
-      //Square lattice, 1/r^{d+\sigma} coupling
-      for(int j=0; j<arr_len; j++){
-	t2 = j / S1;
-	x2 = j % S1;            
-	for(int i=0; i<j; i++) { 
-	  //Index divided by circumference, using the int floor feature/bug,
-	  //gives the timeslice index.
-	  t1 = i / S1;
-	  dt = abs(t2-t1) > Lt/2 ? Lt - abs(t2-t1) : abs(t2-t1);
-	  
-	  //The index modulo the circumference gives the spatial index.
-	  x1 = i % S1;
-	  dx = abs(x2-x1) > S1/2 ? S1 - abs(x2-x1) : abs(x2-x1);      
-
-	  //The denom value is already r^{-1}, so the power is positive.
-	  LR_couplings[dx+dt*arr_len] = pow(denom[dx+dt*arr_len],(2+sigma));
-	  
-	  if(i==j) {
-	    LR_couplings[dt+dt*arr_len] = 0.0;
-	  }
-	  else {
-	    LR_couplings[dt+dx*arr_len] = LR_couplings[dx+dt*arr_len];
-	  }
-	  
-	  //Temporal
-	  if(i==0 && j%S1==0) cout<<"time "<<j/S1<<" "<<LR_couplings[dt+dx*arr_len]<<endl;
-	  //Spatial
-	  if(i==0 && j<S1) cout<<"space "<<j<<" "<<LR_couplings[dx+dt*arr_len]<<endl;
+  if(p.usePowLaw) {
+    //Square lattice, 1/r^{d+\sigma} coupling
+    for(int j=0; j<arr_len; j++){
+      t2 = j / S1;
+      x2 = j % S1;            
+      for(int i=0; i<j; i++) { 
+	//Index divided by circumference, using the int floor feature/bug,
+	//gives the timeslice index.
+	t1 = i / S1;
+	dt = abs(t2-t1) > Lt/2 ? Lt - abs(t2-t1) : abs(t2-t1);
+	
+	//The index modulo the circumference gives the spatial index.
+	x1 = i % S1;
+	dx = abs(x2-x1) > S1/2 ? S1 - abs(x2-x1) : abs(x2-x1);      
+	
+	//The denom value is already r^{-1}, so the power is positive.
+	LR_couplings[dx+dt*arr_len] = pow(denom[dx+dt*arr_len],(2+sigma));
+	
+	if(i==j) {
+	  LR_couplings[dt+dt*arr_len] = 0.0;
 	}
+	else {
+	  LR_couplings[dt+dx*arr_len] = LR_couplings[dx+dt*arr_len];
+	}
+	
+	//Temporal
+	//if(i==0 && j%S1==0) cout<<"time "<<j/S1<<" "<<LR_couplings[dt+dx*arr_len]<<endl;
+	//Spatial
+	//if(i==0 && j<S1) cout<<"space "<<j<<" "<<LR_couplings[dx+dt*arr_len]<<endl;
       }
-    } else {
-      //Square lattice, user defined definition of coupling.
-      LRAdSCouplings(LR_couplings, p);
     }
+  } else {
+    //Square lattice, user defined definition of coupling.
+    LRAdSCouplings(LR_couplings, p);
   }
-
+  
 #ifdef USE_GPU
-  // allocate space on the GPU for the couplings and distances and then copy
-  cudaMalloc((void**) &gpu_LR_couplings, arr_len*arr_len * sizeof(double));
   cudaMemcpy(gpu_LR_couplings, LR_couplings,
 	     arr_len*arr_len*sizeof(double), cudaMemcpyHostToDevice);
-
-  cudaMalloc((void**) &gpu_denom, arr_len*arr_len * sizeof(double));
-  cudaMemcpy(gpu_denom, denom,
-	     arr_len*arr_len*sizeof(double), cudaMemcpyHostToDevice);
-
 #endif
+  
 }
 
 inline double Coupling(double dt, double dth, Param p) {
@@ -709,9 +713,9 @@ void LRAdSCouplings(double *LR_couplings, Param &p){
       }
 
       //Temporal
-      if(i==0 && j%S1==0) cout<<"time "<<j/S1<<" "<<dt<<" "<<LR_couplings[dt+dth*arr_len]<<endl;
+      //if(i==0 && j%S1==0) cout<<"time "<<j/S1<<" "<<dt<<" "<<LR_couplings[dt+dth*arr_len]<<endl;
       //Spatial
-      if(i==0 && j<S1) cout<<"space "<<j<<" "<<dth<<" "<<LR_couplings[dth+dt*arr_len]<<endl;
+      //if(i==0 && j<S1) cout<<"space "<<j<<" "<<dth<<" "<<LR_couplings[dth+dt*arr_len]<<endl;
     }
   }
 }

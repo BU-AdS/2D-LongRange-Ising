@@ -522,7 +522,7 @@ void Param::print() {//FIXME
   cout<<endl;
   cout<<"Architecture type "<<(useGPU == true ? "GPU" : (useOMP == true ? "CPU (OMP)" : "CPU (serial)"))<<endl; 
   cout<<"Lattice type = "<<(lat_type == TWO_D ? "2D" : "AdS")<<endl;
-  cout<<"Coupling type = "<<(coupling_type == SR ? "Shor-Range" :
+  cout<<"Coupling type = "<<(coupling_type == SR ? "Short-Range" :
 			     coupling_type == POW ? "Power Law" : "Radial")<<endl;
   cout<<"Cluster Algorithm = "<<(useWolff == true ? "Wolff" : "Swendsen-Wang")<<endl;
   cout<<"TimeSlices = "<<Lt<<endl;

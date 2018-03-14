@@ -7,19 +7,16 @@
 
 #include "util.h"
 
-// this GPU kernel function is used to initialize the random states
+//Used to initialize the random states
 __global__ void init(unsigned int seed, curandState_t* states);
 
 
-// this GPU kernel takes an array of states, ints, and puts a random int into each 
+//Takes an array of states, ints, and puts a random int into each 
 __global__ void randoms(curandState_t* states, double* numbers);
 
 
-//void GPU_wolffClusterAddLR(int i, int *s, int cSpin, double *LR_couplings,
-//			   double *gpu_rands, double *phi, Param p);
-
-//void GPU_wolffUpdateLR(double *phi, int *s, Param p,
-//		       double *LR_couplings, int iter);
-
+__global__ void cluster_add(double *gpu_rands, double *gpu_phi, int *gpu_s,
+			    double *gpu_LR_couplings, int S1, int Lt, int arr_len,
+			    int t1, int x1, int cSpin, int *added);
 
 #endif
