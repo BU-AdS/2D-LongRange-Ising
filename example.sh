@@ -3,7 +3,7 @@
 #One must pass the CL variables to the executables in the specific order
 #given. Options are listed as comments above the variable.
 
-export OMP_NUM_THREADS=1
+export OMP_NUM_THREADS=8
 
 #d=Dirichlet, n=Neumann
 BC='d'
@@ -23,16 +23,16 @@ LATTICE='2D'
 CLUSTER='WOLFF'
 
 #SR = Short range
-#POW = 1/|x-y}^{2+sigma} type
+#POW = 1/|x-y|^{2+sigma} type
 #RAD = 1/(cosh(dt) - cos(dtheta))^{1+sigma/2}
-COUPLING_TYPE='RAD'
+COUPLING_TYPE='POW'
 
-TIMESLICES=32
-CIRCUMFERENCE=32
-#Ensure these values are sensible!
-#Currently set for testing only.
+TIMESLICES=64
+CIRCUMFERENCE=64
+
+N_METRO_COOL=1000
 N_THERM=1000
-N_MEAS=5000
+N_MEAS=500
 N_SKIP=100
 N_CLUSTER=4
 
@@ -59,11 +59,11 @@ COMMAND="./adsrun --BC ${BC} --centre ${CENTRE} --verbosity ${VERBOSITY} --latTy
 		  --maxIter ${MAX_ITER} --tol ${TOL} --Lt ${TIMESLICES} --S1 ${CIRCUMFERENCE} \
                   --mSqr ${MSQR} --deltaMsqr ${delta_MSQR} --levels ${LEVELS} --srcPos ${SRC_POS} \
                   --cMsqr ${cMSQR} --cLatt ${cLATT} --q ${Q} --nShift ${N_SHIFT} --nTherm ${N_THERM} \
-                  --nMeas ${N_MEAS} --nSkip ${N_SKIP} --nCluster ${N_CLUSTER} --muSqr ${MUSQR} \
+                  --nMeas ${N_MEAS} --nSkip ${N_SKIP} --nCluster ${N_CLUSTER} --nMetroCool ${N_METRO_COOL} --muSqr ${MUSQR} \
                   --lambda ${LAMBDA} --sigma ${SIGMA} --tScale ${TWS} --clusterAlg ${CLUSTER} "
 
 echo ""
-echo "Command  given:"
+echo "Command given:"
 echo ${COMMAND}
 echo ""
 

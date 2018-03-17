@@ -65,30 +65,28 @@ inline int ttm(int i, Param p){
 //---------------------------------------//
 MonteCarlo2DIsing::MonteCarlo2DIsing(Param p) {
   
-  int arr_len = (p.surfaceVol/2 + 1);
+  int x_len = p.S1/2 + 1;
+  int t_len = p.Lt/2 + 1;
+  int arr_len = x_len*t_len;
+  
   //Long Range coupling array
-  LR_couplings = (double*)malloc(arr_len*arr_len*sizeof(double));
+  LR_couplings = (double*)malloc(arr_len*sizeof(double));
   //array to hold denominators of LR kinetic terms
-  denom = (double*)malloc(arr_len*arr_len*sizeof(double));
-#ifdef USE_OMP
-#pragma omp parallel for
-#endif
-  for(int j=0; j<arr_len; j++){
-    for(int i=0; i<arr_len; i++){
-      LR_couplings[i+j*arr_len] = 0.0;
-      denom[i+j*arr_len] = 0.0;
+  denom = (double*)malloc(arr_len*sizeof(double));
+  for(int j=0; j<t_len; j++){
+    for(int i=0; i<x_len; i++){
+      LR_couplings[i+j*x_len] = 0.0;
+      denom[i+j*x_len] = 0.0;
     }
   }
   
   //Create arrays to hold spin and phi values.  
   s = (int*)malloc(p.surfaceVol*sizeof(int));
   phi = (double*)malloc(p.surfaceVol*sizeof(double));
-#ifdef USE_OMP
-#pragma omp parallel for
-#endif
   for(int i = 0;i < p.surfaceVol; i++) {
     phi[i] = 2.0*unif(rng) - 1.0;
-    s[i] = (phi[i] > 0) ? 1:-1;
+    s[i] = (phi[i] > 0) ? 1 : -1;
+    //cout<<"phi["<<i<<"] = "<<phi[i]<<" s["<<i<<"] = "<<s[i]<<endl;
   } 
 
   //Running correlation function arrays.
@@ -147,9 +145,21 @@ MonteCarlo2DIsing::MonteCarlo2DIsing(Param p) {
     }
 
 #ifdef USE_GPU
-  // allocate space on the GPU for the couplings and distances and then copy
-  cudaMalloc((void**) &gpu_LR_couplings, arr_len*arr_len * sizeof(double));  
-  cudaMalloc((void**) &gpu_denom, arr_len*arr_len * sizeof(double));  
+  // allocate space on the GPU for the couplings and distances.
+  cudaMalloc((void**) &gpu_LR_couplings, arr_len* sizeof(double));  
+  cudaMalloc((void**) &gpu_denom, arr_len*sizeof(double));
+
+  cudaMalloc((void**) &gpu_phi, p.surfaceVol*sizeof(double));
+  cudaMalloc((void**) &gpu_s, p.surfaceVol*sizeof(int));
+  cudaMalloc((void**) &gpu_added, p.surfaceVol*sizeof(bool));  
+  
+  added = (bool*)malloc(p.surfaceVol*sizeof(bool));
+  
+  // allocate space on the GPU for the random states 
+  cudaMalloc((void**) &states, p.surfaceVol*sizeof(curandState_t));  
+  GPU_initRand(p, seed, states); 
+  cudaMalloc((void**) &gpu_rands, p.surfaceVol*sizeof(double));
+  
 #endif
   
 }
@@ -217,8 +227,6 @@ void MonteCarlo2DIsing::runSimulation(Param p) {
   
 }
 
-
-
 void MonteCarlo2DIsing::updateIter(observables obs, Param p, int iter) {
   
     auto start = std::chrono::high_resolution_clock::now();    
@@ -285,7 +293,9 @@ void MonteCarlo2DIsing::wolffUpdate(double *phi, int *s, Param p,
   }
   else {
 #ifdef USE_GPU
-    GPU_wolffUpdateLR(p, iter);
+    int rand_site = int(unif(rng) * p.surfaceVol);
+    //cout<<"RAND_SITE = "<<rand_site<<endl;
+    GPU_wolffUpdateLR(p, rand_site);
 #else
     wolffUpdateLR(phi, s, p, LR_couplings, delta_mag_phi, iter);
 #endif
@@ -357,17 +367,24 @@ double actionLR(double *phi_arr, int *s, Param p,
   
   KE = 0.0;
   PE = 0.0;
+  int S1 = p.S1;
+  int Lt = p.Lt;
+  int vol = S1*Lt;
+  
+  int x_len = S1/2 + 1;
+  int t_len = Lt/2 + 1;
+  int arr_len = x_len*t_len;
+    
   double phi_sq;
   double phi;
   double lambda_p = 0.25*p.lambda;
   double musqr_p  = 0.50*p.musqr;
-  int LR_arr_len = p.surfaceVol/2 + 1;
   
-  for (int i = 0; i < p.surfaceVol; i++)
+  for (int i = 0; i < vol; i++)
     if (s[i] * phi_arr[i] < 0)
       printf("ERROR s and phi NOT aligned (actionPhi SqNL) ! \n");
   
-  for (int i = 0; i < p.surfaceVol; i++) {    
+  for (int i = 0; i < vol; i++) {    
     phi = phi_arr[i];
     phi_sq = phi*phi;
     
@@ -376,8 +393,8 @@ double actionLR(double *phi_arr, int *s, Param p,
     PE += musqr_p  * phi_sq;
 
     int t1,x1;
-    t1 = i / p.S1;
-    x1 = i % p.S1;
+    t1 = i / S1;
+    x1 = i % S1;
     
     //KE terms
 #ifdef USE_OMP
@@ -390,26 +407,24 @@ double actionLR(double *phi_arr, int *s, Param p,
       double val = 0.0;
       int t2,dt,x2,dx;
 #pragma omp for nowait 
-      for(int j=0; j<p.surfaceVol; j+=chunk) {
+      for(int j=0; j<vol; j+=chunk) {
 	for(int k=0; k<chunk; k++) { 
 
 	  if( (j+k) != i ) {
 	    //Index divided by circumference, using the int floor feature/bug,
 	    //gives the timeslice index.
-	    t2 = (j+k) / p.S1;
-	    dt = abs(t2-t1) > p.Lt/2 ? p.Lt - abs(t2-t1) : abs(t2-t1);
+	    t2 = (j+k) / S1;
+	    dt = abs(t2-t1) > Lt/2 ? Lt - abs(t2-t1) : abs(t2-t1);
 	    
 	    //The index modulo the circumference gives the spatial index.
-	    x2 = (j+k) % p.S1;            
-	    dx = abs(x2-x1) > p.S1/2 ? p.S1-abs(x2-x1) : abs(x2-x1);      
+	    x2 = (j+k) % S1;            
+	    dx = abs(x2-x1) > S1/2 ? S1-abs(x2-x1) : abs(x2-x1);      
 	    
 	    //Here we are overcounting by a factor of two, hence the 0.25
 	    //coefficient.
 	    //FIXME	  
 	    val = 0.25*((phi - phi_arr[j+k])*(phi - phi_arr[j+k])*
-			LR_couplings[dx+dt*LR_arr_len]*LR_couplings[dx+dt*LR_arr_len]*
-			(dx*dx + dt*dt));
-	    //if(x2-x1 <= p.S1/2 && x2!=x1) val = 0.5*(phi - phi_arr[j+k])*(phi - phi_arr[j+k])/sqrt(dx*dx + dt*dt);
+			LR_couplings[dx+dt*x_len]*LR_couplings[dx+dt*x_len]);
 	    
 	    local += val;
 	  }
@@ -436,7 +451,6 @@ double actionLR(double *phi_arr, int *s, Param p,
 	KE += 0.25*((phi - phi_arr[j])*(phi - phi_arr[j])*
 		    LR_couplings[dx+dt*LR_arr_len]*LR_couplings[dx+dt*LR_arr_len]*
 		    (dx*dx + dt*dt));
-	//cout<<"KE="<<KE<<" "<<LR_couplings[j+i*p.surfaceVol]<<endl;
       }
     }
 #endif
@@ -496,7 +510,10 @@ void measure(observables &obs, double *phi, int *s,
   obs.aveE2 += rhoVol2*obs.tmpE*obs.tmpE;
   
   obs.MagPhi = 0.0;
-  for(int i = 0;i < p.surfaceVol; i++) obs.MagPhi += phi[i];
+  for(int i = 0;i < p.surfaceVol; i++) {
+    obs.MagPhi += phi[i];
+    //cout<<phi[i]<<endl;
+  }
   obs.MagPhi *= rhoVol;
   
   obs.avePhiAb  += abs(obs.MagPhi);
@@ -581,37 +598,25 @@ void writeObservables(double **ind_corr_t, double *run_corr_t,
 //elsewhere in the calculation.
 void MonteCarlo2DIsing::createDenom(Param p) {
   
-  int t1,t2,dt,x1,x2,dx;
   int S1 = p.S1;
   int Lt = p.Lt;
-  int arr_len = p.surfaceVol/2+1;  
+  int x_len = S1/2 + 1;
+  int t_len = Lt/2 + 1;
+  int arr_len = x_len*t_len;
 
-  for(int j=0; j<arr_len; j++){
-    t2 = j / S1;
-    x2 = j % S1;            
-    for(int i=0; i<j; i++) { 
-      //Index divided by circumference, using the int floor feature/bug,
-      //gives the timeslice index.
-      t1 = i / S1;
-      dt = abs(t2-t1) > Lt/2 ? Lt - abs(t2-t1) : abs(t2-t1);
+  for(int j=0; j<t_len; j++){
+    for(int i=0; i<x_len; i++){
       
-      //The index modulo the circumference gives the spatial index.
-      x1 = i % S1;
-      dx = abs(x2-x1) > S1/2 ? S1 - abs(x2-x1) : abs(x2-x1);      
-      
-      denom[dx+dt*arr_len] = 1.0/(sqrt(dx*dx + dt*dt));
-      denom[dt+dx*arr_len] = denom[dx+dt*arr_len];
-      
-      //Temporal
-      //if(i==0 && j%S1==0) cout<<"time "<<j/S1<<" "<<denom[dt+dx*arr_len]<<endl;
-      //Spatial
-      //if(i==0 && j<S1) cout<<"space "<<j<<" "<<denom[dx+dt*arr_len]<<endl;
-
+      //Associate dx with i, dt with j. dx runs fastest
+      int idx = i + j*x_len;      
+      denom[idx] = 1.0/sqrt(i*i + j*j);      
+      cout<<"dx = "<<i<<" dt = "<<j<<" DENOM = "<<denom[idx]<<endl;      
     }
   }
+  denom[0] = 0.0;  
 #ifdef USE_GPU
   cudaMemcpy(gpu_denom, denom,
-	     arr_len*arr_len*sizeof(double), cudaMemcpyHostToDevice);
+	     arr_len*sizeof(double), cudaMemcpyHostToDevice);
 #endif
 
 }
@@ -619,58 +624,44 @@ void MonteCarlo2DIsing::createDenom(Param p) {
 void MonteCarlo2DIsing::createLRcouplings(Param p) {
   
   double sigma = p.sigma;
-  int t1,t2,dt,x1,x2,dx;
-  int arr_len = p.surfaceVol/2+1;
   int S1 = p.S1;
   int Lt = p.Lt;
-
+  int x_len = S1/2 + 1;
+  int t_len = Lt/2 + 1;
+  int arr_len = x_len*t_len;
+  
   if(p.usePowLaw) {
-    //Square lattice, 1/r^{d+\sigma} coupling
-    for(int j=0; j<arr_len; j++){
-      t2 = j / S1;
-      x2 = j % S1;            
-      for(int i=0; i<j; i++) { 
-	//Index divided by circumference, using the int floor feature/bug,
-	//gives the timeslice index.
-	t1 = i / S1;
-	dt = abs(t2-t1) > Lt/2 ? Lt - abs(t2-t1) : abs(t2-t1);
+
+    for(int j=0; j<t_len; j++){
+      for(int i=0; i<x_len; i++){
 	
-	//The index modulo the circumference gives the spatial index.
-	x1 = i % S1;
-	dx = abs(x2-x1) > S1/2 ? S1 - abs(x2-x1) : abs(x2-x1);      
+	//Associate dx with i, dt with j. dx runs fastest
+	int idx = i + j*x_len;      
 	
 	//The denom value is already r^{-1}, so the power is positive.
-	LR_couplings[dx+dt*arr_len] = pow(denom[dx+dt*arr_len],(2+sigma));
-	
-	if(i==j) {
-	  LR_couplings[dt+dt*arr_len] = 0.0;
-	}
-	else {
-	  LR_couplings[dt+dx*arr_len] = LR_couplings[dx+dt*arr_len];
-	}
-	
-	//Temporal
-	//if(i==0 && j%S1==0) cout<<"time "<<j/S1<<" "<<LR_couplings[dt+dx*arr_len]<<endl;
-	//Spatial
-	//if(i==0 && j<S1) cout<<"space "<<j<<" "<<LR_couplings[dx+dt*arr_len]<<endl;
+	LR_couplings[idx] = pow(denom[idx],(2+sigma));
+	printf("%.6f ",LR_couplings[idx]);	
       }
-    }
-  } else {
+      cout<<endl;
+    }    
+  }else {
     //Square lattice, user defined definition of coupling.
     LRAdSCouplings(LR_couplings, p);
   }
-  
+
+  LR_couplings[0] = 0.0;  
+
 #ifdef USE_GPU
   cudaMemcpy(gpu_LR_couplings, LR_couplings,
-	     arr_len*arr_len*sizeof(double), cudaMemcpyHostToDevice);
+	     arr_len*sizeof(double), cudaMemcpyHostToDevice);
 #endif
   
 }
 
 inline double Coupling(double dt, double dth, Param p) {
  
-  dt  *= M_PI/p.S1;
-  dth *= M_PI/p.S1;  
+  //dt  *= M_PI/p.S1;
+  //dth *= M_PI/p.S1;  
   return 1.0/pow(cosh(dt) - cos(dth),1+p.sigma/2);
 
 }
@@ -680,43 +671,23 @@ void LRAdSCouplings(double *LR_couplings, Param &p){
   //Set the t scale so that LR(0,dt) \approx LR(dth,0). Do this for
   //a separation of one lattice spacing.
   
-  int t1,t2,th1,th2;
-  int dt,dth;
-  int arr_len = p.surfaceVol/2+1;
   int S1 = p.S1;
   int Lt = p.Lt;
-
+  int x_len = S1/2 + 1;
+  int t_len = Lt/2 + 1;
+  int arr_len = x_len*t_len;
+  
   double couplingNormTheta = 1.0/Coupling(0, 1, p);
   double couplingNormTime  = 1.0/Coupling(1, 0, p);
 
-  for(int j=0; j<arr_len; j++){
-    th1 = j % S1;
-    t1  = j / S1;
-    for(int i=0; i<j; i++){
-      //Index divided by circumference, using the int floor feature/bug,
-      //gives the timeslice for each index.
-      t2 = i / S1;
-      dt = abs(t2-t1) > Lt/2 ? Lt - abs(t2-t1) : abs(t2-t1);
-      
-      //The index modulo the circumference gives the 'angle'
-      //for each index.
-      th2 = i % S1;
-      dth = abs(th2-th1) > S1/2 ? S1 - abs(th2-th1) : abs(th2-th1);      
-      
-      LR_couplings[dt + dth*arr_len] = couplingNormTime*Coupling((double)dt, (double)dth, p);
-      
-      if(i==j) {
-	LR_couplings[dt+dth*arr_len] = 0.0;
-      }
-      else {
-	LR_couplings[dth+dt*arr_len] = LR_couplings[dt+dth*arr_len]*(couplingNormTheta/couplingNormTime);
-      }
+  for(int j=0; j<t_len; j++){
+    for(int i=0; i<x_len; i++){
 
-      //Temporal
-      //if(i==0 && j%S1==0) cout<<"time "<<j/S1<<" "<<dt<<" "<<LR_couplings[dt+dth*arr_len]<<endl;
-      //Spatial
-      //if(i==0 && j<S1) cout<<"space "<<j<<" "<<dth<<" "<<LR_couplings[dth+dt*arr_len]<<endl;
+      //Associate dx with i, dt with j. dx runs fastest
+      int idx = i + j*x_len;      
+      LR_couplings[idx] = Coupling((double)j, (double)i, p);      
+      cout<<"dx = "<<i<<" dt = "<<j<<" LRC = "<<LR_couplings[idx]<<endl;
     }
-  }
+  }  
 }
-  
+

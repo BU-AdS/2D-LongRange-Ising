@@ -106,17 +106,17 @@ class MonteCarlo2DIsing {
   // we will store a random state for every thread  
   curandState_t* states;
 
-  //Array of random numbers on the GPU
-  double* gpu_rands;
-  
+  double *gpu_rands;  
   double *gpu_LR_couplings;
   double *gpu_denom;
   double *gpu_phi;
+  bool *added;
+  bool *gpu_added;
   int *gpu_s;
   
-  void GPU_wolffClusterAddLR(int i, Param p, int cSpin, double *gpu_rands, int *added);
-  
-  void GPU_wolffUpdateLR(Param p, int iter);
+  void GPU_wolffClusterAddLR(int i, Param p, int cSpin); 
+  void GPU_wolffUpdateLR(Param p, int rand_site);
+  void GPU_initRand(Param p, int seed, curandState_t *states);
     
 #endif  
   

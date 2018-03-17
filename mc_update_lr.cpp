@@ -102,7 +102,8 @@ int metropolisUpdateLR(double *phi_arr, int *s, Param &p,
   int delta_mag = 0;
   int Lt =p.Lt;
   int S1= p.S1;
-  int LR_arr_len = p.surfaceVol/2+1;
+  int x_len = S1/2 + 1;
+  int t_len = Lt/2 + 1;
 
   double phi_new = 0.0;
   double phi_new_sq = 0.0;
@@ -121,8 +122,11 @@ int metropolisUpdateLR(double *phi_arr, int *s, Param &p,
     phi_sq = phi*phi;
     
     if (s[i] * phi < 0) {
-      printf("ERROR s and phi NOT aligned! (MetroUpdate LR)\n");
+      cout<<"ERROR s and phi NOT aligned! iter = "<<iter<<" (MetroUpdate LR)"<<endl;
       cout<<"S["<<i<<"] = "<<s[i]<<" and phi["<<i<<"] = "<<phi<<endl;
+      for (int j = 0; j < p.surfaceVol; j++) {    
+	cout<<"S["<<j<<"] = "<<s[j]<<" and phi["<<j<<"] = "<<phi_arr[j]<<endl;
+      }
       exit(0);
     }
     
@@ -155,16 +159,13 @@ int metropolisUpdateLR(double *phi_arr, int *s, Param &p,
 	    //feature/bug, gives the timeslice index.
 	    t2 = (j+k) / S1;
 	    dt = abs(t2-t1) > Lt/2 ? Lt - abs(t2-t1) : abs(t2-t1);	    
-	    //dt = abs((abs(t2-t1)+Lt/2)%Lt-Lt/2);
 	    
 	    //The index modulo the circumference gives the spatial index.
 	    x2 = (j+k) % S1;            
 	    dx = abs(x2-x1) > S1/2 ? S1-abs(x2-x1) : abs(x2-x1);      
-	    //dx = abs((abs(x2-x1)+S1/2)%S1-S1/2);	    
 
 	    val = ((pmpn*phi_arr[j+k] + pnsmps)*
-		   LR_couplings[dx + dt*LR_arr_len]*
-		   denom[dx + dt*LR_arr_len]);
+		   LR_couplings[dx + dt*x_len]*LR_couplings[dx + dt*x_len]);
 	    
 	    local += val;
 	  }
@@ -191,8 +192,8 @@ int metropolisUpdateLR(double *phi_arr, int *s, Param &p,
 	x2 = (j) % S1;            
 	dx = abs(x2-x1) > S1/2 ? S1-abs(x2-x1) : abs(x2-x1);      
 	
-	DeltaE += (pmpn*phi_arr[j] + pnsmps)*LR_couplings[dx + dt*LR_arr_len]*
-	  denom[dx + dt*LR_arr_len];
+	DeltaE += (pmpn*phi_arr[j] + pnsmps)*
+	  LR_couplings[dx + dt*x_len]*LR_couplings[dx + dt*x_len];
 	
       }
     }
@@ -418,7 +419,11 @@ void wolffClusterAddLR(int i, int *s, int cSpin,
 		       double *LR_couplings, double *phi, Param p) {
   
   double phi_lc = phi[i];
-  int LC_arr_len = p.surfaceVol/2+1;
+  int S1 = p.S1;
+  int Lt = p.Lt;
+  int x_len = S1/2 + 1;
+  int t_len = Lt/2 + 1;
+  int arr_len = x_len*t_len;
 
 #ifdef USE_OMP
   
@@ -461,7 +466,7 @@ void wolffClusterAddLR(int i, int *s, int cSpin,
 	  x2 = (idx) % p.S1;            
 	  dx = abs(x2-x1) > p.S1/2 ? p.S1 - abs(x2-x1) : abs(x2-x1);      
 	  
-	  prob = 1 - exp(2*phi_lc*phi[idx]*LR_couplings[dt+dx*LC_arr_len]);
+	  prob = 1 - exp(2*phi_lc*phi[idx]*LR_couplings[dx+dt*x_len]);
 	  rand = unif(rng);
 	  if(rand < prob) {
 	    sqnl_wc_size++;
@@ -527,7 +532,7 @@ void wolffClusterAddLR(int i, int *s, int cSpin,
       x2 = j % p.S1;            
       dx = abs(x2-x1) > p.S1/2 ? p.S1 - abs(x2-x1) : abs(x2-x1);      
       
-      prob = 1 - exp(2*phi_lc*phi[j]*LR_couplings[dt + dx*LC_arr_len]);
+      prob = 1 - exp(2*phi_lc*phi[j]*LR_couplings[dx + dt*x_len]);
       rand = unif(rng);
       if(rand < prob) {
 	sqnl_wc_size++;

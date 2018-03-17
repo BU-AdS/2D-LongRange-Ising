@@ -15,8 +15,8 @@ __global__ void init(unsigned int seed, curandState_t* states);
 __global__ void randoms(curandState_t* states, double* numbers);
 
 
-__global__ void cluster_add(double *gpu_rands, double *gpu_phi, int *gpu_s,
-			    double *gpu_LR_couplings, int S1, int Lt, int arr_len,
-			    int t1, int x1, int cSpin, int *added);
+//__global__ void cluster_add(double *gpu_rands, double *gpu_phi, int *gpu_s,
+//			    double *gpu_LR_couplings, double phi_lc, int S1, int Lt,
+//			    int arr_len, int t1, int x1, int cSpin, bool *gpu_added);
 
 #endif
