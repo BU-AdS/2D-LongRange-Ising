@@ -1,5 +1,5 @@
-#ifndef MONTE_CARLO_SQUARE_LOCAL_H
-#define MONTE_CARLO_SQUARE_LOCAL_H
+#ifndef MC_UPDATE_SR_H
+#define MC_UPDATE_SR_H
 
 #include <limits.h>
 #include <math.h>
@@ -12,22 +12,16 @@
 
 
 //Cluster and Metropolis routines.
-void wolffUpdateSR(double *phi_arr, int *s, Param p,
-		   double &delta_mag_phi, int iter);
+void wolffUpdateSR(double *phi, int *s, Param p, int iter);
 
 void wolffClusterAddSR(int i, int *s, int clusterSpin,
-		       bool *site_cluster, double *phi_arr, Param p);
+		       bool *site_cluster, double *phi, Param p);
 
-
-void swendsenWangUpdateSR(double *phi_arr, int *s, Param p,
-			  double &delta_mag_phi, int iter);
+void swendsenWangUpdateSR(double *phi, int *s, Param p, int iter);
 
 void swendsenWangClusterAddSR(int i, int *s, int cSpin, int clusterNum, 
-			      int *clusterDef, double *phi_arr, Param p);
+			      int *clusterDef, double *phi, Param p);
 
-int metropolisUpdateSR(double *phi_arr, int *s, 
-		       Param &p, double & delta_mag_phi, int iter);
-
-//void runMonteCarloSqL(Param p);
+int metropolisUpdateSR(double *phi, int *s, Param p, int iter);
 
 #endif

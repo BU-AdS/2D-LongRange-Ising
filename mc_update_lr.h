@@ -1,5 +1,5 @@
-#ifndef MC_2D_ISING_LR_H
-#define MC_2D_ISING_LR_H
+#ifndef MC_UPDATE_LR_H
+#define MC_UPDATE_LR_H
 
 #include <limits.h>
 #include <math.h>
@@ -11,29 +11,23 @@
 #include "util.h"
 
 //Long range cluster and Metropolis routines.
-void wolffUpdateLR(double *phi_arr, int *s, Param p,
-		   double *LR_couplings,
-		   double &delta_mag_phi, int iter);
+void wolffUpdateLR(double *phi, int *s, Param p,
+		   double *LR_couplings, int iter, int n);
 
 void wolffClusterAddLR(int i, int *s, int cSpin, 
 		       double *LR_couplings, double *phi, Param p);
 
-void swendsenWangUpdateLR(double *phi_arr, int *s, Param p,
-			  double *LR_coupling,
-			  double &delta_mag_phi, int iter);
+void swendsenWangUpdateLR(double *phi, int *s, Param p,
+			  double *LR_couplings, int iter);
 
 void swendsenWangClusterAddLR(int i, int *s, int cSpin, int clusterNum, 
 			      int *clusterDef, std::vector<int> Rcluster, 
-			      double *LR_couplings,
-			      double *phi_arr, Param p);
+			      double *LR_couplings, double *phi,
+			      Param p);
 
 void clusterPossibleLR(int i, int *s, int cSpin,
 		       bool *Pcluster, std::vector<int> &Rcluster,
 		       Param p);
-
-int metropolisUpdateLR(double *phi_arr, int *s, Param &p,
-		       double *LR_couplings, double *denom,
-		       double & delta_mag_phi, int iter);
 
 void init_connectivity(Param p);
 

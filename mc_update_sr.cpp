@@ -69,13 +69,9 @@ int sql_sw_s_size = 0;
 int sql_accept = 0;
 int sql_tries  = 0;
 
-int metropolisUpdateSR(double *phi_arr, int *s, Param &p,
-		       double &delta_mag_phi, int iter) {
+int metropolisUpdateSR(double *phi_arr, int *s, Param p, int iter) {
 
-  delta_mag_phi = 0.0;
-  
   int s_old     = 0;
-  int delta_mag = 0;
   
   double phi_new = 0.0;
   double phi_new_sq = 0.0;
@@ -114,20 +110,16 @@ int metropolisUpdateSR(double *phi_arr, int *s, Param &p,
     if(DeltaE < 0.0) {
       //  cout<< " Acepted  " << endl;
       s_old = s[i];
-      delta_mag_phi += phi_new - phi_arr[i];
       phi_arr[i] = phi_new;
       sql_accept += 1;
       s[i] = (phi_new > 0) ? 1 : -1;
-      delta_mag += s[i] - s_old;
     }
     else if ( unif(rng)  < exp(-DeltaE)) {
       //  cout<< " Acepted  " << endl;
       s_old = s[i];
-      delta_mag_phi += phi_new - phi_arr[i];
       phi_arr[i] = phi_new;
       sql_accept += 1;
       s[i] = (phi_new > 0) ? 1 : -1;
-      delta_mag += s[i] - s_old;
     }     
   }// end loop over lattice volume 
 
@@ -153,11 +145,10 @@ int metropolisUpdateSR(double *phi_arr, int *s, Param &p,
     cout<<"and delta_phi is "<<p.delta_phi<<endl;
   }
 
-  return delta_mag;
+  return 0;
 }
 
-void swendsenWangUpdateSR(double *phi_arr, int *s, Param p,
-			   double &delta_mag_phi, int iter) {
+void swendsenWangUpdateSR(double *phi_arr, int *s, Param p, int iter) {
   
   sql_sw_calls++;  
   int clusterNum = 0;
@@ -251,8 +242,7 @@ void swendsenWangClusterAddSR(int i, int *s, int cSpin, int clusterNum,
   } 
 }
 
-void wolffUpdateSR(double *phi_arr, int *s, Param p,
-		    double &delta_mag_phi, int iter) {
+void wolffUpdateSR(double *phi_arr, int *s, Param p, int iter) {
   
   sql_wc_calls++;
 

@@ -31,6 +31,13 @@ class Param{
   bool usePowLaw = true;  //If true, use the 1/r^a LR coupling, else use the
                           //user defined LR.
 
+  int nThreads = 0;
+  int nBlocks = 0;
+  
+  bool useGPUMetro = true;
+  bool useGPUCluster = true;
+  bool doMetroCheck = false;
+  
   latType lat_type = TWO_D;
   couplingType coupling_type = RAD;
   
@@ -47,7 +54,7 @@ class Param{
   double hyp_rad = 5.0;
   int r_min_pos = 0;
   int r_max_pos = 0;
-  double t_scale = 2.0;
+  double t_scale = 1.0;
   
   char fname[256];
 

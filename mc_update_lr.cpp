@@ -92,22 +92,18 @@ int sqnl_sw_s_size = 0;
 int sqnl_accept = 0;
 int sqnl_tries  = 0;
 
-int metropolisUpdateLR(double *phi_arr, int *s, Param &p,
-		       double *LR_couplings, double *denom,
-		       double &delta_mag_phi, int iter) {
-
-  delta_mag_phi = 0.0;
+int MonteCarlo2DIsing::metropolisUpdateLR(Param &p, int iter) {
   
   int s_old     = 0;
   int delta_mag = 0;
-  int Lt =p.Lt;
-  int S1= p.S1;
+  int Lt = p.Lt;
+  int S1 = p.S1;
   int x_len = S1/2 + 1;
-  int t_len = Lt/2 + 1;
-
+  bool doMetroCheck = p.doMetroCheck;
+  
   double phi_new = 0.0;
   double phi_new_sq = 0.0;
-  double phi = 0.0;
+  double phi_i = 0.0;
   double phi_sq = 0.0;
   double lambda_p = 0.25*p.lambda;
   double musqr_p  = 0.50*p.musqr;
@@ -115,17 +111,17 @@ int metropolisUpdateLR(double *phi_arr, int *s, Param &p,
 
   for (int i = 0; i < p.surfaceVol; i++) {    
     //Set some values we use a lot
-    phi = phi_arr[i];
+    phi_i = phi[i];
     DeltaE = 0.0;
-    phi_new = phi + p.delta_phi * (2.0*unif(rng) - 1.0);
+    doMetroCheck ? phi_new = debug_arr2[i] : phi_new = phi_i + p.delta_phi * (2.0*unif(rng) - 1.0);    
     phi_new_sq = phi_new*phi_new;
-    phi_sq = phi*phi;
+    phi_sq = phi_i*phi_i;
     
-    if (s[i] * phi < 0) {
+    if (s[i] * phi_i < 0) {
       cout<<"ERROR s and phi NOT aligned! iter = "<<iter<<" (MetroUpdate LR)"<<endl;
-      cout<<"S["<<i<<"] = "<<s[i]<<" and phi["<<i<<"] = "<<phi<<endl;
+      cout<<"S["<<i<<"] = "<<s[i]<<" and phi["<<i<<"] = "<<phi_i<<endl;
       for (int j = 0; j < p.surfaceVol; j++) {    
-	cout<<"S["<<j<<"] = "<<s[j]<<" and phi["<<j<<"] = "<<phi_arr[j]<<endl;
+	cout<<"S["<<j<<"] = "<<s[j]<<" and phi["<<j<<"] = "<<phi[j]<<endl;
       }
       exit(0);
     }
@@ -135,16 +131,17 @@ int metropolisUpdateLR(double *phi_arr, int *s, Param &p,
     DeltaE += musqr_p *(phi_new_sq            - phi_sq);
     
     //KE
-    double pmpn = phi-phi_new;
+    double pmpn = phi_i-phi_new;
     double pnsmps = 0.5*(phi_new_sq-phi_sq);
-
-#ifdef USE_OMP
 
     int t1,x1;
     t1 = i / S1;
     x1 = i % S1;
 
+#ifdef USE_OMP
+
     int chunk = CACHE_LINE_SIZE/sizeof(double);
+    
 #pragma omp parallel
     {
       double local = 0.0;
@@ -153,8 +150,11 @@ int metropolisUpdateLR(double *phi_arr, int *s, Param &p,
 #pragma omp for nowait
       for(int j=0; j<p.surfaceVol; j+=chunk) {
 	for(int k=0; k<chunk; k++) {
-
+	  
 	  if( (j+k) != i ) {
+
+	    //if(j+k < 10 && i < 10) cout<<"CPU idx = "<<j+k<<" phi[idx]="<<phi_i<<endl;
+	    
 	    //Index divided by circumference, using the int floor 
 	    //feature/bug, gives the timeslice index.
 	    t2 = (j+k) / S1;
@@ -163,11 +163,12 @@ int metropolisUpdateLR(double *phi_arr, int *s, Param &p,
 	    //The index modulo the circumference gives the spatial index.
 	    x2 = (j+k) % S1;            
 	    dx = abs(x2-x1) > S1/2 ? S1-abs(x2-x1) : abs(x2-x1);      
-
-	    val = ((pmpn*phi_arr[j+k] + pnsmps)*
+	    
+	    val = ((pmpn*phi[j+k] + pnsmps)*
 		   LR_couplings[dx + dt*x_len]*LR_couplings[dx + dt*x_len]);
 	    
 	    local += val;
+	    //if(j+k < 10 && i < 10) cout<<"KE CPU = "<<val<<", i "<<i<<", idx "<<j+k<<endl;
 	  }
 	}
       }
@@ -175,62 +176,63 @@ int metropolisUpdateLR(double *phi_arr, int *s, Param &p,
       DeltaE += local;
     }
 #else
-    int t1,t2,dt,x1,x2,dx;
-
-    t1 = i / S1;
-    x1 = i % S1;
+    int t2,dt,x2,dx;
     
     for(int j=0; j<p.surfaceVol; j++) {
       
       if(i!=j) {
+
+	//if(j < 10 && i < 10) cout<<"CPU idx = "<<j<<" phi[idx]="<<phi[j]<<endl;
+	
 	//Index divided by circumference, using the int floor 
 	//feature/bug, gives the timeslice index.
-	t2 = (j) / S1;
+	t2 = j / S1;
 	dt = abs(t2-t1) > Lt/2 ? Lt - abs(t2-t1) : abs(t2-t1);
 	
 	//The index modulo the circumference gives the spatial index.
-	x2 = (j) % S1;            
+	x2 = j % S1;            
 	dx = abs(x2-x1) > S1/2 ? S1-abs(x2-x1) : abs(x2-x1);      
 	
-	DeltaE += (pmpn*phi_arr[j] + pnsmps)*
+	DeltaE += (pmpn*phi[j] + pnsmps)*
 	  LR_couplings[dx + dt*x_len]*LR_couplings[dx + dt*x_len];
+	
+	//if(j < 10 && i < 10) cout<<"KE CPU = "<<(pmpn*phi[j] + pnsmps)*
+	//LR_couplings[dx + dt*x_len]*LR_couplings[dx + dt*x_len]<<", i "<<i<<", idx "<<j<<endl;
+	
 	
       }
     }
 #endif
 
     sqnl_tries++;
+
+    //if(i<10) cout<<"DeltaE CPU = "<<DeltaE<<", "<<i<<endl;
     
     if(DeltaE < 0.0) {
       //  cout<< " Acepted  " << endl;
       s_old = s[i];
-      delta_mag_phi += phi_new - phi_arr[i];
-      phi_arr[i] = phi_new;
+      phi[i] = phi_new;
       sqnl_accept += 1;
       s[i] = (phi_new > 0) ? 1 : -1;
-      delta_mag += s[i] - s_old;
     }
-    else if ( unif(rng) < exp(-DeltaE)) {
+    else if( doMetroCheck ? debug_arr1[i] < exp(-DeltaE) : unif(rng) < exp(-DeltaE)) {
       //  cout<< " Acepted  " << endl;
       s_old = s[i];
-      delta_mag_phi += phi_new - phi_arr[i];
-      phi_arr[i] = phi_new;
+      phi[i] = phi_new;
       sqnl_accept += 1;
       s[i] = (phi_new > 0) ? 1 : -1;
-      delta_mag += s[i] - s_old;
     }     
   }// end loop over lattice volume 
 
-  if( iter < p.n_therm && iter%p.n_skip == 0 ) {
-    cout<<"At iter "<<iter<<" the Metro acceptance rate is "<<(double)sqnl_accept/(double)sqnl_tries<<endl<<endl;
+  if( iter < p.n_therm && iter%p.n_skip == 0 && iter > 0) {
+    cout<<"At iter "<<iter<<" the (CPU) Metro acceptance rate is ("<<sqnl_accept<<"/"<<sqnl_tries<<") = "<<(double)sqnl_accept/(double)sqnl_tries<<endl;
   }
 
   return delta_mag;
 }
 
 void swendsenWangUpdateLR(double *phi_arr, int *s, Param p,
-			    double *LR_couplings, 
-			    double &delta_mag_phi, int iter) {
+			  double *LR_couplings, int iter) {
 
   int clusterNum = 0;
   
@@ -272,8 +274,8 @@ void swendsenWangUpdateLR(double *phi_arr, int *s, Param p,
       //This function will call itself recursively until it fails to 
       //add to the cluster
       swendsenWangClusterAddLR(i, s, clusterSpin[clusterNum], clusterNum, 
-				 clusterDef, Rcluster, LR_couplings, 
-				 phi_arr, p);
+			       clusterDef, Rcluster, LR_couplings, 
+			       phi_arr, p);
 
       Rcluster.clear();
     }
@@ -377,9 +379,8 @@ void clusterPossibleLR(int i, int *s, int cSpin,
 }
 
 void wolffUpdateLR(double *phi, int *s, Param p,
-		   double *LR_couplings,
-		   double &delta_mag_phi, int iter) {
-
+		   double *LR_couplings, int iter, int n) {
+  
 #ifdef USE_OMP
   init_connectivity(p);
 #endif
@@ -403,10 +404,9 @@ void wolffUpdateLR(double *phi, int *s, Param p,
   
   sqnl_wc_ave += sqnl_wc_size;
 
-  if( iter%p.n_skip == 0) {
+  if( iter%p.n_skip == 0 && n == 0) {
     setprecision(4);
-    //cout<<"Using "<<p.n_cluster<<" Wolff hits."<<endl; 
-    cout<<"Ave. cluster size at iter "<<iter<<" = "<<sqnl_wc_ave<<"/"<<sqnl_wc_calls<<" = "<<1.0*sqnl_wc_ave/sqnl_wc_calls<<endl;
+    cout<<"Average (CPU) cluster size at iter "<<iter<<" = "<<sqnl_wc_ave<<"/"<<sqnl_wc_calls<<" = "<<1.0*sqnl_wc_ave/sqnl_wc_calls<<" = "<<100.0*sqnl_wc_ave/(sqnl_wc_calls*p.surfaceVol)<<"%"<<endl;
   }
 #ifdef USE_OMP
   for(int a=0; a<p.surfaceVol; a++) free(added[a]);
@@ -415,15 +415,12 @@ void wolffUpdateLR(double *phi, int *s, Param p,
 #endif
 }
 
-void wolffClusterAddLR(int i, int *s, int cSpin, 
-		       double *LR_couplings, double *phi, Param p) {
+void wolffClusterAddLR(int i, int *s, int cSpin, double *LR_couplings,
+		       double *phi, Param p) {
   
   double phi_lc = phi[i];
   int S1 = p.S1;
-  int Lt = p.Lt;
   int x_len = S1/2 + 1;
-  int t_len = Lt/2 + 1;
-  int arr_len = x_len*t_len;
 
 #ifdef USE_OMP
   

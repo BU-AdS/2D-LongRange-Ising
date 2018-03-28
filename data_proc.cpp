@@ -71,13 +71,15 @@ void correlators(double **ind_corr, int meas, double *run_corr,
   }
 }
 
+
+/*
 // Improved Correlation Functions.
 //--------------------------------
 
 //Overloaded version to handle AdS lattices
-void correlatorsSqLImp(double **ind_corr, int meas, double *run_corr,
-		       bool dir, vector<Vertex> NodeList, 
-		       double avePhi, int *s, Param p) {
+void correlatorsImp(double **ind_corr, int meas, double *run_corr,
+		    bool dir, vector<Vertex> NodeList, 
+		    double avePhi, int *s, Param p) {
   
   double *phi = (double*)malloc(p.S1*p.Lt*sizeof(double));
   int offset = endNode(p.Levels-1,p)+1;
@@ -85,14 +87,14 @@ void correlatorsSqLImp(double **ind_corr, int meas, double *run_corr,
   for(int i=0; i<p.S1*p.Lt; i++) {    
     phi[i] = NodeList[disk*(i/p.S1) + offset + i%p.S1].phi;
   }
-  correlatorsSqLImp(ind_corr, meas, run_corr, dir, phi, avePhi, s, p);
+  correlatorsImp(ind_corr, meas, run_corr, dir, phi, avePhi, s, p);
   free(phi);  
 }
 
 
-void correlatorsSqLImp(double **ind_corr, int meas, double *run_corr, 
-		       bool temporalDir, double *phi, double avePhi, int *s,
-		       Param p){
+void correlatorsImp(double **ind_corr, int meas, double *run_corr, 
+		    bool temporalDir, double *phi, double avePhi, int *s,
+		    Param p){
   
   int s_size = p.S1;
   int t_size = p.Lt;
@@ -111,11 +113,19 @@ void correlatorsSqLImp(double **ind_corr, int meas, double *run_corr,
   int *clusterDef = new int[p.surfaceVol];
   for (int i = 0; i < p.surfaceVol; i++)
     clusterDef[i] = 0;
-  
+
   //Integer array holding the spin value of each cluster,
   int *clusterSpin = new int[p.surfaceVol];
   for (int i = 0; i < p.surfaceVol; i++)
     clusterSpin[i] = 1;
+
+  //Tracks which sites are potentially in the cluster.
+  bool *Pcluster = new bool[p.surfaceVol];
+
+  //Records which sites are potentially in the cluster.
+  //This will have a modifiable size, hence the vector
+  //style.
+  vector<int> Rcluster;
 
   for (int i = 0; i < p.surfaceVol; i++) {
     if(clusterDef[i] == 0) {
@@ -123,14 +133,25 @@ void correlatorsSqLImp(double **ind_corr, int meas, double *run_corr,
       clusterNum++; 
       clusterDef[i] = clusterNum;
       s[i] < 0 ? clusterSpin[clusterNum] = -1 : clusterSpin[clusterNum] = 1;
+
+      //First, we must identify the maximum possible cluster, then we 
+      //can loop over only those sites 
+
+      for (int i = 0; i < p.surfaceVol; i++) Pcluster[i] = false;
+      
+      clusterPossibleLR(i, s, clusterSpin[clusterNum], 
+				      Pcluster, Rcluster, p);
       
       //This function will call itself recursively until it fails to 
-      //add to the cluster.
-      swendsenWangClusterAddSR(i, s, clusterSpin[clusterNum], 
-			       clusterNum, clusterDef, phi, p);
+      //add to the cluster
+      swendsenWangClusterAddLR(i, s, clusterSpin[clusterNum], clusterNum, 
+			       clusterDef, Rcluster, LR_couplings, 
+			       phi_arr, p);
+
+      Rcluster.clear();
     }
   }
-  
+
   //loop over all sources
   for(int i=0; i<p.surfaceVol; i++) {
     
@@ -168,7 +189,7 @@ void correlatorsSqLImp(double **ind_corr, int meas, double *run_corr,
     }
   }
 }
-
+*/
 
 //Calculate the autocorrelation of |phi|
 void autocorrelation(double *PhiAb_arr, double avePhiAbs, 

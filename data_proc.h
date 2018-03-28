@@ -12,12 +12,12 @@ void correlators(double **ind_corr, int meas, double *run_corr, bool dir,
 void correlators(double **ind_corr, int meas, double *run_corr, bool dir,
 		 double *phi, double avePhi, Param p);
 
-void correlatorsSqLImp(double **ind_corr, int meas, double *run_corr, 
-		       bool dir, std::vector<Vertex> NodeList, 
-		       double avePhi, int *s, Param p);
+void correlatorsImp(double **ind_corr, int meas, double *run_corr, 
+		    bool dir, std::vector<Vertex> NodeList, 
+		    double avePhi, int *s, Param p);
 
-void correlatorsSqLImp(double **ind_corr, int meas, double *run_corr, 
-		       bool dir, double *phi, double avePhi, int *s, Param p);
+void correlatorsImp(double **ind_corr, int meas, double *run_corr, 
+		    bool dir, double *phi, double avePhi, int *s, Param p);
 
 void autocorrelation(double *PhiAb_arr, double avePhiAbs, 
 		     int meas, double *auto_corr);

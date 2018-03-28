@@ -27,8 +27,8 @@ using namespace std;
 extern int seed;
 extern mt19937 rng;
 extern uniform_real_distribution<double> unif;
-
-#define CACHE_LINE_SIZE sysconf(_SC_LEVEL1_DCACHE_LINESIZE)
+extern int CACHE_LINE_SIZE;
+extern int sze;
 
 //Basic utilites
 // x = 0,1,..., p.S1-1  and
@@ -64,6 +64,10 @@ inline int ttm(int i, Param p){
 //Square 2D Ising Monte Carlo base class //
 //---------------------------------------//
 MonteCarlo2DIsing::MonteCarlo2DIsing(Param p) {
+
+  long long time = 0.0;
+  auto start1 = std::chrono::high_resolution_clock::now();
+  cout<<"CPU malloc and init start..."<<endl;
   
   int x_len = p.S1/2 + 1;
   int t_len = p.Lt/2 + 1;
@@ -71,94 +75,83 @@ MonteCarlo2DIsing::MonteCarlo2DIsing(Param p) {
   
   //Long Range coupling array
   LR_couplings = (double*)malloc(arr_len*sizeof(double));
-  //array to hold denominators of LR kinetic terms
-  denom = (double*)malloc(arr_len*sizeof(double));
-  for(int j=0; j<t_len; j++){
-    for(int i=0; i<x_len; i++){
-      LR_couplings[i+j*x_len] = 0.0;
-      denom[i+j*x_len] = 0.0;
-    }
-  }
-  
-  //Create arrays to hold spin and phi values.  
+  //Arrays to hold spin and phi values.  
   s = (int*)malloc(p.surfaceVol*sizeof(int));
   phi = (double*)malloc(p.surfaceVol*sizeof(double));
+  //Running correlation function arrays.
+  run_corr_t = (double*)malloc((p.Lt/2+1)*sizeof(double));
+  run_corr_s = (double*)malloc((p.S1/2+1)*sizeof(double));
+  //Individual correlation functions.
+  ind_corr_t = (double**)malloc((p.n_meas)*sizeof(double*));
+  ind_corr_s = (double**)malloc((p.n_meas)*sizeof(double*));
+
+  //Initialise Phi and spin fields.
   for(int i = 0;i < p.surfaceVol; i++) {
     phi[i] = 2.0*unif(rng) - 1.0;
     s[i] = (phi[i] > 0) ? 1 : -1;
     //cout<<"phi["<<i<<"] = "<<phi[i]<<" s["<<i<<"] = "<<s[i]<<endl;
   } 
-
-  //Running correlation function arrays.
-  run_corr_t = (double*)malloc((p.Lt/2+1)*sizeof(double));
+  
+  for(int j=0; j<t_len; j++){
+    for(int i=0; i<x_len; i++){
+      LR_couplings[i+j*x_len] = 0.0;
+    }
+  }
+  
   for(int i=0; i<p.Lt/2+1; i++) {
     run_corr_t[i] = 0.0;
   }
-  run_corr_s = (double*)malloc((p.S1/2+1)*sizeof(double));
   for(int i=0; i<p.S1/2+1; i++) {
     run_corr_s[i] = 0.0;
   }
-
-  //Individual correlation functions.
-  ind_corr_t = (double**)malloc((p.n_meas)*sizeof(double*));
+  
   for(int i=0; i<p.n_meas; i++) {
     ind_corr_t[i] = (double*)malloc((p.Lt/2+1)*sizeof(double));
-    for(int j=0; j<p.Lt/2+1; j++) {
-      ind_corr_t[i][j] = 0.0;
-    }
-  }
-  ind_corr_s = (double**)malloc((p.n_meas)*sizeof(double*));
-  for(int i=0; i<p.n_meas; i++) {
     ind_corr_s[i] = (double*)malloc((p.S1/2+1)*sizeof(double));
-    for(int j=0; j<p.S1/2+1; j++) {
-      ind_corr_s[i][j] = 0.0;
-    }
+    
+    for(int j=0; j<p.Lt/2+1; j++) ind_corr_t[i][j] = 0.0;
+    for(int j=0; j<p.S1/2+1; j++) ind_corr_s[i][j] = 0.0;
   }
-
-  //The correlation functions must be weighted by how frequently
-  //the i,j separation occurs  
-  corr_norms = (int**)malloc((p.S1/2+1)*sizeof(int*));
-  for(int i=0; i<p.S1/2+1; i++) {
-    corr_norms[i] = (int*)malloc((p.Lt/2+1)*sizeof(int));
-  }
-  for(int i=0; i<p.S1/2+1; i++)
-    for(int j=0; j<p.Lt/2+1; j++) 
-      corr_norms[i][j] = 0;
   
-  int s_idx = 0;
-  int t_idx = 0;
-  int s_size = p.S1;
-  int t_size = p.Lt;
-
-  //loop over sink/source *theta*
-  for(int is=0; is<s_size; is++)
-    for(int js=0; js<s_size; js++) {      
-      s_idx = abs(is-js);
-      if(s_idx > s_size/2) s_idx = s_size - s_idx ;      
-      //loop over sink/source *temporal*
-      for(int il=0; il<t_size; il++) 	  
-	for(int jl=0; jl<t_size; jl++) {
-	  t_idx = abs(il-jl);
-	  if(t_idx >= t_size/2) t_idx = t_size - t_idx;
-	  ++corr_norms[s_idx][t_idx];
-	}
-    }
+  auto elapsed1 = std::chrono::high_resolution_clock::now() - start1;
+  time = std::chrono::duration_cast<std::chrono::microseconds>(elapsed1).count();
+  cpu_added = (bool*)malloc(p.surfaceVol*sizeof(bool));
+  cout<<"CPU malloc and init time = "<<time/(1.0e6)<<endl;
 
 #ifdef USE_GPU
-  // allocate space on the GPU for the couplings and distances.
-  cudaMalloc((void**) &gpu_LR_couplings, arr_len* sizeof(double));  
-  cudaMalloc((void**) &gpu_denom, arr_len*sizeof(double));
 
+  //Device memory allocations.
+  cout<<"CUDA malloc start..."<<endl;
+  
+  start1 = std::chrono::high_resolution_clock::now();
+  //Allocate space on the GPU for the couplings and distances.
+  cudaMalloc((void**) &gpu_LR_couplings, arr_len*sizeof(double));  
   cudaMalloc((void**) &gpu_phi, p.surfaceVol*sizeof(double));
   cudaMalloc((void**) &gpu_s, p.surfaceVol*sizeof(int));
   cudaMalloc((void**) &gpu_added, p.surfaceVol*sizeof(bool));  
-  
-  added = (bool*)malloc(p.surfaceVol*sizeof(bool));
-  
-  // allocate space on the GPU for the random states 
   cudaMalloc((void**) &states, p.surfaceVol*sizeof(curandState_t));  
-  GPU_initRand(p, seed, states); 
   cudaMalloc((void**) &gpu_rands, p.surfaceVol*sizeof(double));
+  cudaMalloc((void**) &gpu_rands_aux, p.surfaceVol*sizeof(double));  
+  cudaMalloc((void**) &gpu_result, p.surfaceVol*sizeof(double));
+  
+  elapsed1 = std::chrono::high_resolution_clock::now() - start1;
+  time = std::chrono::duration_cast<std::chrono::microseconds>(elapsed1).count();
+  cout<<"CUDA malloc time = "<<time/(1.0e6)<<endl;
+
+  start1 = std::chrono::high_resolution_clock::now();
+  GPU_initRand(p, seed, states);
+  elapsed1 = std::chrono::high_resolution_clock::now() - start1;
+  time = std::chrono::duration_cast<std::chrono::microseconds>(elapsed1).count();
+  cout<<"CUDA rand states init time = "<<time/(1.0e6)<<endl;
+  
+  debug_arr1 = (double*)malloc(p.surfaceVol*sizeof(double));
+  debug_arr2 = (double*)malloc(p.surfaceVol*sizeof(double));
+  for(int j=0; j<p.S1; j++){
+    for(int i=0; i<p.Lt; i++){
+      debug_arr1[i+j*p.Lt] = 0.0;
+      debug_arr2[i+j*p.Lt] = 0.0;
+    }
+  }
   
 #endif
   
@@ -173,28 +166,32 @@ void MonteCarlo2DIsing::runSimulation(Param p) {
     //Create LR couplings and kinetic term denomnators
     long long time = 0.0;
     auto start1 = std::chrono::high_resolution_clock::now();
-    createDenom(p);
     createLRcouplings(p);
     auto elapsed1 = std::chrono::high_resolution_clock::now() - start1;
     time = std::chrono::duration_cast<std::chrono::microseconds>(elapsed1).count();
-    cout<<"Coupling + denom creation time = "<<time/(1.0e6)<<endl;
+    cout<<"Coupling creation time = "<<time/(1.0e6)<<endl;
   }
   
-  thermalise(phi, s, p, obs);
+  thermalise(p);
     
   //reset timing variables.
   metro = 0.0;
   cluster = 0.0;
-  for(int iter = p.n_therm; iter < p.n_therm + p.n_skip*p.n_meas; iter++) {
-
-    updateIter(obs, p, iter);
+  for(int iter = p.n_therm + p.n_metro_cool; iter < p.n_therm + p.n_skip*p.n_meas + p.n_metro_cool; iter++) {
+    
+    updateIter(p, iter);
     
     //Take measurements.
     if((iter+1) % p.n_skip == 0) {
 
       //Timing
-      cout<<"(Thermalised) Average time per Metro update   = "<<metro/((iter+1)*1.0e6)<<"s"<<endl;
-      cout<<"(Thermalised) Average time per Cluster update = "<<cluster/((iter+1)*p.n_cluster*1.0e6)<<"s"<<endl;
+      int therm_iter = iter - (p.n_therm + p.n_metro_cool);
+      cout<<"(Thermalised) Average time per Metro update   = "<<metro/(therm_iter*1.0e6)<<"s"<<endl;
+      cout<<"(Thermalised) Average time per cluster update = "<<cluster/(therm_iter*p.n_cluster*1.0e6)<<"s"<<endl;
+
+      //copy GPU arrays to the CPU FIXME: do all measurements on the GPU
+      
+      GPU_copyArraysToHost(p);      
       
       //update running average, dump to stdout. 
       //'meas' is ++ incremented in this function.
@@ -203,9 +200,15 @@ void MonteCarlo2DIsing::runSimulation(Param p) {
       norm = 1.0/(meas);
 
       //Visualisation tool
-      visualiserSqr(phi, obs.avePhiAb*norm, p);
+      //visualiserSqr(phi, obs.avePhiAb*norm, p);
       
       //Calculate correlaton functions and update the average.
+      /*
+      correlatorsImp(ind_corr_t, meas-1, run_corr_t, true,  
+		     phi, obs.avePhi*norm, s, p);
+      correlatorsImp(ind_corr_s, meas-1, run_corr_s, false, 
+		     phi, obs.avePhi*norm, s, p);
+      */
       correlators(ind_corr_t, meas-1, run_corr_t, true,  
 		  phi, obs.avePhi*norm, p);
       correlators(ind_corr_s, meas-1, run_corr_s, false, 
@@ -213,70 +216,66 @@ void MonteCarlo2DIsing::runSimulation(Param p) {
       
       //Jacknife and dump the data
       if(meas%10 == 0) {	
-	writeObservables(ind_corr_t, run_corr_t, ind_corr_s, run_corr_s,
-			 corr_norms, meas, obs, p);
+	writeObservables(ind_corr_t, run_corr_t, ind_corr_s,
+			 run_corr_s, meas, obs, p);
       }      
     }
   }
   
   free(run_corr_t);
   free(run_corr_s);
-  free(corr_norms);
   free(s);
   free(phi);
   
 }
 
-void MonteCarlo2DIsing::updateIter(observables obs, Param p, int iter) {
+void MonteCarlo2DIsing::updateIter(Param p, int iter) {
   
     auto start = std::chrono::high_resolution_clock::now();    
     //Cluster steps.
-    for(int i=0; i<p.n_cluster; i++) {
-      if(p.useWolff) {
-	wolffUpdate(phi, s, p, obs.delta_mag_phi, iter);  
-      }
-      else { 
-	swendsenWangUpdate(phi, s, p, obs.delta_mag_phi, iter);
-      }
-    }
+    if(p.useWolff)  wolffUpdate(p, iter);
+    else swendsenWangUpdate(p, iter);
+    
     auto elapsed = std::chrono::high_resolution_clock::now() - start;
     cluster += std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();
 
     //Metro step.
     start = std::chrono::high_resolution_clock::now();
-    metropolisUpdate(phi, s, p, obs.delta_mag_phi, iter);
+    metropolisUpdate(p, iter);
     elapsed = std::chrono::high_resolution_clock::now() - start;
     metro += std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();
 }
 
-void MonteCarlo2DIsing::thermalise(double *phi, int *s, Param p, 
-				   observables obs) {
-
+void MonteCarlo2DIsing::thermalise(Param p) {
+  
   cout<<"Begin Metropolis cool down."<<endl;
   //Perform n_therm pure metropolis hits during the hot phase.
   auto start = std::chrono::high_resolution_clock::now();        
   for(int iter = 0; iter < p.n_metro_cool; iter++) {
-    metropolisUpdate(phi, s, p, obs.delta_mag_phi, iter);  
+    metropolisUpdate(p, iter);  
 
-    if((iter+1)%p.n_skip == 0){
+    if((iter)%p.n_skip == 0 && iter > 0){
       auto elapsed = std::chrono::high_resolution_clock::now() - start;
       metro = std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();
-      cout<<"Metro cool down iter "<<iter+1<<" average time per update = "<<metro/((iter+1)*1.0e6)<<"s"<<endl;      
+      cout<<"Metro cool down iter "<<iter<<" average time per (hot phase) update = "<<metro/((iter+1)*1.0e6)<<"s"<<endl<<endl;
+      //exit(0);
     }
   }
+
   auto elapsed = std::chrono::high_resolution_clock::now() - start;
   metro = std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();
-  cout<<"Metro cool down complete. "<<p.n_therm<<" iters at "<<metro/((p.n_therm)*1.0e6)<<"s per iter."<<endl;
+  cout<<"Metro cool down complete. "<<p.n_metro_cool<<" iters at "<<metro/((p.n_metro_cool)*1.0e6)<<"s per (hot phase) iter."<<endl<<endl;
 
+  //Reset timing variables
   metro = 0.0;
   cluster = 0.0;
 
   //Cluster/Metro steps
-  for(int iter = 0; iter < p.n_therm; iter++) {
-    updateIter(obs, p, iter);
+  for(int iter = p.n_metro_cool; iter < p.n_therm + p.n_metro_cool; iter++) {
+    updateIter(p, iter);
     if( (iter+1)%p.n_skip == 0 ) {
-      cout<<"Average time per Metro update   = "<<metro/((iter+1)*1.0e6)<<"s"<<endl;  
-      cout<<"Average time per Cluster update = "<<cluster/((iter+1)*p.n_cluster*1.0e6)<<"s"<<endl;  
+      cout<<"Average time per Metro update   = "<<metro/((iter - p.n_metro_cool + 1)*1.0e6)<<"s"<<endl;  
+      cout<<"Average time per cluster update = "<<cluster/((iter - p.n_metro_cool + 1)*p.n_cluster*1.0e6)<<"s"<<endl;  
     }      
   }
   cout<<endl<<"Thermalisaton complete."<<endl<<endl;  
@@ -285,39 +284,67 @@ void MonteCarlo2DIsing::thermalise(double *phi, int *s, Param p,
 //------------------------------------------------//
 // Wrappers for the different LR and SR functions //
 //------------------------------------------------//
-void MonteCarlo2DIsing::wolffUpdate(double *phi, int *s, Param p, 
-				    double &delta_mag_phi, int iter) {
+void MonteCarlo2DIsing::wolffUpdate(Param p, int iter) {
 
+  for(int i=0; i<p.n_cluster; i++) {
+    if(p.coupling_type == SR) {
+      wolffUpdateSR(phi, s, p, iter);
+    }
+    else {
+      if(p.useGPUCluster) {
+	if(!p.useGPUMetro) {
+	  //We must copy from the host to the device
+	  GPU_copyArraysToDevice(p);
+	}
+	
+	int rand_site = int(unif(rng) * p.surfaceVol);	
+	GPU_wolffUpdateLR(p, rand_site, iter, i);
+	
+	if(!p.useGPUMetro) {
+	  //We must copy from the device to the host
+	  GPU_copyArraysToHost(p);
+	}	
+      } else {
+	wolffUpdateLR(phi, s, p, LR_couplings, iter, i);
+      }
+    }
+  }
+}
+
+void MonteCarlo2DIsing::swendsenWangUpdate(Param p, int iter){
+  
+  if(p.coupling_type == SR) 
+    swendsenWangUpdateSR(phi, s, p, iter); 
+  else
+    swendsenWangUpdateLR(phi, s, p, LR_couplings, iter); 
+}
+
+void MonteCarlo2DIsing::metropolisUpdate(Param p, int iter) {
+  
   if(p.coupling_type == SR) {
-    wolffUpdateSR(phi, s, p, delta_mag_phi, iter);
+    metropolisUpdateSR(phi, s, p, iter);
   }
   else {
-#ifdef USE_GPU
-    int rand_site = int(unif(rng) * p.surfaceVol);
-    //cout<<"RAND_SITE = "<<rand_site<<endl;
-    GPU_wolffUpdateLR(p, rand_site);
-#else
-    wolffUpdateLR(phi, s, p, LR_couplings, delta_mag_phi, iter);
-#endif
+    if(p.useGPUMetro) {
+      if(!p.useGPUCluster) {
+	//We must copy from the host to the device
+	GPU_copyArraysToDevice(p);
+      }
+      
+      GPU_metropolisUpdateLR(p, iter);
+      if(p.doMetroCheck) {
+	//Use the same fields, check against the CPU.
+	metropolisUpdateLR(p, iter);
+      }
+      
+      if(!p.useGPUCluster) {
+	//We must copy from the device to the host
+	GPU_copyArraysToHost(p);
+      }
+    } else {
+      metropolisUpdateLR(p, iter);
+    }
   }
-}
-
-void MonteCarlo2DIsing::swendsenWangUpdate(double *phi, int *s, Param p, 
-					   double &delta_mag_phi, int iter){
-  
-  if(p.coupling_type == SR) 
-    swendsenWangUpdateSR(phi, s, p, delta_mag_phi, iter); 
-  else
-    swendsenWangUpdateLR(phi, s, p, LR_couplings, delta_mag_phi, iter); 
-}
-
-void MonteCarlo2DIsing:: metropolisUpdate(double *phi, int *s, Param p, 
-					  double &delta_mag_phi, int iter) {
-  
-  if(p.coupling_type == SR) 
-    metropolisUpdateSR(phi, s, p, delta_mag_phi, iter); 
-  else
-    metropolisUpdateLR(phi, s, p, LR_couplings, denom, delta_mag_phi, iter); 
 }
 
 //-------------------------------------------//
@@ -372,8 +399,6 @@ double actionLR(double *phi_arr, int *s, Param p,
   int vol = S1*Lt;
   
   int x_len = S1/2 + 1;
-  int t_len = Lt/2 + 1;
-  int arr_len = x_len*t_len;
     
   double phi_sq;
   double phi;
@@ -398,9 +423,9 @@ double actionLR(double *phi_arr, int *s, Param p,
     
     //KE terms
 #ifdef USE_OMP
-
+    
     int chunk = CACHE_LINE_SIZE/sizeof(double);
-
+    
 #pragma omp parallel 
     {
       double local = 0.0;
@@ -420,9 +445,7 @@ double actionLR(double *phi_arr, int *s, Param p,
 	    x2 = (j+k) % S1;            
 	    dx = abs(x2-x1) > S1/2 ? S1-abs(x2-x1) : abs(x2-x1);      
 	    
-	    //Here we are overcounting by a factor of two, hence the 0.25
-	    //coefficient.
-	    //FIXME	  
+	    //FIXME: Here we are overcounting by a factor of two, hence the 0.25 coefficient.
 	    val = 0.25*((phi - phi_arr[j+k])*(phi - phi_arr[j+k])*
 			LR_couplings[dx+dt*x_len]*LR_couplings[dx+dt*x_len]);
 	    
@@ -449,8 +472,7 @@ double actionLR(double *phi_arr, int *s, Param p,
 	dx = abs(x2-x1) > p.S1/2 ? p.S1-abs(x2-x1) : abs(x2-x1);      
 	
 	KE += 0.25*((phi - phi_arr[j])*(phi - phi_arr[j])*
-		    LR_couplings[dx+dt*LR_arr_len]*LR_couplings[dx+dt*LR_arr_len]*
-		    (dx*dx + dt*dt));
+		    LR_couplings[dx+dt*x_len]*LR_couplings[dx+dt*x_len]);
       }
     }
 #endif
@@ -554,9 +576,10 @@ void measure(observables &obs, double *phi, int *s,
 
 void writeObservables(double **ind_corr_t, double *run_corr_t, 
 		      double **ind_corr_s, double *run_corr_s,
-		      int **corr_norms, int idx, observables obs, Param p){
+		      int idx, observables obs, Param p){
 
   double norm = 1.0/idx;
+  double inv_vol = 1.0/(p.Lt*p.S1);
   
   //The observable (spec heat, suscep, etc) are used only as a guide
   //to discern criticality, The real quantities of interest are
@@ -567,9 +590,9 @@ void writeObservables(double **ind_corr_t, double *run_corr_t,
   double *jk_err_t = (double*)malloc((p.Lt/2+1)*sizeof(double));
   jackknife(ind_corr_t, run_corr_t, jk_err_t, 5, idx, p.Lt/2+1, p); 
   ofstream filet("correlators_t.dat");
-  for(int i=0; i<p.Lt/2+1; i++) {
-    filet<<i<<" "<<(run_corr_t[i]/corr_norms[0][i])*norm;
-    filet<<" "<<(jk_err_t[i]/corr_norms[0][i])<<endl;
+  for(int i=1; i<p.Lt/2; i++) {
+    filet<<i<<" "<<run_corr_t[i]*inv_vol*norm;
+    filet<<" "<<jk_err_t[i]*inv_vol<<endl;
   }
   filet.close();
   free(jk_err_t);
@@ -577,9 +600,9 @@ void writeObservables(double **ind_corr_t, double *run_corr_t,
   double *jk_err_s = (double*)malloc((p.S1/2+1)*sizeof(double));
   jackknife(ind_corr_s, run_corr_s, jk_err_s, 5, idx, p.S1/2+1, p);
   ofstream files("correlators_s.dat");
-  for(int i=0; i<p.S1/2+1; i++) {
-    files<<i<<" "<<(run_corr_s[i]/corr_norms[i][0])*norm;
-    files<<" "<<(jk_err_s[i]/corr_norms[i][0])<<endl;
+  for(int i=1; i<p.S1/2; i++) {
+    files<<i<<" "<<run_corr_s[i]*inv_vol*norm;
+    files<<" "<<jk_err_s[i]*inv_vol<<endl;
   }
   files.close();
   free(jk_err_s);
@@ -592,32 +615,12 @@ void writeObservables(double **ind_corr_t, double *run_corr_t,
   
 }
 
-//This function gives the Euclidean distance between two points
-//on the 2D lattice with metric diag(1,1).
-//Scaling of the temporal direction diag(c,1) should be performed 
-//elsewhere in the calculation.
-void MonteCarlo2DIsing::createDenom(Param p) {
-  
-  int S1 = p.S1;
-  int Lt = p.Lt;
-  int x_len = S1/2 + 1;
-  int t_len = Lt/2 + 1;
-  int arr_len = x_len*t_len;
+inline double Coupling(double dt, double dth, Param p) {
+ 
+  dt  *= M_PI/p.S1;
+  dth *= M_PI/p.S1;  
 
-  for(int j=0; j<t_len; j++){
-    for(int i=0; i<x_len; i++){
-      
-      //Associate dx with i, dt with j. dx runs fastest
-      int idx = i + j*x_len;      
-      denom[idx] = 1.0/sqrt(i*i + j*j);      
-      cout<<"dx = "<<i<<" dt = "<<j<<" DENOM = "<<denom[idx]<<endl;      
-    }
-  }
-  denom[0] = 0.0;  
-#ifdef USE_GPU
-  cudaMemcpy(gpu_denom, denom,
-	     arr_len*sizeof(double), cudaMemcpyHostToDevice);
-#endif
+  return 1.0/pow(cosh(dt) - cos(dth), 1+p.sigma/2);
 
 }
 
@@ -629,65 +632,28 @@ void MonteCarlo2DIsing::createLRcouplings(Param p) {
   int x_len = S1/2 + 1;
   int t_len = Lt/2 + 1;
   int arr_len = x_len*t_len;
-  
-  if(p.usePowLaw) {
 
-    for(int j=0; j<t_len; j++){
-      for(int i=0; i<x_len; i++){
-	
-	//Associate dx with i, dt with j. dx runs fastest
-	int idx = i + j*x_len;      
-	
-	//The denom value is already r^{-1}, so the power is positive.
-	LR_couplings[idx] = pow(denom[idx],(2+sigma));
-	printf("%.6f ",LR_couplings[idx]);	
-      }
-      cout<<endl;
-    }    
-  }else {
-    //Square lattice, user defined definition of coupling.
-    LRAdSCouplings(LR_couplings, p);
+  double couplingNormTheta = 1.0/Coupling(0, 1, p);
+  double couplingNormTime = 1.0/Coupling(1, 0, p);
+
+  for(int j=0; j<t_len; j++){
+    for(int i=0; i<x_len; i++){
+      
+      //Associate dx with i, dt with j. dx runs fastest
+      int idx = i + j*x_len;      
+      
+      if(p.usePowLaw) LR_couplings[idx] = pow(sqrt(i*i + j*j),-(2+sigma));
+      else  LR_couplings[idx] = couplingNormTheta*Coupling((double)j, (double)i, p);
+      
+    }
   }
-
-  LR_couplings[0] = 0.0;  
-
+  
+  LR_couplings[0] = couplingNormTheta;  
+  
 #ifdef USE_GPU
   cudaMemcpy(gpu_LR_couplings, LR_couplings,
 	     arr_len*sizeof(double), cudaMemcpyHostToDevice);
 #endif
   
-}
-
-inline double Coupling(double dt, double dth, Param p) {
- 
-  //dt  *= M_PI/p.S1;
-  //dth *= M_PI/p.S1;  
-  return 1.0/pow(cosh(dt) - cos(dth),1+p.sigma/2);
-
-}
-
-void LRAdSCouplings(double *LR_couplings, Param &p){
-
-  //Set the t scale so that LR(0,dt) \approx LR(dth,0). Do this for
-  //a separation of one lattice spacing.
-  
-  int S1 = p.S1;
-  int Lt = p.Lt;
-  int x_len = S1/2 + 1;
-  int t_len = Lt/2 + 1;
-  int arr_len = x_len*t_len;
-  
-  double couplingNormTheta = 1.0/Coupling(0, 1, p);
-  double couplingNormTime  = 1.0/Coupling(1, 0, p);
-
-  for(int j=0; j<t_len; j++){
-    for(int i=0; i<x_len; i++){
-
-      //Associate dx with i, dt with j. dx runs fastest
-      int idx = i + j*x_len;      
-      LR_couplings[idx] = Coupling((double)j, (double)i, p);      
-      cout<<"dx = "<<i<<" dt = "<<j<<" LRC = "<<LR_couplings[idx]<<endl;
-    }
-  }  
 }
 

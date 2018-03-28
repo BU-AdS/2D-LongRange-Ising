@@ -19,12 +19,17 @@ void Param::usage(char **argv) {
   printf("run time will be given a default value. All input options will\n");
   printf("dumped to stdout at execution. Please ensure that they are sensible!\n\n");
 
-  // The user is advised to study these parameters and set them explicitly.
+  // The user is advised to study these parameters and set them accordingly.
   //-----------------------------------------------------------------------
   printf("--latType <2D, AdS>              A 2D lattice is a periodic, Euclidean lattice. Use the --Lt <n> and --S1 <m> options to set the extents.\n");  
   printf("--couplingType <SR, POW, RAD>    Set the coupling between the lattice sites. For SR the coupling is nearest neighbour.\n");
   printf("                                 For POW the coupling is of the form |x - y|^{-(d+sigma)}. For RAD the coupling is of the form (cosh(dt) - cos(dtheta))^{-(d+sigma)/2}\n");
+  printf("--metroArch <GPU/CPU>            Use GPU or CPU for metropolis step\n");
+  printf("--metroCheck <GPU/CPU>           Use GPU for metropolis step, check against the CPU result\n");
+  printf("--clusterArch <GPU/CPU>          Use GPU or CPU for (GPU Wolff only, FIXME) cluster step\n");
   printf("--clusterAlg <WOLFF, SW>         Use either the Wolff or Swendsen-Wang cluster algorithm.\n");
+  printf("--nBlocks <n>                    The number of GPU blocks.\n");
+  printf("--nThreads <n>                   The number of GPU threads per block.\n");
   printf("--Lt <n>                         The temporal extent of both the 2D and AdS lattice types.\n");
   printf("--S1 <n>                         The spatial extent of both the 2D lattice. For AdS lattice type, the circumference is set by the --Q and --Levels options.\n");
   printf("--muSqr <Float>                  The phi^4 mass^2 term. This is usually negative...\n");
@@ -125,6 +130,75 @@ int Param::init(int argc, char **argv, int *idx) {
     ret = 0;
     goto out;
   } 
+
+  //Metro Arch
+  if( strcmp(argv[i], "--metroArch") == 0){
+    if (i+1 >= argc){
+      usage(argv);
+    }
+    std::string ARCH(argv[i+1]);
+    if (ARCH == "GPU" || 
+	ARCH == "gpu" ||
+        ARCH == "device" ) {
+      useGPUMetro = true;
+    } else if (ARCH == "CPU" || 
+	       ARCH == "cpu" ||
+	       ARCH == "host" ) {
+      useGPUMetro = false;
+    } else {
+      cout<<"Invalid Metropolis architecture ("<<ARCH<<") given. Use GPU or CPU (...abacus not implemented)."<<endl;
+      exit(0);
+    }
+    i++;
+    ret = 0;
+    goto out;
+  }
+
+  //Metro Check
+  if( strcmp(argv[i], "--metroCheck") == 0){
+    if (i+1 >= argc){
+      usage(argv);
+    }
+    std::string CHECK(argv[i+1]);
+    if (CHECK == "true" || 
+	CHECK == "TRUE" ||
+        CHECK == "yes" ) {
+      doMetroCheck = true;
+    } else if (CHECK == "false" || 
+	       CHECK == "FALSE" ||
+	       CHECK == "no" ) {
+      doMetroCheck = false;
+    } else {
+      cout<<"Invalid Metropolis check ("<<CHECK<<") given. Use TRUE or FALSE."<<endl;
+      exit(0);
+    }
+    i++;
+    ret = 0;
+    goto out;
+  }
+  
+  //Cluster Arch
+  if( strcmp(argv[i], "--clusterArch") == 0){
+    if (i+1 >= argc){
+      usage(argv);
+    }
+    std::string ARCH(argv[i+1]);
+    if (ARCH == "GPU" || 
+	ARCH == "gpu" ||
+        ARCH == "device" ) {
+      useGPUCluster = true;
+    } else if (ARCH == "CPU" || 
+	       ARCH == "cpu" ||
+	       ARCH == "host" ) {
+      useGPUCluster = false;
+    } else {
+      cout<<"Invalid cluster architecture ("<<ARCH<<") given. Use GPU or CPU (...abacus not implemented)."<<endl;
+      exit(0);
+    }
+    i++;
+    ret = 0;
+    goto out;
+  }
   
   //Cluster Algorithm
   if( strcmp(argv[i], "--clusterAlg") == 0){
@@ -149,14 +223,44 @@ int Param::init(int argc, char **argv, int *idx) {
     goto out;
   }
 
-  //TimeSlices
-  if( strcmp(argv[i], "--Lt") == 0){
+  //Blocks
+  if( strcmp(argv[i], "--nBlocks") == 0){
     if (i+1 >= argc){
       usage(argv);
     }
-    Lt = atoi(argv[i+1]);
-    if(Lt<2) {
-      cout<<"Invalid number of timeslices ("<<Lt<<") given. Please ensure that Lt >= 2."<<endl;
+    nBlocks = atoi(argv[i+1]);
+    if(nBlocks < 0) {
+      cout<<"Invalid number of blocks ("<<nBlocks<<") given. Please ensure that nBlocks > 0, or nBlocks = 0 for automatic assignment."<<endl;
+      exit(0);
+    }    
+    i++;
+    ret = 0;
+    goto out;
+  }
+
+  //Blocks
+  if( strcmp(argv[i], "--nBlocks") == 0){
+    if (i+1 >= argc){
+      usage(argv);
+    }
+    nBlocks = atoi(argv[i+1]);
+    if(nBlocks < 0) {
+      cout<<"Invalid number of blocks ("<<nBlocks<<") given. Please ensure that nBlocks > 0, or nBlocks = 0 for automatic assignment."<<endl;
+      exit(0);
+    }    
+    i++;
+    ret = 0;
+    goto out;
+  }
+  
+  //Threads
+  if( strcmp(argv[i], "--nThreads") == 0){
+    if (i+1 >= argc){
+      usage(argv);
+    }
+    nThreads = atoi(argv[i+1]);
+    if(nThreads < 0) {
+      cout<<"Invalid number of threads ("<<nThreads<<") given. Please ensure that nThreads > 0, or nThreads = 0 for automatic assignment."<<endl;
       exit(0);
     }
     i++;
@@ -164,13 +268,29 @@ int Param::init(int argc, char **argv, int *idx) {
     goto out;
   }
 
+  //Temporal sites on the boundary
+  if( strcmp(argv[i], "--Lt") == 0){
+    if (i+1 >= argc){
+      usage(argv);
+    }
+    Lt = atoi(argv[i+1]);
+    if(Lt<2) {
+      cout<<"Invalid number of temporal sites ("<<Lt<<") given. Please ensure that Lt >= 2."<<endl;
+      exit(0);
+    }
+    i++;
+    ret = 0;
+    goto out;
+  }
+
+  
   //Spatial sites on the boundary
   if( strcmp(argv[i], "--S1") == 0){
     if (i+1 >= argc){
       usage(argv);
     }
     S1 = atoi(argv[i+1]);
-    if(Lt<2) {
+    if(S1<2) {
       cout<<"Invalid number of spatial sites ("<<S1<<") given. Please ensure that S1 >= 2."<<endl;
       exit(0);
     }
@@ -497,13 +617,23 @@ int Param::init(int argc, char **argv, int *idx) {
     goto out;
   }
 
+  //Sanity checks...
+  // if(nBlocks*nThreads != S1*Lt) {
+  //   cout<<"nBlocks * nThreads is not the same at S1 * Lt."<<endl;
+  //   cout<<"nBlocks = "<<nBlocks<<endl;
+  //   cout<<"ntThreads = "<<nThreads<<endl;
+  //   cout<<"S1 = "<<S1<<endl;
+  //   cout<<"Lt = "<<Lt<<endl;
+  // }
+
+   
  out:
   *idx = i;
   return ret ;
   
 }
 
-void Param::print() {//FIXME
+void Param::print() {
 
   bool useGPU = false;
   bool useOMP = false;
@@ -520,7 +650,9 @@ void Param::print() {//FIXME
   cout<<"*      Parameter status        *"<<endl;
   cout<<"********************************"<<endl;
   cout<<endl;
-  cout<<"Architecture type "<<(useGPU == true ? "GPU" : (useOMP == true ? "CPU (OMP)" : "CPU (serial)"))<<endl; 
+  cout<<"Architectures compiled: "<<(useGPU == true ? "GPU and " : "")<<(useOMP == true ? "CPU (OMP)" : "CPU (serial)")<<endl;
+  cout<<"Architecture for Metropolis: "<<(useGPUMetro == true ? "GPU" : (useOMP == true ? "CPU (OMP)" : "CPU (serial)"))<<endl;
+  cout<<"Architecture for Cluster: "<<(useGPUCluster == true ? "GPU" : (useOMP == true ? "CPU (OMP)" : "CPU (serial)"))<<endl;
   cout<<"Lattice type = "<<(lat_type == TWO_D ? "2D" : "AdS")<<endl;
   cout<<"Coupling type = "<<(coupling_type == SR ? "Short-Range" :
 			     coupling_type == POW ? "Power Law" : "Radial")<<endl;
