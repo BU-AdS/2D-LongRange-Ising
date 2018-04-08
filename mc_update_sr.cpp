@@ -69,10 +69,9 @@ int sql_sw_s_size = 0;
 int sql_accept = 0;
 int sql_tries  = 0;
 
-int metropolisUpdateSR(double *phi_arr, int *s, Param p, int iter) {
+void metropolisUpdateSR(double *phi_arr, int *s, Param p, int iter) {
 
-  int s_old     = 0;
-  
+  int s_old = 0;  
   double phi_new = 0.0;
   double phi_new_sq = 0.0;
   double phi = 0.0;
@@ -142,10 +141,7 @@ int metropolisUpdateSR(double *phi_arr, int *s, Param p, int iter) {
 
   if( iter < p.n_therm && iter%p.n_skip == 0 ) {
     cout<<"At iter "<<iter<<" the Metro acceptance rate is "<<(double)sql_accept/(double)sql_tries<<endl;
-    cout<<"and delta_phi is "<<p.delta_phi<<endl;
   }
-
-  return 0;
 }
 
 void swendsenWangUpdateSR(double *phi_arr, int *s, Param p, int iter) {

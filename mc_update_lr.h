@@ -25,6 +25,10 @@ void swendsenWangClusterAddLR(int i, int *s, int cSpin, int clusterNum,
 			      double *LR_couplings, double *phi,
 			      Param p);
 
+double actionLR(double *phi_arr, int *s, Param p,
+		double *LR_couplings,
+		double &KE, double &PE);
+
 void clusterPossibleLR(int i, int *s, int cSpin,
 		       bool *Pcluster, std::vector<int> &Rcluster,
 		       Param p);

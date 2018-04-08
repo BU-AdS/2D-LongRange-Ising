@@ -10,18 +10,18 @@
 
 using namespace std;
 
-int seed = clock();
-//int seed = 1234;
+//int seed = clock();
+int seed = 1234;
 mt19937 rng(seed);
 uniform_real_distribution<double> unif(0.0,1.0);
 int CACHE_LINE_SIZE = sysconf(_SC_LEVEL1_DCACHE_LINESIZE);
 int sze = 512;
 
 #include "util.h"
-#include "data_io.h"
+//#include "data_io.h"
 #include "graph.h"
 #include "cg.h"
-#include "eigen.h"
+//#include "eigen.h"
 #include "mc_update_sr.h"
 #include "mc_update_lr.h"
 #include "monte_carlo_ads_local.h"
@@ -93,7 +93,7 @@ int main(int argc, char **argv) {
     //Print paramters
     p.print();
     
-    MonteCarlo2DIsing Sim(p);
+    PhiFourth2D Sim(p);
     Sim.runSimulation(p);
   }
   

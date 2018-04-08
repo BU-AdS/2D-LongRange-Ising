@@ -60,79 +60,88 @@ inline int ttm(int i, Param p){
   return i % p.S1 + p.S1 * ((i / p.S1 - 1 + p.Lt) % p.Lt);
 }
 
-//---------------------------------------//
-//Square 2D Ising Monte Carlo base class //
-//---------------------------------------//
-MonteCarlo2DIsing::MonteCarlo2DIsing(Param p) {
+//----------------//
+// 2D Ising class //
+//----------------//
+Ising2D::Ising2D(Param p) {
 
   long long time = 0.0;
   auto start1 = std::chrono::high_resolution_clock::now();
   cout<<"CPU malloc and init start..."<<endl;
-  
-  int x_len = p.S1/2 + 1;
-  int t_len = p.Lt/2 + 1;
+
+  int S1 = p.S1;
+  int Lt = p.Lt;
+  int vol = p.surfaceVol;
+  int x_len = S1/2 + 1;
+  int t_len = Lt/2 + 1;
   int arr_len = x_len*t_len;
   
   //Long Range coupling array
   LR_couplings = (double*)malloc(arr_len*sizeof(double));
   //Arrays to hold spin and phi values.  
-  s = (int*)malloc(p.surfaceVol*sizeof(int));
-  phi = (double*)malloc(p.surfaceVol*sizeof(double));
+  s = (int*)malloc(vol*sizeof(int));
+  s_cpy = (int*)malloc(vol*sizeof(int));
+
   //Running correlation function arrays.
-  run_corr_t = (double*)malloc((p.Lt/2+1)*sizeof(double));
-  run_corr_s = (double*)malloc((p.S1/2+1)*sizeof(double));
+  run_corr_t = (double*)malloc((Lt/2+1)*sizeof(double));
+  run_corr_s = (double*)malloc((S1/2+1)*sizeof(double));
   //Individual correlation functions.
   ind_corr_t = (double**)malloc((p.n_meas)*sizeof(double*));
   ind_corr_s = (double**)malloc((p.n_meas)*sizeof(double*));
 
+  //Autocorrelation
+  auto_corr = (double*)malloc((p.n_meas)*sizeof(double));
+  
   //Initialise Phi and spin fields.
-  for(int i = 0;i < p.surfaceVol; i++) {
-    phi[i] = 2.0*unif(rng) - 1.0;
-    s[i] = (phi[i] > 0) ? 1 : -1;
-    //cout<<"phi["<<i<<"] = "<<phi[i]<<" s["<<i<<"] = "<<s[i]<<endl;
+  for(int i = 0;i < vol; i++) {
+    s[i] = (2.0*unif(rng) - 1.0 > 0) ? 1 : -1;
+    //cout<<"s["<<i<<"] = "<<s[i]<<endl;
   } 
-  
-  for(int j=0; j<t_len; j++){
-    for(int i=0; i<x_len; i++){
+
+  //Long-range coupling
+  for(int j=0; j<t_len; j++)
+    for(int i=0; i<x_len; i++)
       LR_couplings[i+j*x_len] = 0.0;
-    }
-  }
-  
-  for(int i=0; i<p.Lt/2+1; i++) {
-    run_corr_t[i] = 0.0;
-  }
-  for(int i=0; i<p.S1/2+1; i++) {
-    run_corr_s[i] = 0.0;
-  }
-  
+
+  //Running correlation function arrays
+  for(int i=0; i<Lt/2+1; i++) run_corr_t[i] = 0.0;
+  for(int i=0; i<S1/2+1; i++) run_corr_s[i] = 0.0;
+
+  //Individual correlation function arrays, autocorrelation.
   for(int i=0; i<p.n_meas; i++) {
-    ind_corr_t[i] = (double*)malloc((p.Lt/2+1)*sizeof(double));
-    ind_corr_s[i] = (double*)malloc((p.S1/2+1)*sizeof(double));
-    
-    for(int j=0; j<p.Lt/2+1; j++) ind_corr_t[i][j] = 0.0;
-    for(int j=0; j<p.S1/2+1; j++) ind_corr_s[i][j] = 0.0;
+    auto_corr[i] = 0.0;    
+    ind_corr_t[i] = (double*)malloc((Lt/2+1)*sizeof(double));
+    ind_corr_s[i] = (double*)malloc((S1/2+1)*sizeof(double));    
+    for(int j=0; j<Lt/2+1; j++) ind_corr_t[i][j] = 0.0;
+    for(int j=0; j<S1/2+1; j++) ind_corr_s[i][j] = 0.0;
   }
   
   auto elapsed1 = std::chrono::high_resolution_clock::now() - start1;
   time = std::chrono::duration_cast<std::chrono::microseconds>(elapsed1).count();
-  cpu_added = (bool*)malloc(p.surfaceVol*sizeof(bool));
+  cpu_added = (bool*)malloc(vol*sizeof(bool));
   cout<<"CPU malloc and init time = "<<time/(1.0e6)<<endl;
-
+  
 #ifdef USE_GPU
 
   //Device memory allocations.
   cout<<"CUDA malloc start..."<<endl;
   
   start1 = std::chrono::high_resolution_clock::now();
-  //Allocate space on the GPU for the couplings and distances.
+  //Allocate space on the GPU.
+  cudaMalloc((void**) &states, vol*sizeof(curandState_t));  
+  
   cudaMalloc((void**) &gpu_LR_couplings, arr_len*sizeof(double));  
-  cudaMalloc((void**) &gpu_phi, p.surfaceVol*sizeof(double));
-  cudaMalloc((void**) &gpu_s, p.surfaceVol*sizeof(int));
-  cudaMalloc((void**) &gpu_added, p.surfaceVol*sizeof(bool));  
-  cudaMalloc((void**) &states, p.surfaceVol*sizeof(curandState_t));  
-  cudaMalloc((void**) &gpu_rands, p.surfaceVol*sizeof(double));
-  cudaMalloc((void**) &gpu_rands_aux, p.surfaceVol*sizeof(double));  
-  cudaMalloc((void**) &gpu_result, p.surfaceVol*sizeof(double));
+  cudaMalloc((void**) &gpu_rands, vol*sizeof(double));
+  cudaMalloc((void**) &gpu_rands_aux, vol*sizeof(double));  
+  cudaMalloc((void**) &gpu_result, vol*sizeof(double));
+  cudaMalloc((void**) &gpu_ind_corr_s, x_len*sizeof(double));
+  cudaMalloc((void**) &gpu_ind_corr_t, t_len*sizeof(double));
+  
+  cudaMalloc((void**) &gpu_s, vol*sizeof(int));
+  cudaMalloc((void**) &gpu_s_cpy, vol*sizeof(int));
+
+  cudaMalloc((void**) &gpu_added, vol*sizeof(bool));
+  cudaMalloc((void**) &gpu_cluster, vol*sizeof(bool));  
   
   elapsed1 = std::chrono::high_resolution_clock::now() - start1;
   time = std::chrono::duration_cast<std::chrono::microseconds>(elapsed1).count();
@@ -144,23 +153,69 @@ MonteCarlo2DIsing::MonteCarlo2DIsing(Param p) {
   time = std::chrono::duration_cast<std::chrono::microseconds>(elapsed1).count();
   cout<<"CUDA rand states init time = "<<time/(1.0e6)<<endl;
   
-  debug_arr1 = (double*)malloc(p.surfaceVol*sizeof(double));
-  debug_arr2 = (double*)malloc(p.surfaceVol*sizeof(double));
-  for(int j=0; j<p.S1; j++){
-    for(int i=0; i<p.Lt; i++){
-      debug_arr1[i+j*p.Lt] = 0.0;
-      debug_arr2[i+j*p.Lt] = 0.0;
+  debug_arr1 = (double*)malloc(vol*sizeof(double));
+  debug_arr2 = (double*)malloc(vol*sizeof(double));
+  for(int j=0; j<S1; j++){
+    for(int i=0; i<Lt; i++){
+      debug_arr1[i+j*Lt] = 0.0;
+      debug_arr2[i+j*Lt] = 0.0;
     }
   }
-  
-#endif
-  
+#endif  
 }
 
-void MonteCarlo2DIsing::runSimulation(Param p) {
+//---------------------//
+// 2D Phi Fourth class //
+//---------------------//
+PhiFourth2D::PhiFourth2D(Param p) : Ising2D(p) {
+  
+  long long time = 0.0;
+  auto start1 = std::chrono::high_resolution_clock::now();
+  cout<<"CPU malloc and init start..."<<endl;
+
+  int vol = p.surfaceVol;
+  
+  //Arrays to hold phi values.  
+  phi = (double*)malloc(vol*sizeof(double));
+  phi_cpy = (double*)malloc(vol*sizeof(double));
+
+  //Initialise Phi and spin fields.
+  for(int i = 0;i < vol; i++) {
+    phi[i] = 2.0*unif(rng) - 1.0;
+    s[i] = (phi[i] > 0) ? 1 : -1;
+    //cout<<"phi["<<i<<"] = "<<phi[i]<<" s["<<i<<"] = "<<s[i]<<endl;
+  }
+  cpu_added = (bool*)malloc(vol*sizeof(bool));
+
+  auto elapsed1 = std::chrono::high_resolution_clock::now() - start1;
+  time = std::chrono::duration_cast<std::chrono::microseconds>(elapsed1).count();
+  cout<<"CPU malloc and init time = "<<time/(1.0e6)<<endl;
+  
+#ifdef USE_GPU
+
+  //Device memory allocations.
+  cout<<"CUDA malloc start..."<<endl;
+  
+  start1 = std::chrono::high_resolution_clock::now();
+  //Allocate space on the GPU.
+  cudaMalloc((void**) &gpu_phi, vol*sizeof(double));
+  cudaMalloc((void**) &gpu_phi_cpy, vol*sizeof(double));
+  
+  elapsed1 = std::chrono::high_resolution_clock::now() - start1;
+  time = std::chrono::duration_cast<std::chrono::microseconds>(elapsed1).count();
+  cout<<"CUDA malloc time = "<<time/(1.0e6)<<endl;
+
+#endif  
+}
+
+
+void PhiFourth2D::runSimulation(Param p) {
 
   //Create object to hold observable data.
   observables obs(p.n_meas);
+
+  //Counts number of measurements.
+  int meas = 0;
 
   if(p.coupling_type != SR) {
     //Create LR couplings and kinetic term denomnators
@@ -200,60 +255,70 @@ void MonteCarlo2DIsing::runSimulation(Param p) {
       norm = 1.0/(meas);
 
       //Visualisation tool
-      //visualiserSqr(phi, obs.avePhiAb*norm, p);
+      visualiserSqr(phi, obs.avePhiAb*norm, p);
       
       //Calculate correlaton functions and update the average.
+      //int rand_site = int(unif(rng) * p.surfaceVol);	      
+      //GPU_correlatorsImpWolff(rand_site, meas-1, obs.avePhi*norm, p);
+
+      long long time = 0.0;
+      auto start1 = std::chrono::high_resolution_clock::now();
+      correlatorsImpWolff(ind_corr_t, run_corr_t,
+			  ind_corr_s, run_corr_s,
+			  meas-1, obs.avePhi*norm, p);
+      
+      auto elapsed1 = std::chrono::high_resolution_clock::now() - start1;
+      time = std::chrono::duration_cast<std::chrono::microseconds>(elapsed1).count();
+      cout<<"Correlation Function Calculation time = "<<time/(1.0e6)<<endl;
+      
+      
       /*
-      correlatorsImp(ind_corr_t, meas-1, run_corr_t, true,  
-		     phi, obs.avePhi*norm, s, p);
-      correlatorsImp(ind_corr_s, meas-1, run_corr_s, false, 
-		     phi, obs.avePhi*norm, s, p);
+	bool isTemporal;
+	isTemporal = true;
+	correlators(ind_corr_t, run_corr_t, isTemporal, meas-1, 
+	obs.avePhi*norm, p);
+	isTemporal = false;
+	correlators(ind_corr_s, run_corr_s, isTemporal, meas-1,
+	obs.avePhi*norm, p);
       */
-      correlators(ind_corr_t, meas-1, run_corr_t, true,  
-		  phi, obs.avePhi*norm, p);
-      correlators(ind_corr_s, meas-1, run_corr_s, false, 
-		  phi, obs.avePhi*norm, p);
       
       //Jacknife and dump the data
       if(meas%10 == 0) {	
 	writeObservables(ind_corr_t, run_corr_t, ind_corr_s,
 			 run_corr_s, meas, obs, p);
-      }      
+      }
+      
+      //Calculate the autocorrelation of |phi|
+      autocorrelation(obs.PhiAb_arr, obs.avePhiAb*norm, meas, auto_corr);
     }
   }
-  
-  free(run_corr_t);
-  free(run_corr_s);
-  free(s);
-  free(phi);
-  
 }
 
-void MonteCarlo2DIsing::updateIter(Param p, int iter) {
+void PhiFourth2D::updateIter(Param p, int iter) {
   
-    auto start = std::chrono::high_resolution_clock::now();    
-    //Cluster steps.
-    if(p.useWolff)  wolffUpdate(p, iter);
-    else swendsenWangUpdate(p, iter);
-    
-    auto elapsed = std::chrono::high_resolution_clock::now() - start;
-    cluster += std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();
-
-    //Metro step.
-    start = std::chrono::high_resolution_clock::now();
-    metropolisUpdate(p, iter);
-    elapsed = std::chrono::high_resolution_clock::now() - start;
-    metro += std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();
+  auto start = std::chrono::high_resolution_clock::now();    
+  //Cluster steps.
+  if(p.useWolff)  wolffUpdate(p, iter);
+  else swendsenWangUpdate(p, iter);
+  
+  auto elapsed = std::chrono::high_resolution_clock::now() - start;
+  cluster += std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();
+  
+  //Metro step.
+  start = std::chrono::high_resolution_clock::now();
+  metropolisUpdate(p, iter);
+  elapsed = std::chrono::high_resolution_clock::now() - start;
+  metro += std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();
 }
 
-void MonteCarlo2DIsing::thermalise(Param p) {
+void PhiFourth2D::thermalise(Param p) {
   
   cout<<"Begin Metropolis cool down."<<endl;
   //Perform n_therm pure metropolis hits during the hot phase.
   auto start = std::chrono::high_resolution_clock::now();        
   for(int iter = 0; iter < p.n_metro_cool; iter++) {
     metropolisUpdate(p, iter);  
-
+    
     if((iter)%p.n_skip == 0 && iter > 0){
       auto elapsed = std::chrono::high_resolution_clock::now() - start;
       metro = std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();
@@ -284,7 +349,7 @@ void MonteCarlo2DIsing::thermalise(Param p) {
 //------------------------------------------------//
 // Wrappers for the different LR and SR functions //
 //------------------------------------------------//
-void MonteCarlo2DIsing::wolffUpdate(Param p, int iter) {
+void PhiFourth2D::wolffUpdate(Param p, int iter) {
 
   for(int i=0; i<p.n_cluster; i++) {
     if(p.coupling_type == SR) {
@@ -311,15 +376,15 @@ void MonteCarlo2DIsing::wolffUpdate(Param p, int iter) {
   }
 }
 
-void MonteCarlo2DIsing::swendsenWangUpdate(Param p, int iter){
+void PhiFourth2D::swendsenWangUpdate(Param p, int iter){
   
   if(p.coupling_type == SR) 
     swendsenWangUpdateSR(phi, s, p, iter); 
   else
-    swendsenWangUpdateLR(phi, s, p, LR_couplings, iter); 
+    swendsenWangUpdateLR(p, iter); 
 }
 
-void MonteCarlo2DIsing::metropolisUpdate(Param p, int iter) {
+void PhiFourth2D::metropolisUpdate(Param p, int iter) {
   
   if(p.coupling_type == SR) {
     metropolisUpdateSR(phi, s, p, iter);
@@ -388,97 +453,6 @@ observables::observables(int meas) {
    
 }
 
-double actionLR(double *phi_arr, int *s, Param p,
-		double *LR_couplings, 
-		double &KE, double &PE) {  
-  
-  KE = 0.0;
-  PE = 0.0;
-  int S1 = p.S1;
-  int Lt = p.Lt;
-  int vol = S1*Lt;
-  
-  int x_len = S1/2 + 1;
-    
-  double phi_sq;
-  double phi;
-  double lambda_p = 0.25*p.lambda;
-  double musqr_p  = 0.50*p.musqr;
-  
-  for (int i = 0; i < vol; i++)
-    if (s[i] * phi_arr[i] < 0)
-      printf("ERROR s and phi NOT aligned (actionPhi SqNL) ! \n");
-  
-  for (int i = 0; i < vol; i++) {    
-    phi = phi_arr[i];
-    phi_sq = phi*phi;
-    
-    //PE terms
-    PE += lambda_p * phi_sq*phi_sq;
-    PE += musqr_p  * phi_sq;
-
-    int t1,x1;
-    t1 = i / S1;
-    x1 = i % S1;
-    
-    //KE terms
-#ifdef USE_OMP
-    
-    int chunk = CACHE_LINE_SIZE/sizeof(double);
-    
-#pragma omp parallel 
-    {
-      double local = 0.0;
-      double val = 0.0;
-      int t2,dt,x2,dx;
-#pragma omp for nowait 
-      for(int j=0; j<vol; j+=chunk) {
-	for(int k=0; k<chunk; k++) { 
-
-	  if( (j+k) != i ) {
-	    //Index divided by circumference, using the int floor feature/bug,
-	    //gives the timeslice index.
-	    t2 = (j+k) / S1;
-	    dt = abs(t2-t1) > Lt/2 ? Lt - abs(t2-t1) : abs(t2-t1);
-	    
-	    //The index modulo the circumference gives the spatial index.
-	    x2 = (j+k) % S1;            
-	    dx = abs(x2-x1) > S1/2 ? S1-abs(x2-x1) : abs(x2-x1);      
-	    
-	    //FIXME: Here we are overcounting by a factor of two, hence the 0.25 coefficient.
-	    val = 0.25*((phi - phi_arr[j+k])*(phi - phi_arr[j+k])*
-			LR_couplings[dx+dt*x_len]*LR_couplings[dx+dt*x_len]);
-	    
-	    local += val;
-	  }
-	}
-      }
-#pragma omp atomic 
-      KE += local;
-    }    
-#else
-
-    int t2,dt,x2,dx;
-    for(int j=0; j<p.surfaceVol; j++) {
-      
-      if( j != i ) {
-	//Index divided by circumference, using the int floor feature/bug,
-	//gives the timeslice index.
-	t2 = j / p.S1;
-	dt = abs(t2-t1) > p.Lt/2 ? p.Lt - abs(t2-t1) : abs(t2-t1);
-	
-	//The index modulo the circumference gives the spatial index.
-	x2 = j % p.S1;            
-	dx = abs(x2-x1) > p.S1/2 ? p.S1-abs(x2-x1) : abs(x2-x1);      
-	
-	KE += 0.25*((phi - phi_arr[j])*(phi - phi_arr[j])*
-		    LR_couplings[dx+dt*x_len]*LR_couplings[dx+dt*x_len]);
-      }
-    }
-#endif
-  }
-  return PE + KE;
-}
 
 double actionSR(double *phi_arr, int *s, Param p,
 		double & KE, double & PE) {  
@@ -616,15 +590,16 @@ void writeObservables(double **ind_corr_t, double *run_corr_t,
 }
 
 inline double Coupling(double dt, double dth, Param p) {
- 
+
+  
   dt  *= M_PI/p.S1;
   dth *= M_PI/p.S1;  
 
-  return 1.0/pow(cosh(dt) - cos(dth), 1+p.sigma/2);
+  return 1.0/pow( (cosh(dt) - cos(dth)) , 1+p.sigma/2);
 
 }
 
-void MonteCarlo2DIsing::createLRcouplings(Param p) {
+void Ising2D::createLRcouplings(Param p) {
   
   double sigma = p.sigma;
   int S1 = p.S1;
@@ -634,21 +609,30 @@ void MonteCarlo2DIsing::createLRcouplings(Param p) {
   int arr_len = x_len*t_len;
 
   double couplingNormTheta = 1.0/Coupling(0, 1, p);
-  double couplingNormTime = 1.0/Coupling(1, 0, p);
+  //double couplingNormTime = 1.0/Coupling(1, 0, p);
 
-  for(int j=0; j<t_len; j++){
-    for(int i=0; i<x_len; i++){
-      
-      //Associate dx with i, dt with j. dx runs fastest
-      int idx = i + j*x_len;      
-      
-      if(p.usePowLaw) LR_couplings[idx] = pow(sqrt(i*i + j*j),-(2+sigma));
-      else  LR_couplings[idx] = couplingNormTheta*Coupling((double)j, (double)i, p);
-      
-    }
-  }
+  double sum_1 = 0.0;
+  double sum_2 = 0.0;
   
   LR_couplings[0] = couplingNormTheta;  
+  
+  for(int j=0; j<t_len; j++){
+    for(int i=0; i<x_len; i++){
+
+      //Associate dx with i, dt with j. dx runs fastest
+      int idx = i + j*x_len;      
+      if(i!=0 || j!=0) {
+	if(p.usePowLaw) LR_couplings[idx] = pow(sqrt(i*i + j*j),-(2+sigma));
+	else  LR_couplings[idx] = couplingNormTheta*Coupling((double)j*p.t_scale, (double)i, p);
+	sum_1 += LR_couplings[idx];
+	sum_2 += LR_couplings[idx]*LR_couplings[idx];
+      }
+      printf("%.3e ", LR_couplings[idx]);
+    }
+    cout<<endl;
+  }
+
+  cout<<endl<<endl<<"Sum 1 = "<<sum_1<<" sum 2 = "<<sum_2<<endl<<endl;
   
 #ifdef USE_GPU
   cudaMemcpy(gpu_LR_couplings, LR_couplings,

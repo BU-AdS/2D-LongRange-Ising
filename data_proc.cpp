@@ -10,10 +10,16 @@
 #include "util.h"
 #include "hyp_util.h"
 #include "data_proc.h"
-#include "mc_update_sr.h"
+#include "mc_update_lr.h"
+#include "mc_util.h"
 
 using namespace std;
 
+extern int seed;
+extern mt19937 rng;
+extern uniform_real_distribution<double> unif;
+
+/*
 //Overloaded version to handle AdS lattices
 void correlators(double **ind_corr, int meas, double *run_corr, bool dir,
 		 vector<Vertex> NodeList, 
@@ -28,10 +34,10 @@ void correlators(double **ind_corr, int meas, double *run_corr, bool dir,
   correlators(ind_corr, meas, run_corr, dir, phi, avePhi, p);
   free(phi);  
 }
+*/
 
-
-void correlators(double **ind_corr, int meas, double *run_corr, 
-		 bool temporalDir, double *phi, double avePhi, Param p) {
+void PhiFourth2D::correlators(double **ind_corr, double *run_corr, bool temporalDir,
+			      int meas, double avePhi, Param p) {
   
   int s_size = p.S1;
   int t_size = p.Lt;
@@ -72,10 +78,10 @@ void correlators(double **ind_corr, int meas, double *run_corr,
 }
 
 
-/*
 // Improved Correlation Functions.
 //--------------------------------
 
+/*
 //Overloaded version to handle AdS lattices
 void correlatorsImp(double **ind_corr, int meas, double *run_corr,
 		    bool dir, vector<Vertex> NodeList, 
@@ -90,106 +96,138 @@ void correlatorsImp(double **ind_corr, int meas, double *run_corr,
   correlatorsImp(ind_corr, meas, run_corr, dir, phi, avePhi, s, p);
   free(phi);  
 }
+*/
 
-
-void correlatorsImp(double **ind_corr, int meas, double *run_corr, 
-		    bool temporalDir, double *phi, double avePhi, int *s,
-		    Param p){
+void PhiFourth2D::correlatorsImpSW(double **ind_corr, double *run_corr,
+				   bool temporalDir, int meas, double avePhi,
+				   Param p){
   
-  int s_size = p.S1;
-  int t_size = p.Lt;
-  int idx    = 0;
+}
+
+int corr_sqnl_wc_size = 0;
+int corr_sqnl_wc_ave = 0;
+int corr_sqnl_wc_calls = 0;
+
+void PhiFourth2D::correlatorsImpWolff(double **ind_corr_t, double *run_corr_t,
+				      double **ind_corr_s, double *run_corr_s,
+				      int meas, double avePhi, Param p){
+  
+  corr_sqnl_wc_calls++;
+  
+  for(int a=0; a<p.surfaceVol; a++) {
+    s_cpy[a] = s[a];
+    phi_cpy[a] = phi[a];
+    cpu_added[a] = false;
+  }   
+  
+  //Choose a random spin.
+  int i = int(unif(rng) * p.surfaceVol);
+  int cSpin = s_cpy[i];
+  
+  // The site belongs to the cluster, so flip it.
+  corr_sqnl_wc_size = 1;
+  s_cpy[i] *= -1;
+  phi_cpy[i] *= -1;
+  cpu_added[i] = true;
+  
+  //This function is recursive and will call itself
+  //until all attempts to increase the cluster size
+  //have failed.
+  corr_wolffClusterAddLR(i, s_cpy, cSpin, LR_couplings, phi_cpy, cpu_added, p);
+  
+  corr_sqnl_wc_ave += corr_sqnl_wc_size;
+  
+  setprecision(4);
+  cout<<"Average (CPU) corr. cluster size at iter "<<meas<<" = "<<corr_sqnl_wc_ave<<"/"<<corr_sqnl_wc_calls<<" = "<<1.0*corr_sqnl_wc_ave/corr_sqnl_wc_calls<<" = "<<100.0*corr_sqnl_wc_ave/(corr_sqnl_wc_calls*p.surfaceVol)<<"%"<<endl;
+
+  int S1 = p.S1;
+  int Lt = p.Lt;
+
+  double clusterNorm = 1.0*p.surfaceVol/corr_sqnl_wc_size;
 
   double val = 0.0;
-  
-  //Here, the objective is to identify SW clusters, identify a point in the
-  //lattice, and assert that only correlations values within the cluster 
-  //will contribute. This way, there are no cancellations from opposite sign.
-  
-  int clusterNum = 0;
-  
-  //Integer array holding the cluster number each site
-  //belongs to. If zero, the site is unchecked.
-  int *clusterDef = new int[p.surfaceVol];
-  for (int i = 0; i < p.surfaceVol; i++)
-    clusterDef[i] = 0;
-
-  //Integer array holding the spin value of each cluster,
-  int *clusterSpin = new int[p.surfaceVol];
-  for (int i = 0; i < p.surfaceVol; i++)
-    clusterSpin[i] = 1;
-
-  //Tracks which sites are potentially in the cluster.
-  bool *Pcluster = new bool[p.surfaceVol];
-
-  //Records which sites are potentially in the cluster.
-  //This will have a modifiable size, hence the vector
-  //style.
-  vector<int> Rcluster;
-
-  for (int i = 0; i < p.surfaceVol; i++) {
-    if(clusterDef[i] == 0) {
-      //This is the start of a new cluster.
-      clusterNum++; 
-      clusterDef[i] = clusterNum;
-      s[i] < 0 ? clusterSpin[clusterNum] = -1 : clusterSpin[clusterNum] = 1;
-
-      //First, we must identify the maximum possible cluster, then we 
-      //can loop over only those sites 
-
-      for (int i = 0; i < p.surfaceVol; i++) Pcluster[i] = false;
-      
-      clusterPossibleLR(i, s, clusterSpin[clusterNum], 
-				      Pcluster, Rcluster, p);
-      
-      //This function will call itself recursively until it fails to 
-      //add to the cluster
-      swendsenWangClusterAddLR(i, s, clusterSpin[clusterNum], clusterNum, 
-			       clusterDef, Rcluster, LR_couplings, 
-			       phi_arr, p);
-
-      Rcluster.clear();
-    }
-  }
+  int idx = 0;
 
   //loop over all sources
   for(int i=0; i<p.surfaceVol; i++) {
     
-    //loop over all sinks in the specified direction
-    if(temporalDir) {
-      for(int j=0; j<t_size; j++) {
-
-	if(clusterDef[j] == clusterDef[i]) {
+    if(cpu_added[i]){ 
+      
+      //loop over all sinks in the specified direction
+      for(int j=0; j<Lt; j++) {
+	
+	idx = abs(i/S1-j);
+	if(idx > Lt/2) idx = Lt - idx;
+	
+	if(cpu_added[i%S1 + j*S1]) {
 	  
-	  idx = abs(i/s_size-j);
-	  if(idx > t_size/2) idx = t_size - idx;
+	  val = ((phi_cpy[i] - avePhi) *
+		 (phi_cpy[i%S1 + j*S1] - avePhi))*clusterNorm;
 	  
-	    val = ((phi[i]    - avePhi) *
-		   (phi[i%s_size + j*s_size] - avePhi));
-	    
-	    ind_corr[meas][idx] += val;
-	    run_corr[idx] += val;
+	  ind_corr_t[meas][idx] += val;
+	  run_corr_t[idx] += val;
 	}
-      }    
-    } else {
-      for(int j=0; j<s_size; j++) {
-
-	if(clusterDef[j] == clusterDef[i]) {
+      }
+      for(int j=0; j<S1; j++) {
+	
+	idx = abs(i%S1-j);
+	if(idx > S1/2) idx = S1 - idx;
+	
+	if(cpu_added[S1*(i/S1) + j]) {
 	  
-	  idx = abs(i%s_size-j);
-	  if(idx > s_size/2) idx = s_size - idx;
+	  val = ((phi_cpy[i] - avePhi) *
+		 (phi_cpy[S1*(i/S1) + j] - avePhi))*clusterNorm;
 	  
-	  val = ((phi[i]    - avePhi) *
-		 (phi[s_size*(i/s_size) + j] - avePhi));
-	  
-	  ind_corr[meas][idx] += val;
-	  run_corr[idx] += val;
+	  ind_corr_s[meas][idx] += val;
+	  run_corr_s[idx] += val;
 	}
       }
     }
   }
 }
-*/
+
+
+void corr_wolffClusterAddLR(int i, int *s, int cSpin, double *LR_couplings,
+			    double *phi, bool *cpu_added, Param p) {
+  
+  double phi_lc = phi[i];
+  int S1 = p.S1;
+  int x_len = S1/2 + 1;
+
+  int t1,x1,t2,x2,dt,dx;
+  t1 = i / p.S1;
+  x1 = i % p.S1;
+  
+  double prob = 0.0;
+  double rand = 0.0;
+  //We now loop over the possible lattice sites, adding sites
+  //(creating bonds) with the specified LR probablity.
+  for(int j=0; j<p.surfaceVol; j++) {
+    if(s[j] == cSpin && j != i) {
+      
+      //Index divided by circumference, using the int floor feature/bug,
+      //gives the timeslice index.
+      t2 = j / p.S1;
+      dt = abs(t2-t1) > p.Lt/2 ? p.Lt - abs(t2-t1) : abs(t2-t1);
+      
+      //The index modulo the circumference gives the spatial index.
+      x2 = j % p.S1;            
+      dx = abs(x2-x1) > p.S1/2 ? p.S1 - abs(x2-x1) : abs(x2-x1);      
+      
+      prob = 1 - exp(2*phi_lc*phi[j]*LR_couplings[dx + dt*x_len]);
+      rand = unif(rng);
+      if(rand < prob) {
+	corr_sqnl_wc_size++;
+	// The site belongs to the cluster, so flip it.
+	s[j] *= -1;
+	phi[j] *= -1;
+	cpu_added[j] = true;
+	corr_wolffClusterAddLR(j, s, cSpin, LR_couplings, phi, cpu_added, p);
+      }
+    }
+  }
+}
+
 
 //Calculate the autocorrelation of |phi|
 void autocorrelation(double *PhiAb_arr, double avePhiAbs, 
@@ -206,11 +244,12 @@ void autocorrelation(double *PhiAb_arr, double avePhiAbs,
       auto_corr[k] += (PhiAb_arr[i]*PhiAb_arr[i+k] - 
 		       avePhiAbs*avePhiAbs)/(meas-k);
     }
-    cout<<"Autocorrelation "<<k<<" = "<<auto_corr[k]/auto_corr[0]<<endl;
-    if(k<100) auto_corr_t -= k/log(auto_corr[k]);
-    cout<<"Autocorrelation time at k = "<<1+2*auto_corr_t<<endl;
+    if(k<10) {
+      cout<<"Autocorrelation "<<k<<" = "<<auto_corr[k]/auto_corr[0]<<endl;
+      auto_corr_t -= k/log(auto_corr[k]);
+      cout<<"Autocorrelation time at k = "<<1+2*auto_corr_t<<endl;
+    }
   }
-
 }
 
 //Data is entered in 'raw form.' normalisation of the data is done

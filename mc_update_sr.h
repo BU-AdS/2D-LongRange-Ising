@@ -22,6 +22,9 @@ void swendsenWangUpdateSR(double *phi, int *s, Param p, int iter);
 void swendsenWangClusterAddSR(int i, int *s, int cSpin, int clusterNum, 
 			      int *clusterDef, double *phi, Param p);
 
-int metropolisUpdateSR(double *phi, int *s, Param p, int iter);
+void metropolisUpdateSR(double *phi, int *s, Param p, int iter);
+
+double actionSR(double *phi, int *s, Param p, double &KE, double &PE);
+
 
 #endif

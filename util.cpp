@@ -35,15 +35,15 @@ void Param::usage(char **argv) {
   printf("--muSqr <Float>                  The phi^4 mass^2 term. This is usually negative...\n");
   printf("--lambda <Float>                 The phi^4 interaction term.\n");
   printf("--sigma <Float>                  The exponent in the LR power law.\n");
+  printf("--tScale <Float>                 The value of \alpha in cosh(\alpha * \delta t) in radial LR coupling.\n");
   //MC params
   printf("--nMetroCool <n>                 The number of pure Metropolis steps to perfom in the initial cooldown\n");
   printf("--nTherm <n>                     The number of thermalisation steps (1 x metro + nCluster x Cluster)\n");
   printf("--nSkip  <n>                     The number of samples to skip between measuremnets.\n");
   printf("--nMeas  <n>                     The number of measurements to make.\n");
   printf("--nCluster <n>                   The number of cluster sweeps to make per Metropolis step.\n");
+  printf("--deltaPhi <float>               The parameter that governs how much an individual phi value is changed in the Metropolis test.\n");
 
-  printf("--tScale <Float>                 The scale by which the temporal distance is scaled.\n");
-  
   //AdS params
   printf("--q <n>                          The triangulation of the Poincare disk.\n");
   printf("--levels <n>                     The number of levels to which the Poincare Disk is generated.\n");
@@ -332,6 +332,21 @@ int Param::init(int argc, char **argv, int *idx) {
     goto out;
   }
 
+  //Temporal scaling
+  if( strcmp(argv[i], "--tScale") == 0){
+    if (i+1 >= argc){
+      usage(argv);
+    }
+    t_scale = atof(argv[i+1]);
+    if(t_scale < 0) {
+      cout<<"Invalid t_scale ("<<t_scale<<") given. Please ensure that tscale > 0."<<endl;
+      exit(0);
+    }
+    i++;
+    ret = 0;
+    goto out;
+  }
+  
   //--------------------//
   //     MC params      //
   //--------------------//
@@ -411,14 +426,14 @@ int Param::init(int argc, char **argv, int *idx) {
     goto out;
   }
   
-  //Temporal scaling
-  if( strcmp(argv[i], "--tScale") == 0){
+  //Delta phi
+  if( strcmp(argv[i], "--deltaPhi") == 0){
     if (i+1 >= argc){
       usage(argv);
     }
-    t_scale = atof(argv[i+1]);
-    if(t_scale < 0) {
-      cout<<"Invalid t_scale ("<<t_scale<<") given. Please ensure that tscale > 0."<<endl;
+    delta_phi = atof(argv[i+1]);
+    if(t_scale == 0) {
+      cout<<"Invalid t_scale ("<<t_scale<<") given. Please ensure that tscale != 0.0."<<endl;
       exit(0);
     }
     i++;

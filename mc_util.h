@@ -59,20 +59,19 @@ class observables {
 };
 
 
-//---------------------------------------//
-//Square 2D Ising Monte Carlo base class //
-//---------------------------------------//
+//----------------//
+// 2D Ising class //
+//----------------//
 
-class MonteCarlo2DIsing {
+class Ising2D {
   
  public:
   
   //Array for the LR couplings.
   double *LR_couplings;
 
-  //Arrays to hold spin and phi values.  
+  //Array to hold spin values.  
   int *s;
-  double *phi;
   
   //Running correlation function arrays.
   double *run_corr_t;
@@ -82,18 +81,17 @@ class MonteCarlo2DIsing {
   double **ind_corr_t;
   double **ind_corr_s;
 
-  //The current measurement number.
-  int meas = 0;
+  //Holds Autocorrelation data
+  double *auto_corr;
   
   //1.0/meas
   double norm = 0.0;
   
-  //Object to hold MC update times
+  //Objects to hold MC update times
   long long metro = 0.0;
   long long cluster = 0.0;
 
-#ifdef USE_GPU
-  //GPU objects
+#ifdef USE_GPU  
   // CUDA's random number library uses curandState_t to keep track of the seed value
   // we will store a random state for every thread  
   curandState_t* states;
@@ -103,13 +101,18 @@ class MonteCarlo2DIsing {
   double *gpu_rands_aux;
   double *gpu_result;
   double *gpu_LR_couplings;
-  double *gpu_phi;
+
+  double *gpu_ind_corr_t;//FIXME
+  double *gpu_ind_corr_s;//FIXME 
   
   bool *cpu_added;
   bool *gpu_added;
-
+  bool *gpu_cluster;
+  
   int *gpu_s;
-
+  int *gpu_s_cpy;
+  int *s_cpy;
+  
   double *debug_arr1;
   double *debug_arr2;
   
@@ -119,11 +122,12 @@ class MonteCarlo2DIsing {
   void GPU_wolffUpdateLR(Param p, int rand_site, int iter, int i);
   void GPU_copyArraysToHost(Param p);
   void GPU_copyArraysToDevice(Param p);
-  
+  void GPU_correlatorsImpWolff(int i, int meas, double avePhi, Param p);
+    
 #endif  
   
   //Constructor
-  MonteCarlo2DIsing(Param p);
+  Ising2D(Param p);
 
   //Do n_cluster updates, and one metro update.
   void updateIter(Param p, int iter);
@@ -132,22 +136,72 @@ class MonteCarlo2DIsing {
   //until thermalisation.
   void thermalise(Param p);
 
-  //Self explanatory...
   void runSimulation(Param p);
   void createLRcouplings(Param p);
-  
-  //--------------------------------------------------------//
-  // Wrappers for the different LR and SR cluster functions //
-  //--------------------------------------------------------//
-  void wolffUpdate(Param p, int iter);
-  
-  void swendsenWangUpdate(Param p, int iter);
-  
-  void metropolisUpdate(Param p, int iter);
 
-  int metropolisUpdateLR(Param &p, int iter);
-    
+  void swendsenWangUpdateLR(Param p, int iter);
+  
+  //Wrappers for the different LR and SR cluster functions.
+  void wolffUpdate(Param p, int iter);  
+  void swendsenWangUpdate(Param p, int iter);
+  void metropolisUpdate(Param p, int iter);
+  void metropolisUpdateLR(Param p, int iter);
+
 };
+
+class PhiFourth2D: public Ising2D {
+  
+ public: 
+  double *phi;
+  
+  //Constructor
+  PhiFourth2D(Param p);
+  
+  
+  //Do n_cluster updates, and one metro update.
+  void updateIter(Param p, int iter);
+  
+  //Do some initial Metro updates, then run updateIter
+  //until thermalisation.
+  void thermalise(Param p);
+  
+  void runSimulation(Param p);
+  void swendsenWangUpdateLR(Param p, int iter);
+  //Wrappers for the different LR and SR cluster functions.
+  void wolffUpdate(Param p, int iter);  
+  void swendsenWangUpdate(Param p, int iter);
+  void metropolisUpdate(Param p, int iter);
+  void metropolisUpdateLR(Param p, int iter);
+  
+  
+#ifdef USE_GPU
+  
+  double *gpu_phi;
+  double *gpu_phi_cpy;
+  double *phi_cpy;
+  double *gpu_ind_corr_s;
+
+  double GPU_metropolisUpdateLR(Param p, int iter);
+  void GPU_wolffUpdateLR(Param p, int rand_site, int iter, int i);
+  void GPU_copyArraysToHost(Param p);
+  void GPU_copyArraysToDevice(Param p);
+  void GPU_correlatorsImpWolff(int i, int meas, double avePhi, Param p);
+
+#endif
+  
+  //Correlation function calculator
+  void correlators(double **ind_corr, double *run_corr, bool temporalDir,
+		   int meas, double avePhi, Param p);
+  void correlatorsImpSW(double **ind_corr, double *run_corr,
+			bool temporalDir,
+			int meas, double avePhi, Param p);
+  
+  void correlatorsImpWolff(double **ind_corr_s, double *run_corr_s,
+			   double **ind_corr_t, double *run_corr_t,
+			   int meas, double avePhi, Param p);
+  
+};
+  
 
 //Extract measurements from simulation
 void measure(observables &obs, double *phi, int *s, 
@@ -158,15 +212,5 @@ void measure(observables &obs, double *phi, int *s,
 void writeObservables(double **ind_corr_t, double *run_corr_t, 
 		      double **ind_corr_s, double *run_corr_s,
 		      int idx, observables obs, Param p);
-
-//Square 2D Ising short range utils
-double actionSR(double *phi_arr, int *s, 
-		Param p, double &KE, double &PE);
-
-//Square 2D Ising long range utils
-double actionLR(double *phi_arr, int *s, Param p,
-		double *LR_couplings,
-		double &KE, double &PE);
-
 
 #endif

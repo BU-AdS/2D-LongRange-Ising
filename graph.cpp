@@ -25,7 +25,7 @@ void getComplexPositions(std::vector<Vertex> &NodeList, Param& p){
     //Assume for now that the origin (level 0) is a vertex
     NodeList[0].z = 0.0;
     NodeList[0].temporal_weight = p.t_scale;
-    //cout<<"L="<<0<<" n="<<0<<" "<<NodeList[0].temporal_weight<<endl;
+
     //Assert that node 1 is on the real axis
     complex<double> init(edgeLength(q),0.0);
     NodeList[1].z = init;
@@ -44,7 +44,6 @@ void getComplexPositions(std::vector<Vertex> &NodeList, Param& p){
 	  }
 	}
 	NodeList[n].temporal_weight = p.t_scale/(1+pow(abs(NodeList[n].z),2));	   
-	//cout<<"L="<<l<<" n="<<n<<" "<<NodeList[n].temporal_weight<<endl;
       }
     }    
   }
@@ -405,7 +404,7 @@ void buildGraph(vector<Vertex> &NodeList, Param p) {
 	NodeList[n].nn[0] = endNode(1,p);
       } else {
 	NodeList[n].nn[0] = n-1;
-      } //OK
+      } 
       //Check if last node
       if(n == endNode(1,p)) {
 	NodeList[n].nn[NodeList[n].fwdLinks]   = n+1;
@@ -512,5 +511,4 @@ void buildGraph(vector<Vertex> &NodeList, Param p) {
       NodeList[t*offset + n].nn[q] = n;
     }
   }
-    
 }

@@ -14,8 +14,6 @@ int gpu_wc_ave = 0;
 int gpu_wc_size = 0;
 int gpu_wc_calls = 0;
 int gpu_wc_poss = 0;
-int gpu_wc_t_size = 0;
-int gpu_wc_s_size = 0;
 int gpu_accept = 0;
 int gpu_tries = 0;
 
@@ -25,6 +23,8 @@ int chunk = CACHE_LINE_SIZE/sizeof(double);
 
 using namespace cooperative_groups;
 
+void gpu_corr_wolffClusterAddLR(int i, int *s, int cSpin, double *LR_couplings,
+				double *phi, bool *cluster, Param p);
 
 //--------------------------------------------------------------------------
 //Simple CUDA error parser
@@ -32,7 +32,8 @@ using namespace cooperative_groups;
 void Check_CUDA_Error(const char *message, int site, int iter) {
   cudaError_t error = cudaGetLastError();
   if(error!=cudaSuccess) {
-    fprintf(stderr, "ERROR: %s at site %d iter %d: %s\n", message, site, iter, cudaGetErrorString(error) );
+    fprintf(stderr, "ERROR: %s at site %d iter %d: %s\n", message, site,
+	    iter, cudaGetErrorString(error) );
     exit(-1);
   }
 }
@@ -51,17 +52,21 @@ __device__ __inline__ double fetch_double(int2 i){
 //Kernel to convert booleans to a summed integer
 //--------------------------------------------------------------------------
 __global__ void count_added(bool *added, int *sum){
-
+  
   __shared__ int sdata[sze];
+
   int bid = blockIdx.x;
   int tid = threadIdx.x;
   int bdim = blockDim.x;
 
   //Transfer bool to shared int array
-  for(int a=0; a<bdim; a++) {
-    if(added[bid*bdim + tid]) sdata[tid]++;
+  if(tid == 0) {
+    for(int a=0; a<bdim; a++) {
+      if(added[bid*bdim + a]) sdata[a] = 1;
+      else sdata[a] = 0;
+    }
   }
-
+  
   //Do block reduction in shared memory  
   for (unsigned int s=blockDim.x/2; s>0; s>>=1) {
     if (tid < s) sdata[tid] += sdata[tid + s];
@@ -70,7 +75,7 @@ __global__ void count_added(bool *added, int *sum){
   
   auto g = this_thread_block();
   if (g.thread_rank() == 0) atomicAdd(sum, sdata[0]);
-
+  
 }
 
 
@@ -117,7 +122,7 @@ void texAndBind(cudaTextureObject_t &texObject, double *gpu_array, int vol) {
 //--------------------------------------------------------------------------
 //Copy arrays from device to host
 //--------------------------------------------------------------------------
-void MonteCarlo2DIsing::GPU_copyArraysToHost(Param p) {
+void PhiFourth2D::GPU_copyArraysToHost(Param p) {
   
   int vol = p.S1*p.Lt;
   cudaMemcpy(phi, gpu_phi, vol*sizeof(double), cudaMemcpyDeviceToHost);
@@ -130,7 +135,7 @@ void MonteCarlo2DIsing::GPU_copyArraysToHost(Param p) {
 //--------------------------------------------------------------------------
 //Copy arrays from host to device
 //--------------------------------------------------------------------------
-void MonteCarlo2DIsing::GPU_copyArraysToDevice(Param p) {
+void PhiFourth2D::GPU_copyArraysToDevice(Param p) {
   
   int vol = p.S1*p.Lt;
   cudaMemcpy(gpu_phi, phi, vol*sizeof(double), cudaMemcpyHostToDevice);
@@ -158,7 +163,7 @@ __global__ void updatePhiAndSpin(double *gpu_rands, double *gpu_phi, int *gpu_s,
 //--------------------------------------------------------------------------
 //Initialise the GPU random number array from the CPU
 //--------------------------------------------------------------------------
-void MonteCarlo2DIsing::GPU_initRand(Param p, int seed,
+void Ising2D::GPU_initRand(Param p, int seed,
 				     curandState_t* states) {
   
   // invoke the GPU (from the CPU) to initialize the random states 
@@ -203,10 +208,10 @@ __global__ void candidatePhi(curandState_t *states, double* rands,
 //--------------------------------------------------------------------------
 //Device function to compute a (custom) coupling function
 //--------------------------------------------------------------------------
-__device__ double couplingFunction(double dth, double dt, double sigma, int S1){
-  
+__device__ double couplingFunction(double dth, double dt, double sigma, int S1, double t_scale){
+
   dth *= M_PI/S1;  
-  dt  *= M_PI/S1;
+  dt  *= t_scale*M_PI/S1;
   
   return pow((cosh(dt) - cos(dth)) , -(1+sigma/2));
   
@@ -217,7 +222,7 @@ __device__ double couplingFunction(double dth, double dt, double sigma, int S1){
 //Add new sites to the Wolff cluster, given a newly added site i
 //--------------------------------------------------------------------------
 __global__ void clusterAdd(double *gpu_rands, double *gpu_phi, int *gpu_s,
-			   double phi_i, int S1, int Lt, int t1, int x1,
+			   double phi_i, int S1, int Lt, int t1, int x1, double t_scale,
 			   int cSpin, bool *gpu_added,
 			   double sigma, bool usePow, double couplingNorm) {
 
@@ -243,7 +248,7 @@ __global__ void clusterAdd(double *gpu_rands, double *gpu_phi, int *gpu_s,
     dx = abs(x2-x1) > S1/2 ? S1 - abs(x2-x1) : abs(x2-x1);      
     
     if(usePow) coupling = pow(sqrt(dx*dx + dt*dt), -(2+sigma));
-    else coupling = couplingNorm*couplingFunction(dx, dt, sigma, S1);
+    else coupling = couplingNorm*couplingFunction(dx, dt, sigma, S1, t_scale);
     
 #ifdef DEBUG
     printf("(TESTING) Hello from block %d, thread %d : %f %f %f %f %f\n",
@@ -265,19 +270,172 @@ __global__ void clusterAdd(double *gpu_rands, double *gpu_phi, int *gpu_s,
   }  
 }
 
+//--------------------------------------------------------------------------
+//Add new sites to the Wolff cluster, given a newly added site i
+//--------------------------------------------------------------------------
+__global__ void corrClusterAdd(double *gpu_rands, double *gpu_phi, int *gpu_s,
+			       double phi_i, int S1, int Lt, int t1, int x1, double t_scale,
+			       int cSpin, bool *gpu_added, bool *gpu_cluster,
+			       double sigma, bool usePow, double couplingNorm) {
+  
+  int bid = blockIdx.x;
+  int tid = threadIdx.x;
+  int bdim = blockDim.x;  
+  int idx = bid * bdim + tid;
+  
+  double coupling = 0;
+
+  if(gpu_s[idx] == cSpin) {
+
+    int t2,x2;
+    double dt,dx;
+    
+    //Index divided by circumference, using the int floor feature/bug,
+    //gives the timeslice index.
+    t2 = idx / S1;
+    dt = abs(t2-t1) > Lt/2 ? Lt - abs(t2-t1) : abs(t2-t1);
+    
+    //The index modulo the circumference gives the spatial index.
+    x2 = idx % S1;            
+    dx = abs(x2-x1) > S1/2 ? S1 - abs(x2-x1) : abs(x2-x1);      
+    
+    if(usePow) coupling = pow(sqrt(dx*dx + dt*dt), -(2+sigma));
+    else coupling = couplingNorm*couplingFunction(dx, dt, sigma, S1, t_scale);
+    
+#ifdef DEBUG
+    printf("(TESTING) Hello from block %d, thread %d : %f %f %f %f %f\n",
+	   blockIdx.x, threadIdx.x, gpu_rands[idx], phi_i, gpu_phi[idx],
+	   coupling, 1 - exp(-2*fabs(phi_i*gpu_phi[idx])*coupling));
+#endif
+    
+    if(gpu_rands[idx] < 1 - exp(-2*fabs(phi_i*gpu_phi[idx])*coupling)) {
+      
+#ifdef DEBUG
+      printf("(ADDING) Hello from block %d, thread %d : %f %f %f %f %f\n",
+	     blockIdx.x, threadIdx.x, gpu_rands[idx], phi_i, gpu_phi[idx],
+	     coupling, 1 - exp(-2*fabs(phi_i*gpu_phi[idx])*coupling));
+#endif      
+      gpu_added[idx] = true;
+      gpu_cluster[idx] = true;
+      gpu_s[idx] *= -1;
+      gpu_phi[idx] *= -1;
+    }
+  }  
+}
+
+__global__ void corrClusterCalcSpatial(double *gpu_phi_cpy, int S1, int Lt,
+				       bool *gpu_cluster, double *ind_corr) {
+
+  int bid = blockIdx.x;
+  int tid = threadIdx.x;
+  int bdim = blockDim.x;  
+  int idx = bid * bdim + tid;
+  __shared__ double sink_phi[32];
+  double corr_lc[32];
+  for(int a=0; a<32; a++) corr_lc[a] = 0.0;
+  
+  //Check if this site is in the Wolff cluster.
+  if(gpu_cluster[idx]) {
+        
+    int x1,x2,dx;
+    int t_slice = S1*bid;
+    
+    //Use the thread index for the spatial coordinate.
+    x1 = tid;
+    //Each unique thread now has a unique phi
+    double phi_lc = gpu_phi_cpy[idx];
+    
+    //Each block acquires data in the spatial direction
+
+    sink_phi[tid] = gpu_phi_cpy[idx];
+    __syncthreads();
+    
+    //Each thread loops over all sinks.
+    for(x2=0; x2<bdim; x2++) {
+      
+      //Check if the sink is in the cluster
+      if(gpu_cluster[t_slice + x2]) {
+	
+	//Compute dx
+	dx = abs(x2-x1) > S1/2 ? S1 - abs(x2-x1) : abs(x2-x1);            
+	
+	//Compute \phi * \phi correlation value.
+	corr_lc[dx] += phi_lc*sink_phi[x2];
+      }
+    }
+    __syncthreads();
+    
+    auto g = this_thread_block();
+    for(int a=0; a<32; a++) atomicAdd(&ind_corr[a], corr_lc[a]);    
+  }      
+}
+
+
+__global__ void corrClusterCalcTemporal(double *gpu_phi_cpy, int S1, int Lt,
+					bool *gpu_cluster, double *ind_corr) {
+  
+  int bid = blockIdx.x;
+  int tid = threadIdx.x;
+  int bdim = blockDim.x;
+  int gdim = gridDim.x;  
+  int idx = tid * gdim + bid;
+  __shared__ double sink_phi[32];
+  double corr_lc[32];
+  for(int a=0; a<32; a++) corr_lc[a] = 0.0;
+  
+  //Check if this site is in the Wolff cluster.
+  if(gpu_cluster[idx]) {
+        
+    int t1,t2,dt;
+    
+    //Use the thread index for the temporal coordinate.
+    t1 = tid;
+    //Each unique thread now has a unique phi
+    double phi_lc = gpu_phi_cpy[idx];
+    
+    //Each block acquires data in the temporal direction
+    sink_phi[tid] = gpu_phi_cpy[idx];
+    __syncthreads();
+    
+    //Each thread loops over all sinks.
+    for(t2=0; t2<bdim; t2++) {
+      
+      //Check if the sink is in the cluster
+      if(gpu_cluster[t2*gdim + bid]) {
+	
+	//Compute dt
+	dt = abs(t2-t1) > Lt/2 ? Lt - abs(t2-t1) : abs(t2-t1);            
+	
+	//Compute \phi * \phi correlation value.
+	corr_lc[dt] += phi_lc*sink_phi[t2];
+      }
+    }
+    __syncthreads();
+
+    auto g = this_thread_block();
+    if (g.thread_rank() == tid && tid < Lt/2 + 1) atomicAdd(&ind_corr[tid], corr_lc[tid]);    
+  }
+}
+
 
 //--------------------------------------------------------------------------
 //Perform a single Wolff update
 //--------------------------------------------------------------------------
-void MonteCarlo2DIsing::GPU_wolffUpdateLR(Param p, int i, int iter, int n) {
+void PhiFourth2D::GPU_wolffUpdateLR(Param p, int i, int iter, int n) {
 
   int S1 = p.S1;
   int Lt = p.Lt;
   int vol = p.surfaceVol;
   int t1,x1;
+  double t_scale = p.t_scale;
+
+  //Reset averages to exclude thermalisation.
+  if(iter == p.n_metro_cool + p.n_therm) {
+    gpu_wc_calls = 0;
+    gpu_wc_size = 0;
+  }    
   
   gpu_wc_calls++;
-  gpu_wc_s_size = 0;
   
   //Host-chosen random spin.
   int cSpin = s[i];
@@ -288,19 +446,15 @@ void MonteCarlo2DIsing::GPU_wolffUpdateLR(Param p, int i, int iter, int n) {
   
   //(re)initialise the the array of sites to check.  
   for(int j=0; j<vol; j++) cpu_added[j] = false;
-  //cudaMemset(gpu_added, false, vol*sizeof(bool));
   
   //We start with the seed only.
   cpu_added[i] = true;
 
   //copy the phi and spin arrays to the GPU.
-  //if(n==0) {
-  //GPU_copyArraysToDevice(p);
   cudaMemcpy(gpu_phi+i, phi+i, sizeof(double), cudaMemcpyHostToDevice);
   cudaMemcpy(gpu_s+i, s+i, sizeof(int), cudaMemcpyHostToDevice);
-  // }
 
-  int factor = 16;
+  int fac = 16;
   
   //This boolean keeps track of whether or not any sites are left to be
   //checked. If a loop over all the lattice shows that no sites are
@@ -330,24 +484,23 @@ void MonteCarlo2DIsing::GPU_wolffUpdateLR(Param p, int i, int iter, int n) {
 	x1 = j % S1;
 	
 	//Get some random numbers 
-	randoms<<<factor*vol/sze, sze/factor>>>(states, gpu_rands);
+	randoms<<<fac*vol/sze, sze/fac>>>(states, gpu_rands);
 	
 	cudaMemcpy(gpu_added, cpu_added, vol*sizeof(bool), cudaMemcpyHostToDevice);
-	clusterAdd<<<vol/sze, sze>>>(gpu_rands, gpu_phi, gpu_s, phi[j],
-				     S1, Lt, t1, x1, cSpin, gpu_added,
-				     p.sigma, p.usePowLaw, LR_couplings[0]);  
+	clusterAdd<<<fac*vol/sze, sze/fac>>>(gpu_rands, gpu_phi, gpu_s, phi[j],
+					     S1, Lt, t1, x1, t_scale, cSpin, gpu_added,
+					     p.sigma, p.usePowLaw, LR_couplings[0]);  
 	cudaMemcpy(cpu_added, gpu_added, vol*sizeof(bool), cudaMemcpyDeviceToHost);
       }
     }
     if(internalCheck == false) Check = false;
-    //printf("Size = %d Check = %d ", gpu_wc_s_size, Check);    
   }
 
   //copy the phi and spin arrays to the host.
   GPU_copyArraysToHost(p);
   
   if( iter%p.n_skip == 0 && n == 0) {
-    printf("Average (GPU) cluster size at iter %d,  %d/%d = %f = %f%\n",
+    printf("Average (GPU) cluster size at iter %d,  %d/%d = %f = %f% \n",
 	   iter, gpu_wc_size, gpu_wc_calls, 1.0*gpu_wc_size/(gpu_wc_calls), 100.0*gpu_wc_size/(gpu_wc_calls*p.surfaceVol));
   }
 }
@@ -359,6 +512,7 @@ void MonteCarlo2DIsing::GPU_wolffUpdateLR(Param p, int i, int iter, int n) {
 __global__ void KEreduce(int i, const int S1, const int Lt,
 			 const double sigma, const bool usePow,
 			 const double couplingNorm,
+			 const double t_scale,
 			 const double lambda_p, const double musqr_p, 
 			 double *gpu_phi,
 			 double *gpu_rands_aux,
@@ -427,7 +581,7 @@ __global__ void KEreduce(int i, const int S1, const int Lt,
     dx = abs(x2-x1) > S1/2 ? S1 - abs(x2-x1) : abs(x2-x1);      
     
     if(usePow) coupling = pow(sqrt(dx*dx + dt*dt), -(2+sigma));
-    else coupling = couplingNorm*couplingFunction(dx, dt, sigma, S1);
+    else coupling = couplingNorm*couplingFunction(dx, dt, sigma, S1, t_scale);
     
     sdata[tid] = (pmpn*phi_lc + pnsmps)*coupling*coupling;
     
@@ -455,7 +609,7 @@ __global__ void KEreduce(int i, const int S1, const int Lt,
   */
   
   auto g = this_thread_block();
-  if (g.thread_rank() == 0) atomicAdd(&result[i], sdata[0]);    
+  if (g.thread_rank() == 0) atomicAdd(&result[i], sdata[0]);
 }
 
 
@@ -491,7 +645,7 @@ __global__ void KEmetroStep(const double lambda_p, const double musqr_p, const i
   DeltaE += lambda_p*(phi_new_sq*phi_new_sq - phi_i_sq*phi_i_sq);
   DeltaE +=  musqr_p*(phi_new_sq            - phi_i_sq);
   
-  //if(i < 10) printf("DeltaE GPU = %.8f, result = %.8f %d\n", DeltaE, *result, i);	
+  //if(i < 10) printf("DeltaE GPU = %.8f, result = %.8f %d\n", DeltaE, *result, i);
   
   if(DeltaE < 0.0) {
     //printf("Acepted %d\n", i);
@@ -507,12 +661,13 @@ __global__ void KEmetroStep(const double lambda_p, const double musqr_p, const i
 //--------------------------------------------------------------------------
 //Perfrom a full Metropolis sweep
 //--------------------------------------------------------------------------
-double MonteCarlo2DIsing::GPU_metropolisUpdateLR(Param p, int iter) {
+double PhiFourth2D::GPU_metropolisUpdateLR(Param p, int iter) {
 
   int Lt = p.Lt;
   int S1 = p.S1;
   int vol = p.surfaceVol;
-  
+
+  double t_scale = p.t_scale;
   double lambda_p = 0.25*p.lambda;
   double musqr_p  = 0.50*p.musqr;
   
@@ -521,7 +676,7 @@ double MonteCarlo2DIsing::GPU_metropolisUpdateLR(Param p, int iter) {
   bool usePowLaw = p.usePowLaw;
   bool doMetroCheck = p.doMetroCheck;
   double couplingNormTheta = LR_couplings[0];
-
+  
   //copy the phi array to the GPU if this is the very first metro step.
   if(iter == 0) GPU_copyArraysToDevice(p);
   
@@ -543,13 +698,14 @@ double MonteCarlo2DIsing::GPU_metropolisUpdateLR(Param p, int iter) {
   
   cudaMemset(gpu_added, false, vol*sizeof(bool));
   cudaMemset(gpu_result, 0.0, vol*sizeof(double));
-    
+  
   for(int i=0; i<vol; i++) {
     
     //Reduce KE array    
     KEreduce<<<vol/sze, sze>>>(i, S1, Lt,
 			       sigma, usePowLaw,
 			       couplingNormTheta,
+			       t_scale,
 			       lambda_p, musqr_p,
 			       gpu_phi,
 			       gpu_rands_aux,
@@ -579,9 +735,13 @@ double MonteCarlo2DIsing::GPU_metropolisUpdateLR(Param p, int iter) {
   updatePhiAndSpin<<<vol/sze, sze>>>(gpu_rands_aux, gpu_phi, gpu_s, gpu_added);
   
   cudaMemcpy(cpu_added, gpu_added, vol*sizeof(bool), cudaMemcpyDeviceToHost);
-  
+
   for(int a=0; a<vol; a++) if(cpu_added[a]) gpu_accept++;
-  //gpu_accept += count_added<<<vol/sze, sze>>>(gpu_added, sum); 
+  //int *cpu_sum;
+  //*cpu_sum = 0;
+  //count_added<<<vol/sze, sze>>>(gpu_added, gpu_sum);  
+  //cudaMemcpy(cpu_sum, gpu_sum, sizeof(int), cudaMemcpyDeviceToHost);  
+  //gpu_accept += *cpu_sum;  
   gpu_tries += vol;
   
   if( (iter < p.n_therm + p.n_metro_cool) && (iter%p.n_skip == 0 && iter > 0)) {
@@ -590,8 +750,131 @@ double MonteCarlo2DIsing::GPU_metropolisUpdateLR(Param p, int iter) {
 	   (double)gpu_accept/(double)gpu_tries);
   }
   //exit(0);
-  return 0.0;
-  
+  return 0.0;  
 }
+
+//Correlation Functions.
+int gpu_corr_sqnl_wc_size = 0;
+int gpu_corr_sqnl_wc_ave = 0;
+int gpu_corr_sqnl_wc_calls = 0;
+
+void PhiFourth2D::GPU_correlatorsImpWolff(int i, int meas, double avePhi, Param p){
+
+  int S1 = p.S1;
+  int Lt = p.Lt;
+  int vol = p.surfaceVol;
+  int t1,x1;
+  double t_scale = p.t_scale;
+  
+  gpu_corr_sqnl_wc_calls++;
+  gpu_corr_sqnl_wc_size = 0;
+  
+  //Create copies of the phi and spin arrays for this calculation, and a boolean
+  //array to identify the cluster.
+  for(int a=0; a<p.surfaceVol; a++) {
+    s_cpy[a] = s[a];
+    phi_cpy[a] = phi[a];
+    cpu_added[a] = false;
+  }   
+ 
+  //Host-chosen random spin.
+  int cSpin = s_cpy[i];
+
+  // The site belongs to the cluster, so flip it.
+  s_cpy[i] *= -1;
+  phi_cpy[i] *= -1;
+
+  //Initialise the the array of sites to check.  
+  for(int j=0; j<vol; j++) {
+    cpu_added[j] = false;
+  }
+  cudaMemcpy(gpu_cluster, cpu_added, vol*sizeof(bool), cudaMemcpyHostToDevice);
+  
+  //We start with the seed only.
+  cpu_added[i] = true;
+  
+  //copy the phi and spin arrays to the GPU.
+  cudaMemcpy(gpu_phi_cpy, phi_cpy, vol*sizeof(double), cudaMemcpyHostToDevice);
+  cudaMemcpy(gpu_s_cpy, s_cpy, vol*sizeof(int), cudaMemcpyHostToDevice);
+
+  int fac = 16;//FIXME: Smaller block sizes?
+  
+  //This boolean keeps track of whether or not any sites are left to be
+  //checked. If a loop over all the lattice shows that no sites are
+  //left to be checked, the routine halts and the Wolff cluster is defined.
+  bool internalCheck;
+
+  //This boolean is depenedent on internal check. We set it to true so that
+  //the while loop actually starts. Once `internalCheck` is false,
+  //Check will evaluate to false.
+  bool Check = true;
+  while(Check) {
+    internalCheck = false;
+    for(int j=0; j<vol; j++) {      
+      if(cpu_added[j] == true ) {
+	internalCheck = true;
+	cpu_added[j] = false;
+	gpu_corr_sqnl_wc_size++;
+#ifdef DEBUG
+	printf("Checking site %d\n\n\n",j);
 #endif
+	
+	//This implementation parallelises over the entire surface of the lattice.
+	//It performs a boolean check to see if the candidate site has the
+	//correct spin, then performs the probablisitic test to add the site.
+
+	t1 = j / S1;
+	x1 = j % S1;
+	
+	//Get some random numbers 
+	randoms<<<fac*vol/sze, sze/fac>>>(states, gpu_rands);
+	
+	cudaMemcpy(gpu_added, cpu_added, vol*sizeof(bool), cudaMemcpyHostToDevice);
+	corrClusterAdd<<<fac*vol/sze, sze/fac>>>(gpu_rands, gpu_phi_cpy, gpu_s_cpy,
+						 phi_cpy[j], S1, Lt, t1, x1, t_scale, cSpin,
+						 gpu_added, gpu_cluster, p.sigma,
+						 p.usePowLaw, LR_couplings[0]);  
+	cudaMemcpy(cpu_added, gpu_added, vol*sizeof(bool), cudaMemcpyDeviceToHost);
+      }
+    }
+    if(internalCheck == false) Check = false;
+  }
+
+  gpu_corr_sqnl_wc_ave += gpu_corr_sqnl_wc_size;
+  
+  printf("Average (GPU) Corr. cluster size at measurement %d = %d/%d = %.4f = %.4f%\n",
+	 meas+1, gpu_corr_sqnl_wc_ave, gpu_corr_sqnl_wc_calls,
+	 1.0*gpu_corr_sqnl_wc_ave/(gpu_corr_sqnl_wc_calls*p.surfaceVol),
+	 100.0*gpu_corr_sqnl_wc_ave/(gpu_corr_sqnl_wc_calls*p.surfaceVol));
+
+
+  //We now have an array 'gpu_cluster' on the GPU that defines a Wolff cluster.
+  //We use it to perform the weighted correlation function calculation.
+
+  cudaMemset(gpu_ind_corr_s, 0.0, (S1/2+1)*sizeof(double));
+  corrClusterCalcSpatial<<<Lt, S1>>>(gpu_phi_cpy, S1, Lt, gpu_cluster, gpu_ind_corr_s);
+  Check_CUDA_Error("corrClusterCalcSpatial Execution Failed!", i, meas);
+  
+  cudaMemset(gpu_ind_corr_t, 0.0, (Lt/2+1)*sizeof(double));
+  corrClusterCalcTemporal<<<S1, Lt>>>(gpu_phi_cpy, S1, Lt, gpu_cluster, gpu_ind_corr_t);  
+  Check_CUDA_Error("corrClusterCalcTemporal Execution Failed!", i, meas);
+
+  //copy individual correlation functions to Host, to running sum on host.
+  cudaMemcpy(ind_corr_t[meas], gpu_ind_corr_t, (Lt/2+1)*sizeof(double), cudaMemcpyDeviceToHost);
+  cudaMemcpy(ind_corr_s[meas], gpu_ind_corr_s, (S1/2+1)*sizeof(double), cudaMemcpyDeviceToHost);
+  
+  for(int a=0; a<(S1/2+1); a++) {
+    ind_corr_s[meas][a] /= gpu_corr_sqnl_wc_size;
+    run_corr_s[a] += ind_corr_s[meas][a];
+  }
+  
+  for(int a=0; a<(Lt/2+1); a++) {
+    ind_corr_t[meas][a] /= gpu_corr_sqnl_wc_size;
+    run_corr_t[a] += ind_corr_t[meas][a];
+  }  
+}
+
+
+#endif
+
 
