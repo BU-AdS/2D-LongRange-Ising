@@ -6,14 +6,15 @@ GSL=/scratch/CPviolator/gsl-2.4
 GSL_LIBS= -lgsl -lgslcblas -lm
 
 #Your path to CUDA
-CUDA=/usr/local/cuda
+CUDA=/usr/local/cuda-9.0
 CUDA_LIBS= -lcuda -lcurand -lcudart 
+
 
 TARGET	 = adsrun
 
-SOURCES  = main.cpp util.cpp cg.cpp hyp_util.cpp graph.cpp data_io.cpp data_proc.cpp mc_util.cpp mc_update_sr.cpp mc_update_lr.cpp monte_carlo_ads_local.cpp gpu_mc_update_lr.cu
-OBJS     = main.o util.o cg.o hyp_util.o graph.o data_io.o data_proc.o mc_util.o mc_update_sr.o mc_update_lr.o monte_carlo_ads_local.o gpu_mc_update_lr.o
-INCLUDES = util.h graph.h cg.h eigen.h mc_util.h mc_update_lr.h mc_update_sr.h monte_carlo_ads_local.h gpu_mc_update_lr.cuh
+SOURCES  = main.cpp util.cpp cg.cpp hyp_util.cpp graph.cpp data_io.cpp data_proc.cpp mcPhiFourth2D.cpp phiFourth2D.cpp mcIsing2D.cpp gpuMcPhiFourth2D.cu
+OBJS     = main.o util.o cg.o hyp_util.o graph.o data_io.o data_proc.o mcPhiFourth2D.o phiFourth2D.o mcIsing2D.o ising2D.o gpuMcPhiFourth2D.o
+INCLUDES = util.h graph.h cg.h eigen.h mcPhiFourth2D.h phiFourth2D.h mcIsing2D.h ising2D.h monte_carlo_ads_local.h gpuMcPhiFourth2D.cuh
 
 LIBS= -L${GSL} ${GSL_LIBS} -L${CUDA}/lib64 ${CUDA_LIBS}
 
@@ -21,13 +22,15 @@ ERRS=-Wall -Wno-sign-compare -Wno-int-in-bool-context -Wno-unused-but-set-variab
 
 CXX = g++
 OMP_FLAG= -DUSE_OMP -fopenmp
-GPU_FLAG= -DUSE_GPU 
-CXXFLAGS = -O3 -g -Wall -std=c++11  -I. -I${EIGEN} -I${GSL} -I${CUDA}/include ${ERRS} ${OMP_FLAG}
+GPU_FLAG= -DUSE_GPU
+CXXFLAGS = -O3 -g -Wall -std=c++11  -I. -I${EIGEN} -I${GSL} -I${CUDA}/include ${ERRS} ${OMP_FLAG} ${GPU_FLAG} 
 
-NVCC = nvcc
-NVCCFLAGS = -O3 -std=c++11  -I. -I${EIGEN} -I${GSL} -I${CUDA}/include ${GPU_FLAG}
+#-maxrregcount=38
+NVCC = /usr/local/cuda-9.0/bin/nvcc 
+NVCCFLAGS = -O3 -std=c++11  -I. -I${EIGEN} -I${GSL} -I${CUDA}/include ${GPU_FLAG} -arch compute_60 
 
 #============================================================
+
 all: $(TARGET)
 
 ${TARGET}: ${OBJS}
@@ -54,20 +57,23 @@ data_proc.o: data_proc.cpp $(INCLUDES)
 cg.o: cg.cpp $(INCLUDES) 
 	${CXX} ${CXXFLAGS} -c cg.cpp
 
-mc_util.o: mc_util.cpp $(INCLUDES) 
-	${CXX} ${CXXFLAGS} -c mc_util.cpp
+ising2D.o: ising2D.cpp $(INCLUDES) 
+	${CXX} ${CXXFLAGS} -c ising2D.cpp
 
-mc_update_lr.o: mc_update_lr.cpp $(INCLUDES) 
-	${CXX} ${CXXFLAGS} -c mc_update_lr.cpp
+mcIsing2D.o: mcIsing2D.cpp $(INCLUDES) 
+	${CXX} ${CXXFLAGS} -c mcIsing2D.cpp
 
-mc_update_sr.o: mc_update_sr.cpp $(INCLUDES) 
-	${CXX} ${CXXFLAGS} -c mc_update_sr.cpp
+mcPhiFourth2D.o: mcPhiFourth2D.cpp $(INCLUDES) 
+	${CXX} ${CXXFLAGS} -c mcPhiFourth2D.cpp
+
+phiFourth2D.o: phiFourth2D.cpp $(INCLUDES) 
+	${CXX} ${CXXFLAGS} -c phiFourth2D.cpp
 
 monte_carlo_ads_local.o: monte_carlo_ads_local.cpp $(INCLUDES) 
 	${CXX} ${CXXFLAGS} -c monte_carlo_ads_local.cpp 
 
-gpu_mc_update_lr.o: gpu_mc_update_lr.cu $(INCLUDES) 
-	${NVCC} ${NVCCFLAGS} -c gpu_mc_update_lr.cu
+gpuMcPhiFourth2D.o: gpuMcPhiFourth2D.cu $(INCLUDES) 
+	${NVCC} ${NVCCFLAGS} -c gpuMcPhiFourth2D.cu
 
 ALL_SOURCES = Makefile $(SOURCES) $(INCLUDES) 
 
