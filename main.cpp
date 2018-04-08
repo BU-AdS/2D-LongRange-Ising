@@ -18,12 +18,9 @@ int CACHE_LINE_SIZE = sysconf(_SC_LEVEL1_DCACHE_LINESIZE);
 int sze = 512;
 
 #include "util.h"
-//#include "data_io.h"
 #include "graph.h"
 #include "cg.h"
-//#include "eigen.h"
-#include "mc_update_sr.h"
-#include "mc_update_lr.h"
+#include "mcPhiFourth2D.h"
 #include "monte_carlo_ads_local.h"
 
 int main(int argc, char **argv) {
@@ -43,10 +40,11 @@ int main(int argc, char **argv) {
 
   int k=0;
   if(argc > 1) p.init(argc, argv, &k);
-      
+
+
   if(p.lat_type == ADS) {
-   
-    
+
+#if 0
     //Nodes on the 2D surface of the AdS space.
     p.surfaceVol = p.S1*p.Lt;
     //Nodes on the Poincare disk
@@ -84,7 +82,8 @@ int main(int argc, char **argv) {
     cout<<"Total Surface nodes = "<<p.surfaceVol<<endl;
     cout<<"Total AdS nodes     = "<<p.latVol<<endl;
     
-    runMonteCarloAdSL(NodeList, p);    
+    runMonteCarloAdSL(NodeList, p);
+#endif
   } else {
 
     //Nodes on the 2D surface of the AdS space.

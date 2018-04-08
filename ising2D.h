@@ -97,13 +97,13 @@ class Ising2D {
   void runSimulation(Param p);
   void createLRcouplings(Param p);
 
-  void swendsenWangUpdateLR(Param p, int iter);
+  void swendsenWangUpdateILR(Param p, int iter);
   
   //Wrappers for the different LR and SR cluster functions.
   void wolffUpdate(Param p, int iter);  
   void swendsenWangUpdate(Param p, int iter);
   void metropolisUpdate(Param p, int iter);
-  void metropolisUpdateLR(Param p, int iter);
+  void metropolisUpdateILR(Param p, int iter);
 
 };
 

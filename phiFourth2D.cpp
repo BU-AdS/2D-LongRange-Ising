@@ -11,15 +11,13 @@
 #include <chrono>
 #include <algorithm>
 
-//#include "hyp_util.h"
-#include "mc_util.h"
+#include "phiFourth2D.h"
 #include "data_proc.h"
 #include "data_io.h"
-#include "mc_update_lr.h"
-#include "mc_update_sr.h"
+#include "mcPhiFourth2D.h"
 
 #ifdef USE_GPU
-#include "gpu_mc_update_lr.cuh"
+#include "gpuMcPhiFourth2D.cuh"
 #endif
 
 using namespace std;

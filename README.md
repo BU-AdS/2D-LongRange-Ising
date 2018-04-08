@@ -11,12 +11,11 @@ the following functionalities for the Laplace operator on the space:
 3. Various hypergeometric and debug utilities
 
 In addition, we have implemented a Monte Carlo based algorithm to perform
-importance sampling. The algorithm uses Metropolis steps, with Wolff
-steps at a given interval. We also incluse some crude ASCII visualisers
-and simple routines to caculate correlation functions and observables
-of the Ising model. We also include a set of functions to automatically
-compute and store the lattice AdS scaling variables, need to scale the
-lattice AdS action against the analytic boundary-boundary propagator.
+importance sampling. The algorithm uses Metropolis steps, with cluster
+steps at a given interval. We also include routines to caculate correlation
+functions and observables, a set of functions to automatically
+compute and store the lattice AdS scaling variables (needed to scale the
+lattice AdS action against the analytic boundary-boundary propagator.)
 One loop corrections can also be computed.
 
 ## 2D phi**4 code
@@ -38,6 +37,9 @@ described here https://arxiv.org/abs/1401.6805. It is in serial, OMP
 parallel, and GPU form. One uses the command line input `sigma` to
 adjust the strength of the long range interaction, as detaled in the paper.
 
+We provide two forms of long range coupling: simple power law behaviour
+(1/r^sigma) and a radial quantisation inspired (cosh(dt) + cos(dtheta))^sigma.
+
 ## Dependencies
 
 #### EIGEN
@@ -55,7 +57,7 @@ using v2.4: https://www.gnu.org/software/gsl/
 ## Compilation
 
 Once you have ensured that `EIGEN` and `GSL` are visible to `Makefile`,
-simply type `make -j {NUMBER OF PROCESSORS YOU HAVE}` to compile the
+simply type `make -j {NUMBER OF PROCESSORS YOU WISH TO USE}` to compile the
 executable `adsrun`. In addition, we have included options to
 `make clean` to clean the ojects created by `Makefile` and `make tar`
 to create `ads_graph.tar`.

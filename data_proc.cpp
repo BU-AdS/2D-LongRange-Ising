@@ -10,8 +10,8 @@
 #include "util.h"
 #include "hyp_util.h"
 #include "data_proc.h"
-#include "mc_update_lr.h"
-#include "mc_util.h"
+#include "mcPhiFourth2D.h"
+#include "phiFourth2D.h"
 
 using namespace std;
 

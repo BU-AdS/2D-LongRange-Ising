@@ -35,7 +35,7 @@ void Param::usage(char **argv) {
   printf("--muSqr <Float>                  The phi^4 mass^2 term. This is usually negative...\n");
   printf("--lambda <Float>                 The phi^4 interaction term.\n");
   printf("--sigma <Float>                  The exponent in the LR power law.\n");
-  printf("--tScale <Float>                 The value of \alpha in cosh(\alpha * \delta t) in radial LR coupling.\n");
+  printf("--tScale <Float>                 The value of alpha in cosh(alpha * delta_t) in radial LR coupling.\n");
   //MC params
   printf("--nMetroCool <n>                 The number of pure Metropolis steps to perfom in the initial cooldown\n");
   printf("--nTherm <n>                     The number of thermalisation steps (1 x metro + nCluster x Cluster)\n");
