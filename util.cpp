@@ -62,8 +62,6 @@ void Param::usage(char **argv) {
   
 }
 
-
-
 int Param::init(int argc, char **argv, int *idx) {
 
   int ret = -1;
@@ -694,6 +692,46 @@ void Param::print() {
   }
   cout<<endl;
 }
+
+// Container class for observable quantities.
+observables::observables(int meas) {
+
+  n_meas = meas;
+  
+  E_arr = new double[n_meas];
+  E2_arr = new double[n_meas];
+  PhiAb_arr = new double[n_meas];
+  Phi_arr = new double[n_meas];
+  Phi2_arr = new double[n_meas];
+  Phi4_arr = new double[n_meas];
+  Suscep = new double[n_meas];
+  SpecHeat = new double[n_meas];
+  Binder = new double[n_meas];
+  for(int i=0; i<n_meas; i++) {
+    E_arr[i]     = 0.0;
+    E2_arr[i]    = 0.0;
+    PhiAb_arr[i] = 0.0;
+    Phi_arr[i]   = 0.0;
+    Phi2_arr[i]  = 0.0;
+    Phi4_arr[i]  = 0.0;
+    Suscep[i]    = 0.0;
+    SpecHeat[i]  = 0.0;
+    Binder[i]    = 0.0;
+  }
+
+  tmpE     = 0.0;  
+  aveE     = 0.0;
+  aveKE    = 0.0;
+  avePE    = 0.0;
+  aveE2    = 0.0;
+  avePhiAb = 0.0;
+  avePhi   = 0.0;
+  avePhi2  = 0.0;
+  avePhi4  = 0.0;
+  MagPhi   = 0.0;
+   
+}
+
 
 //Using the formula c(n) = (q-4)*c(n-1) - c(n-2) where c is the
 //number of nodes on circumference at level n, we can construct

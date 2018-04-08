@@ -144,6 +144,39 @@ void metropolisUpdateSR(double *phi_arr, int *s, Param p, int iter) {
   }
 }
 
+double actionSR(double *phi_arr, int *s, Param p,
+		double & KE, double & PE) {  
+  
+  KE = 0.0;
+  PE = 0.0;
+  double phi_sq;
+  double phi;
+  double lambda_p = 0.25*p.lambda;
+  double musqr_p  = 0.50*p.musqr;
+
+  
+  for (int i = 0; i < p.surfaceVol; i++)
+    if (s[i] * phi_arr[i] < 0)
+      printf("ERROR s and phi NOT aligned (actionPhi Square) ! \n");
+  
+  //PE terms
+#ifdef USE_OMP
+#pragma omp parallel for
+#endif
+  for (int i = 0; i < p.surfaceVol; i++) {    
+    phi = phi_arr[i];
+    phi_sq = phi*phi;
+    
+    PE += lambda_p * phi_sq*phi_sq;
+    PE += musqr_p  * phi_sq;
+    
+    KE += 0.5 * (phi - phi_arr[xp(i,p)]) * (phi - phi_arr[xp(i,p)]);
+    KE += 0.5 * (phi - phi_arr[tp(i,p)]) * (phi - phi_arr[tp(i,p)]);
+  }
+  
+  return PE + KE;
+}
+
 void swendsenWangUpdateSR(double *phi_arr, int *s, Param p, int iter) {
   
   sql_sw_calls++;  

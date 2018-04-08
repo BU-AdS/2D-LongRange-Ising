@@ -108,6 +108,49 @@ class Vertex{
   
 };
 
+class observables {
+  
+ private:
+  int n_meas = 1;
+  
+ public:
+  //Arrays holding measurements for error analysis
+  double *E_arr;
+  double *E2_arr;
+  double *PhiAb_arr;
+  double *Phi_arr;
+  double *Phi2_arr;
+  double *Phi4_arr;
+  double *Suscep;
+  double *SpecHeat;
+  double *Binder;
+  
+  //Running averages
+  double tmpE     = 0.0;  
+  double aveE     = 0.0;
+  double aveKE    = 0.0;
+  double avePE    = 0.0;
+  double aveE2    = 0.0;
+  double avePhiAb = 0.0;
+  double avePhi   = 0.0;
+  double avePhi2  = 0.0;
+  double avePhi4  = 0.0;
+  double MagPhi   = 0.0;
+
+  //temps
+  double KE = 0.0;
+  double PE = 0.0;
+  
+  //constructor
+  observables(int meas);
+  
+  //destructor
+  //~observable();
+  
+};
+
+
+
 
 //Using the formula c(n) = (q-4)*c(n-1) - c(n-2) where c is the
 //number of nodes on circumference at level n, we can construct

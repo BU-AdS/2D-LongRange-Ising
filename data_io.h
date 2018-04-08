@@ -8,8 +8,12 @@
 #include "util.h"
 #include "hyp_util.h"
 
-// Functions to print, dump, or visualise data.
-//----------------------------------------------
+//Calcuate the Jack-Knife error and write the correlation functions
+//to file
+void writeObservables(double **ind_corr_t, double *run_corr_t, 
+		      double **ind_corr_s, double *run_corr_s,
+		      int idx, observables obs, Param p);
+
 void PrintNodeTables(const std::vector<Vertex> NodeList, Param P);
 void PrintComplexPositions(const std::vector<Vertex> NodeList, Param P);
 

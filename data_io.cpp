@@ -1,4 +1,5 @@
 #include <iostream>
+#include <fstream>
 #include <iomanip>
 #include <complex>
 #include <cmath>
@@ -9,8 +10,51 @@
 
 #include "util.h"
 #include "hyp_util.h"
+#include "data_proc.h"
 
 using namespace std;
+
+void writeObservables(double **ind_corr_t, double *run_corr_t, 
+		      double **ind_corr_s, double *run_corr_s,
+		      int idx, observables obs, Param p){
+
+  double norm = 1.0/idx;
+  double inv_vol = 1.0/(p.Lt*p.S1);
+  
+  //The observable (spec heat, suscep, etc) are used only as a guide
+  //to discern criticality, The real quantities of interest are
+  //The critical exponents, especally \eta, and its dependence
+  //on \sigma, hence we MUST have proper error estimates of the
+  //correlation function values. Hardcoded to dump result every 10th
+  //measurement, with a jk block of 5.
+  double *jk_err_t = (double*)malloc((p.Lt/2+1)*sizeof(double));
+  jackknife(ind_corr_t, run_corr_t, jk_err_t, 5, idx, p.Lt/2+1, p); 
+  ofstream filet("correlators_t.dat");
+  for(int i=1; i<p.Lt/2; i++) {
+    filet<<i<<" "<<run_corr_t[i]*inv_vol*norm;
+    filet<<" "<<jk_err_t[i]*inv_vol<<endl;
+  }
+  filet.close();
+  free(jk_err_t);
+  
+  double *jk_err_s = (double*)malloc((p.S1/2+1)*sizeof(double));
+  jackknife(ind_corr_s, run_corr_s, jk_err_s, 5, idx, p.S1/2+1, p);
+  ofstream files("correlators_s.dat");
+  for(int i=1; i<p.S1/2; i++) {
+    files<<i<<" "<<run_corr_s[i]*inv_vol*norm;
+    files<<" "<<jk_err_s[i]*inv_vol<<endl;
+  }
+  files.close();
+  free(jk_err_s);
+  
+  ofstream file_obs("observables.dat");
+  for(int i=0; i<idx; i++) {
+    file_obs<<i<<" "<<obs.Suscep[i]<<" "<<obs.SpecHeat[i]<<" "<<obs.Binder[i]<<endl;
+  }
+  file_obs.close();
+  
+}
+
 
 //Data file for lattice/analytical propagator data,
 void dataDump(vector<Vertex> NodeList, double *phi, Param p, int level, int t_range, int shift) {
