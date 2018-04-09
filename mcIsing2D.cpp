@@ -19,8 +19,7 @@ using namespace std;
 extern int seed;
 extern mt19937 rng;
 extern uniform_real_distribution<double> unif;
-
-#define CACHE_LINE_SIZE sysconf(_SC_LEVEL1_DCACHE_LINESIZE)
+extern int CACHE_LINE_SIZE;
 
 int **addedI;
 vector<int> toCheckI;
@@ -62,45 +61,149 @@ inline int ttm(int i, Param p){
 //----------------------//
 
 // declare variables to implement Cluster algorithms
-int sql_wc_ave = 0;
-int sql_wc_size = 0;
-int sql_wc_calls = 0;
-int sql_wc_t_size = 0;
-int sql_wc_s_size = 0;
+//Declare variables to implement Cluster algorithms
+int ising_wc_ave = 0;
+int ising_wc_size = 0;
+int ising_wc_calls = 0;
+int ising_wc_poss = 0;
+int ising_wc_t_size = 0;
+int ising_wc_s_size = 0;
 
-int sql_sw_ave = 0;
-int sql_sw_size = 0;
-int sql_sw_calls = 0;
-int sql_sw_t_size = 0;
-int sql_sw_s_size = 0;
+int ising_sw_ave = 0;
+int ising_sw_size = 0;
+int ising_sw_calls = 0;
+int ising_sw_t_size = 0;
+int ising_sw_s_size = 0;
 
-int sql_accept = 0;
-int sql_tries  = 0;
+int ising_accept = 0;
+int ising_tries  = 0;
 
 void metropolisUpdateISR(int *s, Param p, int iter) {
 
-  int s_old = 0;  
   double DeltaE = 0.0;
+  double extern_h = p.h;
+  double J = p.J;
+  
+  for (int i = 0; i < p.surfaceVol; i++) {
+
+    //External field
+    DeltaE += -extern_h*s[i];
+    
+    //Interaction
+    DeltaE += -J*(s[xp(i, p)] + s[xm(i, p)] +
+		  s[tp(i, p)] + s[ttm(i, p)]);
+    
+    ising_tries++;
+    
+    if(DeltaE < 0.0) {
+      //  cout<< " Acepted  " << endl;
+      ising_accept += 1;
+      s[i] *= -1;
+    }
+    else if ( unif(rng)  < exp(-DeltaE)) {
+      //  cout<< " Acepted  " << endl;
+      ising_accept += 1;
+      s[i] *= -1;
+    }     
+  }// end loop over lattice volume
+
+  if( iter < p.n_therm && iter%p.n_skip == 0 ) {
+    cout<<"At iter "<<iter<<" the Metro acceptance rate is "<<(double)ising_accept/(double)ising_tries<<endl;
+  }
   
 }
 
-void swendsenWangUpdateISR(double *phi_arr, int *s, Param p, int iter) {
+void swendsenWangUpdateISR(int *s, Param p, int iter) {
   
 
 }
 
 void swendsenWangClusterAddISR(int i, int *s, int cSpin, int clusterNum, 
-			       int *clusterDef, double *phi_arr, Param p) {
+			       int *clusterDef, Param p) {
   
 }
 
-void wolffUpdateISR(double *phi_arr, int *s, Param p, int iter) {
+void wolffUpdateISR(int *s, Param p, int iter) {
+
+  ising_wc_calls++;
+  
+  bool *cluster = new bool[p.surfaceVol];
+  for (int i = 0; i < p.surfaceVol; i++)
+    cluster[i] = false;
+
+  // choose a random spin and grow a cluster
+  int i = int(unif(rng) * p.surfaceVol);
+  int cSpin = s[i];
+  
+  //This function is recursive and will call itself
+  //until all four attempts in the lattice directions
+  // (+x, -x, +t, -t) have failed to ncrease the cluster.
+  ising_wc_size = 1;
+  wolffClusterAddISR(i, s, cSpin, cluster, p);
+
+  ising_wc_ave += ising_wc_size;
+
+  if( iter%p.n_skip == 0) {
+    setprecision(4);
+    cout<<"Ave. cluster size at iter "<<iter<<" = "<<ising_wc_ave<<"/"<<ising_wc_calls<<" = "<<1.0*ising_wc_ave/ising_wc_calls<<endl;
+  }
+  delete[] cluster;
   
 }
 
 void wolffClusterAddISR(int i, int *s, int cSpin,
-			bool *cluster, double *phi_arr, Param p) {
+			bool *cluster, Param p) {
+
+  double J = p.J;
   
+  // The site belongs to the cluster, so flip it.
+  cluster[i] = true;
+  s[i] *= -1;
+
+  // - If the (aligned) neighbour spin does not already belong to the
+  // cluster, then try to add it to the cluster.
+  // - If the site has already been added, then we may skip the test.
+
+  //Forward in T
+  if(!cluster[ tp(i,p) ] && s[tp(i,p)] == cSpin) {
+    if(unif(rng) < 1 - exp(2*J*s[i]*s[tp(i,p)])) {
+      ising_wc_size++;
+      ising_wc_t_size++;
+      //cout<<"->tp";
+      wolffClusterAddISR(tp(i,p), s, cSpin, cluster, p);
+    }
+  }
+
+  //Forward in X
+  if(!cluster[ xp(i,p) ] && s[xp(i,p)] == cSpin) {
+    if(unif(rng) < 1 - exp(2*J*s[i]*s[xp(i,p)])) {
+      ising_wc_size++;
+      ising_wc_s_size++;
+      //cout<<"->xp";
+      wolffClusterAddISR(xp(i,p), s, cSpin, cluster, p);
+    }
+  }
+
+  
+  //Backard in T 
+  if(!cluster[ ttm(i,p) ] && s[ttm(i,p)] == cSpin) {  
+    if(unif(rng) < 1 - exp(2*J*s[i]*s[ttm(i,p)])) {
+      ising_wc_size++;
+      ising_wc_t_size++;
+      //cout<<"->tm";
+      wolffClusterAddISR(ttm(i,p), s, cSpin, cluster, p);
+    }
+  }
+
+  //Backward in X
+  if(!cluster[ xm(i,p) ] && s[xm(i,p)] == cSpin) {
+    if (unif(rng) < 1 - exp(2*J*s[i]*s[xm(i,p)])) {
+      ising_wc_size++;
+      ising_wc_s_size++;
+      //cout<<"->xm";
+      wolffClusterAddISR(xm(i,p), s, cSpin, cluster, p);
+    }
+  }   
 }
 
 
@@ -122,26 +225,11 @@ void init_connectivityI(Param p) {
   }
 }
 
-//Declare variables to implement Cluster algorithms
-int sqnl_wc_ave = 0;
-int sqnl_wc_size = 0;
-int sqnl_wc_calls = 0;
-int sqnl_wc_poss = 0;
-int sqnl_wc_t_size = 0;
-int sqnl_wc_s_size = 0;
 
-int sqnl_sw_ave = 0;
-int sqnl_sw_size = 0;
-int sqnl_sw_calls = 0;
-int sqnl_sw_t_size = 0;
-int sqnl_sw_s_size = 0;
-
-int sqnl_accept = 0;
-int sqnl_tries  = 0;
 
 void Ising2D::metropolisUpdateILR(Param p, int iter) {
   
-
+  
 }
 
 void Ising2D::swendsenWangUpdateILR(Param p, int iter) {
@@ -149,9 +237,8 @@ void Ising2D::swendsenWangUpdateILR(Param p, int iter) {
 }
 
 void swendsenWangClusterAddILR(int i, int *s, int cSpin, int clusterNum, 
-				int *clusterDef, vector<int> Rcluster, 
-				double *LR_couplings,
-				double *phi_arr, Param p) {
+			       int *clusterDef, vector<int> Rcluster, 
+			       double *LR_couplings, Param p) {
   
 }
 
@@ -162,20 +249,74 @@ void clusterPossibleILR(int i, int *s, int cSpin,
 
 }
 
-void wolffUpdateILR(double *phi, int *s, Param p,
-		   double *LR_couplings, int iter, int n) {
-  
+void wolffUpdateILR(int *s, Param p, double *LR_couplings, int iter) {
 
+  ising_wc_calls++;
+  
+  //Choose a random spin.
+  int i = int(unif(rng) * p.surfaceVol);
+  int cSpin = s[i];
+  
+  // The site belongs to the cluster, so flip it.
+  ising_wc_size = 1;
+  s[i] *= -1;
+  
+  //This function is recursive and will call itself
+  //until all attempts to increase the cluster size
+  //have failed.
+  wolffClusterAddILR(i, s, cSpin, LR_couplings, p);
+  
+  ising_wc_ave += ising_wc_size;
+
+  if(iter%p.n_skip == 0) {
+    setprecision(4);
+    cout<<"Average (CPU) cluster size at iter "<<iter<<" = "<<ising_wc_ave<<"/"<<ising_wc_calls<<" = "<<1.0*ising_wc_ave/ising_wc_calls<<" = "<<100.0*ising_wc_ave/(ising_wc_calls*p.surfaceVol)<<"%"<<endl;
+  }
 }
 
-void wolffClusterAddILR(int i, int *s, int cSpin, double *LR_couplings,
-		       double *phi, Param p) {
+void wolffClusterAddILR(int i, int *s, int cSpin, double *LR_couplings, Param p) {
+
+  double s_lc = s[i];
+  int S1 = p.S1;
+  int x_len = S1/2 + 1;
+  double J = p.J;
+  
+  int t1,x1,t2,x2,dt,dx;
+  t1 = i / p.S1;
+  x1 = i % p.S1;
+  
+  double prob = 0.0;
+  double rand = 0.0;
+  //We now loop over the possible lattice sites, adding sites
+  //(creating bonds) with the specified LR probablity.
+  for(int j=0; j<p.surfaceVol; j++) {
+    if(s[j] == cSpin && j != i) {
+      
+      //Index divided by circumference, using the int floor feature/bug,
+      //gives the timeslice index.
+      t2 = j / p.S1;
+      dt = abs(t2-t1) > p.Lt/2 ? p.Lt - abs(t2-t1) : abs(t2-t1);
+      
+      //The index modulo the circumference gives the spatial index.
+      x2 = j % p.S1;            
+      dx = abs(x2-x1) > p.S1/2 ? p.S1 - abs(x2-x1) : abs(x2-x1);      
+      
+      prob = 1 - exp(2*J*s_lc*s[j]*LR_couplings[dx + dt*x_len]);
+      rand = unif(rng);
+      if(rand < prob) {
+	ising_wc_size++;
+	// The site belongs to the cluster, so flip it.
+	s[j] *= -1;
+	wolffClusterAddILR(j, s, cSpin, LR_couplings, p);
+      }
+    }
+  }
+
   
 }
 
-double actionILR(double *phi_arr, int *s, Param p,
-		double *LR_couplings, 
-		double &KE, double &PE) {  
+double actionILR(int *s, Param p, double *LR_couplings, 
+		 double &KE, double &PE) {  
   
   return PE + KE;
 }

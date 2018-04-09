@@ -19,8 +19,7 @@ using namespace std;
 extern int seed;
 extern mt19937 rng;
 extern uniform_real_distribution<double> unif;
-
-#define CACHE_LINE_SIZE sysconf(_SC_LEVEL1_DCACHE_LINESIZE)
+extern int CACHE_LINE_SIZE;
 
 int **added;
 vector<int> toCheck;
@@ -80,7 +79,6 @@ int phi4_tries  = 0;
 
 void metropolisUpdateSR(double *phi_arr, int *s, Param p, int iter) {
 
-  int s_old = 0;  
   double phi_new = 0.0;
   double phi_new_sq = 0.0;
   double phi = 0.0;
@@ -117,14 +115,12 @@ void metropolisUpdateSR(double *phi_arr, int *s, Param p, int iter) {
     
     if(DeltaE < 0.0) {
       //  cout<< " Acepted  " << endl;
-      s_old = s[i];
       phi_arr[i] = phi_new;
       phi4_accept += 1;
       s[i] = (phi_new > 0) ? 1 : -1;
     }
     else if ( unif(rng)  < exp(-DeltaE)) {
       //  cout<< " Acepted  " << endl;
-      s_old = s[i];
       phi_arr[i] = phi_new;
       phi4_accept += 1;
       s[i] = (phi_new > 0) ? 1 : -1;
@@ -383,7 +379,6 @@ void init_connectivityPhi4(Param p) {
 
 void PhiFourth2D::metropolisUpdateLR(Param p, int iter) {
   
-  int s_old     = 0;
   int Lt = p.Lt;
   int S1 = p.S1;
   int x_len = S1/2 + 1;
@@ -498,14 +493,12 @@ void PhiFourth2D::metropolisUpdateLR(Param p, int iter) {
     
     if(DeltaE < 0.0) {
       //  cout<< " Acepted  " << endl;
-      s_old = s[i];
       phi[i] = phi_new;
       phi4_accept += 1;
       s[i] = (phi_new > 0) ? 1 : -1;
     }
     else if( doMetroCheck ? debug_arr1[i] < exp(-DeltaE) : unif(rng) < exp(-DeltaE)) {
       //  cout<< " Acepted  " << endl;
-      s_old = s[i];
       phi[i] = phi_new;
       phi4_accept += 1;
       s[i] = (phi_new > 0) ? 1 : -1;

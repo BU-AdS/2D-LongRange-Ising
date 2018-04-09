@@ -49,11 +49,19 @@ class Ising2D {
   long long metro = 0.0;
   long long cluster = 0.0;
 
-#ifdef USE_GPU  
+  int *s_cpy;
+  bool *cpu_added;
+
+  double *debug_arr1;
+  double *debug_arr2;
+
+  #ifdef USE_GPU  
   // CUDA's random number library uses curandState_t to keep track of the seed value
   // we will store a random state for every thread  
   curandState_t* states;
   curandState_t* states_aux;
+  void GPU_initRand(Param p, int seed, curandState_t *states);
+#endif
 
   double *gpu_rands;
   double *gpu_rands_aux;
@@ -63,26 +71,17 @@ class Ising2D {
   double *gpu_ind_corr_t;//FIXME
   double *gpu_ind_corr_s;//FIXME 
   
-  bool *cpu_added;
   bool *gpu_added;
   bool *gpu_cluster;
   
   int *gpu_s;
   int *gpu_s_cpy;
-  int *s_cpy;
-  
-  double *debug_arr1;
-  double *debug_arr2;
-  
-  void GPU_initRand(Param p, int seed, curandState_t *states);
 
   double GPU_metropolisUpdateLR(Param p, int iter);
   void GPU_wolffUpdateLR(Param p, int rand_site, int iter, int i);
   void GPU_copyArraysToHost(Param p);
   void GPU_copyArraysToDevice(Param p);
   void GPU_correlatorsImpWolff(int i, int meas, double avePhi, Param p);
-    
-#endif  
   
   //Constructor
   Ising2D(Param p);
@@ -93,12 +92,14 @@ class Ising2D {
   //Do some initial Metro updates, then run updateIter
   //until thermalisation.
   void thermalise(Param p);
-
+  
   void runSimulation(Param p);
+  
+  void measureI(observables &obs, int &idx, Param p);
+  
   void createLRcouplings(Param p);
 
-  void swendsenWangUpdateILR(Param p, int iter);
-  
+  void swendsenWangUpdateILR(Param p, int iter);  
   //Wrappers for the different LR and SR cluster functions.
   void wolffUpdate(Param p, int iter);  
   void swendsenWangUpdate(Param p, int iter);

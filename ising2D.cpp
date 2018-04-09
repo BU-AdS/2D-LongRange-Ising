@@ -14,10 +14,10 @@
 #include "phiFourth2D.h"
 #include "data_proc.h"
 #include "data_io.h"
-#include "mcPhiFourth2D.h"
+#include "mcIsing2D.h"
 
 #ifdef USE_GPU
-#include "gpuMcPhiFourth2D.cuh"
+#include "gpuIsing2D.cuh"
 #endif
 
 using namespace std;
@@ -150,34 +150,30 @@ void Ising2D::runSimulation(Param p) {
     cout<<"Coupling creation time = "<<time/(1.0e6)<<endl;
   }
   
-  //thermalise(p);
-    
+  thermalise(p);
+  
   //reset timing variables.
   metro = 0.0;
   cluster = 0.0;
-  for(int iter = p.n_therm + p.n_metro_cool; iter < p.n_therm + p.n_skip*p.n_meas + p.n_metro_cool; iter++) {
+  for(int iter = p.n_therm; iter < p.n_therm + p.n_skip*p.n_meas; iter++) {
     
-    //updateIter(p, iter);
+    updateIter(p, iter);
     
     //Take measurements.
     if((iter+1) % p.n_skip == 0) {
 
       //Timing
-      int therm_iter = iter - (p.n_therm + p.n_metro_cool);
-      cout<<"(Thermalised) Average time per Metro update   = "<<metro/(therm_iter*1.0e6)<<"s"<<endl;
+      int therm_iter = iter - p.n_therm;
       cout<<"(Thermalised) Average time per cluster update = "<<cluster/(therm_iter*p.n_cluster*1.0e6)<<"s"<<endl;
-
-      //copy GPU arrays to the CPU FIXME: do all measurements on the GPU      
-      //GPU_copyArraysToHost(p);      
       
       //update running average, dump to stdout. 
       //'meas' is ++ incremented in this function.
-      //measure(obs, meas, p);
+      measureI(obs, meas, p);
       
       norm = 1.0/(meas);
 
       //Visualisation tool
-      //visualiserIsing(s, obs.avePhiAb*norm, p);
+      visualiserIsing(s, p);
       
       //Calculate correlaton functions and update the average.
       //int rand_site = int(unif(rng) * p.surfaceVol);	      
@@ -215,54 +211,27 @@ void Ising2D::runSimulation(Param p) {
     }
   }
 }
-/*
+
 void Ising2D::updateIter(Param p, int iter) {
   
   auto start = std::chrono::high_resolution_clock::now();    
-  //Cluster steps.
   if(p.useWolff)  wolffUpdate(p, iter);
-  else swendsenWangUpdate(p, iter);
-  
+  else swendsenWangUpdate(p, iter);  
   auto elapsed = std::chrono::high_resolution_clock::now() - start;
-  cluster += std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();
-  
-  //Metro step.
-  start = std::chrono::high_resolution_clock::now();
-  metropolisUpdate(p, iter);
-  elapsed = std::chrono::high_resolution_clock::now() - start;
-  metro += std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();
+  cluster += std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();  
+
 }
 
 void Ising2D::thermalise(Param p) {
-  
-  cout<<"Begin Metropolis cool down."<<endl;
-  //Perform n_therm pure metropolis hits during the hot phase.
-  auto start = std::chrono::high_resolution_clock::now();        
-  for(int iter = 0; iter < p.n_metro_cool; iter++) {
-    metropolisUpdate(p, iter);  
-    
-    if((iter)%p.n_skip == 0 && iter > 0){
-      auto elapsed = std::chrono::high_resolution_clock::now() - start;
-      metro = std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();
-      cout<<"Metro cool down iter "<<iter<<" average time per (hot phase) update = "<<metro/((iter+1)*1.0e6)<<"s"<<endl<<endl;
-      //exit(0);
-    }
-  }
-
-  auto elapsed = std::chrono::high_resolution_clock::now() - start;
-  metro = std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();
-  cout<<"Metro cool down complete. "<<p.n_metro_cool<<" iters at "<<metro/((p.n_metro_cool)*1.0e6)<<"s per (hot phase) iter."<<endl<<endl;
 
   //Reset timing variables
-  metro = 0.0;
   cluster = 0.0;
-
-  //Cluster/Metro steps
-  for(int iter = p.n_metro_cool; iter < p.n_therm + p.n_metro_cool; iter++) {
+  
+  //Cluster steps
+  for(int iter = 0; iter < p.n_therm; iter++) {
     updateIter(p, iter);
     if( (iter+1)%p.n_skip == 0 ) {
-      cout<<"Average time per Metro update   = "<<metro/((iter - p.n_metro_cool + 1)*1.0e6)<<"s"<<endl;  
-      cout<<"Average time per cluster update = "<<cluster/((iter - p.n_metro_cool + 1)*p.n_cluster*1.0e6)<<"s"<<endl;  
+      cout<<"Average time per cluster update = "<<cluster/((iter + 1)*1.0e6)<<"s"<<endl;  
     }      
   }
   cout<<endl<<"Thermalisaton complete."<<endl<<endl;  
@@ -273,67 +242,76 @@ void Ising2D::thermalise(Param p) {
 //------------------------------------------------//
 void Ising2D::wolffUpdate(Param p, int iter) {
 
-  for(int i=0; i<p.n_cluster; i++) {
-    if(p.coupling_type == SR) {
-      wolffUpdateSR(phi, s, p, iter);
-    }
-    else {
-      if(p.useGPUCluster) {
-	if(!p.useGPUMetro) {
-	  //We must copy from the host to the device
-	  GPU_copyArraysToDevice(p);
-	}
-	
-	int rand_site = int(unif(rng) * p.surfaceVol);	
-	GPU_wolffUpdateLR(p, rand_site, iter, i);
-	
-	if(!p.useGPUMetro) {
-	  //We must copy from the device to the host
-	  GPU_copyArraysToHost(p);
-	}	
-      } else {
-	wolffUpdateLR(phi, s, p, LR_couplings, iter, i);
+  if(p.coupling_type == SR) {
+    wolffUpdateISR(s, p, iter);
+  }
+  else {
+    if(p.useGPUCluster) {
+      if(!p.useGPUMetro) {
+	//We must copy from the host to the device
+#ifdef USE_GPU
+	GPU_copyArraysToDevice(p);
+#endif
       }
+      
+#ifdef USE_GPU
+      int rand_site = int(unif(rng) * p.surfaceVol);
+      GPU_wolffUpdateILR(p, rand_site, iter);
+#endif	
+      if(!p.useGPUMetro) {
+	//We must copy from the device to the host
+#ifdef USE_GPU
+	GPU_copyArraysToHost(p);
+#endif
+      }	
+    } else {
+      wolffUpdateILR(s, p, LR_couplings, iter);
     }
   }
 }
 
+
 void Ising2D::swendsenWangUpdate(Param p, int iter){
   
   if(p.coupling_type == SR) 
-    swendsenWangUpdateSR(phi, s, p, iter); 
+    swendsenWangUpdateISR(s, p, iter); 
   else
-    swendsenWangUpdateLR(p, iter); 
+    swendsenWangUpdateILR(p, iter); 
 }
 
 void Ising2D::metropolisUpdate(Param p, int iter) {
   
   if(p.coupling_type == SR) {
-    metropolisUpdateSR(phi, s, p, iter);
+    metropolisUpdateISR(s, p, iter);
   }
   else {
     if(p.useGPUMetro) {
       if(!p.useGPUCluster) {
 	//We must copy from the host to the device
+#ifdef USE_GPU
 	GPU_copyArraysToDevice(p);
+#endif
       }
-      
+#ifdef USE_GPU      
       GPU_metropolisUpdateLR(p, iter);
+#endif
       if(p.doMetroCheck) {
 	//Use the same fields, check against the CPU.
-	metropolisUpdateLR(p, iter);
+	metropolisUpdateILR(p, iter);
       }
       
       if(!p.useGPUCluster) {
 	//We must copy from the device to the host
+#ifdef USE_GPU
 	GPU_copyArraysToHost(p);
+#endif
       }
     } else {
-      metropolisUpdateLR(p, iter);
+      metropolisUpdateILR(p, iter);
     }
   }
 }
-*/
+
 
 inline double Coupling(double dt, double dth, Param p) {
 
@@ -352,7 +330,6 @@ void Ising2D::createLRcouplings(Param p) {
   int Lt = p.Lt;
   int x_len = S1/2 + 1;
   int t_len = Lt/2 + 1;
-  int arr_len = x_len*t_len;
 
   double couplingNormTheta = 1.0/Coupling(0, 1, p);
   //double couplingNormTime = 1.0/Coupling(1, 0, p);
@@ -387,3 +364,29 @@ void Ising2D::createLRcouplings(Param p) {
   
 }
 
+void Ising2D::measureI(observables &obs, int &idx, Param p) {
+  
+  double rhoVol  = 1.0/p.surfaceVol;
+  double rhoVol2 = rhoVol*rhoVol;
+
+  obs.MagPhi = 0.0;
+  for(int i = 0;i < p.surfaceVol; i++) {
+    obs.MagPhi += s[i];
+  }  
+  obs.MagPhi *= rhoVol;
+
+  obs.avePhi  += abs(obs.MagPhi);
+  obs.avePhi2 += obs.MagPhi*obs.MagPhi;
+  obs.avePhi4 += obs.MagPhi*obs.MagPhi*obs.MagPhi*obs.MagPhi;
+
+  idx++;
+  
+  cout<<setprecision(8);
+  double norm = 1.0/(idx);
+
+  obs.Binder[idx-1] = 1.0-obs.avePhi4/(3.0*obs.avePhi2*obs.avePhi2*norm);
+  
+  //Dump to stdout
+  cout<<"Measurement "<<idx<<endl;
+  cout<<"Binder = "<<obs.Binder[idx-1]<<endl;
+}

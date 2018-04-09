@@ -6,6 +6,12 @@
 
 #define I std::complex<double>(0.0,1.0)
 
+typedef enum theory_s {
+  PHI4,
+  ISING
+} theory;
+
+
 typedef enum latType_s {
   TWO_D,
   ADS
@@ -37,7 +43,8 @@ class Param{
   bool useGPUMetro = true;
   bool useGPUCluster = true;
   bool doMetroCheck = false;
-  
+
+  theory theory = ISING;
   latType lat_type = TWO_D;
   couplingType coupling_type = RAD;
   
@@ -65,6 +72,8 @@ class Param{
   int surfaceVol = 0;
   int latVol = 0;
   double musqr  = -1.2725;
+  double J = 1.0;
+  double h = 0.0;
   double lambda = 1.0;
   double sigma = 1.33;
 

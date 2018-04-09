@@ -21,7 +21,8 @@ void Param::usage(char **argv) {
 
   // The user is advised to study these parameters and set them accordingly.
   //-----------------------------------------------------------------------
-  printf("--latType <2D, AdS>              A 2D lattice is a periodic, Euclidean lattice. Use the --Lt <n> and --S1 <m> options to set the extents.\n");  
+  printf("--latType <2D, AdS>              A 2D lattice is a periodic, Euclidean lattice. Use the --Lt <n> and --S1 <m> options to set the extents.\n");
+  printf("--theory <phi4, ising>           Perform calculations for either the Ising model, or phi4.\n");  
   printf("--couplingType <SR, POW, RAD>    Set the coupling between the lattice sites. For SR the coupling is nearest neighbour.\n");
   printf("                                 For POW the coupling is of the form |x - y|^{-(d+sigma)}. For RAD the coupling is of the form (cosh(dt) - cos(dtheta))^{-(d+sigma)/2}\n");
   printf("--metroArch <GPU/CPU>            Use GPU or CPU for metropolis step\n");
@@ -35,6 +36,8 @@ void Param::usage(char **argv) {
   printf("--muSqr <Float>                  The phi^4 mass^2 term. This is usually negative...\n");
   printf("--lambda <Float>                 The phi^4 interaction term.\n");
   printf("--sigma <Float>                  The exponent in the LR power law.\n");
+  printf("--J <Float>                      The (constant) coupling in the Ising model.\n");
+  printf("--h <Float>                      The external field strength in the Ising model.\n");
   printf("--tScale <Float>                 The value of alpha in cosh(alpha * delta_t) in radial LR coupling.\n");
   //MC params
   printf("--nMetroCool <n>                 The number of pure Metropolis steps to perfom in the initial cooldown\n");
@@ -71,6 +74,32 @@ int Param::init(int argc, char **argv, int *idx) {
     usage(argv);
   }
 
+  //Theory
+  if( strcmp(argv[i], "--theory") == 0){
+    if (i+1 >= argc){
+      usage(argv);
+    }  
+    std::string theory_in(argv[i+1]);
+    if (theory_in == "phi4" ||
+	theory_in == "PHI4" ||
+	theory_in == "Phi4") {
+      theory = PHI4;
+      
+    } else if(theory_in == "ising" ||
+	      theory_in == "Ising" ||
+	      theory_in == "ISING") {
+      theory = ISING;
+    } else {
+      cout<<"Invalid theory type ("<<theory_in<<") given. Options are "<<endl;
+      cout<<"phi4: Phi fourth theory"<<endl;
+      cout<<"ising: The Ising model."<<endl;
+      exit(0);
+    }
+    i++;
+    ret = 0;
+    goto out;
+  }
+  
   //Lattice Type
   if( strcmp(argv[i], "--latType") == 0){
     if (i+1 >= argc){
@@ -325,6 +354,28 @@ int Param::init(int argc, char **argv, int *idx) {
       usage(argv);
     }
     sigma = atof(argv[i+1]);
+    i++;
+    ret = 0;
+    goto out;
+  }
+
+  //Ising (constant) coupling
+  if( strcmp(argv[i], "--J") == 0){
+    if (i+1 >= argc){
+      usage(argv);
+    }
+    J = atof(argv[i+1]);
+    i++;
+    ret = 0;
+    goto out;
+  }
+
+  //Ising external field
+  if( strcmp(argv[i], "--h") == 0){
+    if (i+1 >= argc){
+      usage(argv);
+    }
+    h = atof(argv[i+1]);
     i++;
     ret = 0;
     goto out;

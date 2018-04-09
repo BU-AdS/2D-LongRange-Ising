@@ -21,6 +21,7 @@ void PrintComplexPositions(const std::vector<Vertex> NodeList, Param P);
 void dataDump(std::vector<Vertex> NodeList, double *phi, Param p, int level,
 	      int t_range, int shift);
 
+void visualiserIsing(int *s, Param p);
 void visualiserSqr(double *phi_cyl, double barr, Param p);
 void visualiserAdS(std::vector<Vertex> NodeList, double barr, Param p);
 void visualiserPhi2(double **phi_cyl, Param p, int iter);

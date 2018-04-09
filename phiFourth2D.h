@@ -21,10 +21,10 @@ class PhiFourth2D: public Ising2D {
   
  public: 
   double *phi;
+  double *phi_cpy;
   
   //Constructor
   PhiFourth2D(Param p);
-  
   
   //Do n_cluster updates, and one metro update.
   void updateIter(Param p, int iter);
@@ -45,12 +45,13 @@ class PhiFourth2D: public Ising2D {
   void metropolisUpdate(Param p, int iter);
   void metropolisUpdateLR(Param p, int iter);
   
+
+
   
 #ifdef USE_GPU
   
   double *gpu_phi;
   double *gpu_phi_cpy;
-  double *phi_cpy;
   double *gpu_ind_corr_s;
 
   double GPU_metropolisUpdateLR(Param p, int iter);

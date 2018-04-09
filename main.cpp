@@ -14,7 +14,8 @@ using namespace std;
 int seed = 1234;
 mt19937 rng(seed);
 uniform_real_distribution<double> unif(0.0,1.0);
-int CACHE_LINE_SIZE = sysconf(_SC_LEVEL1_DCACHE_LINESIZE);
+//int CACHE_LINE_SIZE = sysconf(_SC_LEVEL1_DCACHE_LINESIZE);
+int CACHE_LINE_SIZE = 64;
 int sze = 512;
 
 #include "util.h"
@@ -41,7 +42,15 @@ int main(int argc, char **argv) {
   int k=0;
   if(argc > 1) p.init(argc, argv, &k);
 
-
+  //Sanity checks
+#ifndef USE_GPU
+  if(p.useGPUMetro || p.useGPUCluster) {
+    printf("ERROR: Cannot use GPU routines if they haven't been built. ");
+    printf("Please revise your options or rebuild to enable GPU support\n");
+    exit(0);
+  }
+#endif
+  
   if(p.lat_type == ADS) {
 
 #if 0
@@ -85,15 +94,21 @@ int main(int argc, char **argv) {
     runMonteCarloAdSL(NodeList, p);
 #endif
   } else {
-
+    
     //Nodes on the 2D surface of the AdS space.
     p.surfaceVol = p.S1*p.Lt;
-
+    
     //Print paramters
     p.print();
-    
-    PhiFourth2D Sim(p);
-    Sim.runSimulation(p);
+
+    if(p.theory == PHI4) {
+      PhiFourth2D Sim(p);
+      Sim.runSimulation(p);
+    }
+    else {
+      Ising2D Sim(p);
+      Sim.runSimulation(p);
+    }
   }
   
   return 0;  

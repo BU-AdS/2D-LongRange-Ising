@@ -202,6 +202,17 @@ void PrintComplexPositions(const vector<Vertex> NodeList, Param P) {
   }
 }
 
+void visualiserIsing(int *s, Param p) {  
+  
+  for(int i=0; i<p.S1; i++) {
+    for(int j=0; j<p.Lt; j++) {
+      if(s[i + p.S1*j] < 0) cout<<"\033[1;41m \033[0m";
+      else cout<<"\033[1;44m \033[0m";
+    }
+    cout<<endl;
+  }
+}
+
 void visualiserSqr(double *phi_cyl, double barr, Param p) {  
   
   for(int i=0; i<p.S1; i++) {

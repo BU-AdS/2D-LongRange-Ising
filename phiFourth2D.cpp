@@ -15,10 +15,7 @@
 #include "data_proc.h"
 #include "data_io.h"
 #include "mcPhiFourth2D.h"
-
-#ifdef USE_GPU
 #include "gpuMcPhiFourth2D.cuh"
-#endif
 
 using namespace std;
 
@@ -109,12 +106,12 @@ void PhiFourth2D::runSimulation(Param p) {
       cout<<"(Thermalised) Average time per cluster update = "<<cluster/(therm_iter*p.n_cluster*1.0e6)<<"s"<<endl;
 
       //copy GPU arrays to the CPU FIXME: do all measurements on the GPU
-      
-      GPU_copyArraysToHost(p);      
-      
+#ifdef USE_GPU      
+      //GPU_copyArraysToHost(p);      
+#endif
       //update running average, dump to stdout. 
       //'meas' is ++ incremented in this function.
-      measure(obs, meas, p);
+      measureI(obs, meas, p);
       
       norm = 1.0/(meas);
 
@@ -122,9 +119,11 @@ void PhiFourth2D::runSimulation(Param p) {
       visualiserSqr(phi, obs.avePhiAb*norm, p);
       
       //Calculate correlaton functions and update the average.
-      //int rand_site = int(unif(rng) * p.surfaceVol);	      
+      //int rand_site = int(unif(rng) * p.surfaceVol);
+#ifdef USE_GPU
       //GPU_correlatorsImpWolff(rand_site, meas-1, obs.avePhi*norm, p);
-
+#endif
+     
       long long time = 0.0;
       auto start1 = std::chrono::high_resolution_clock::now();
       correlatorsImpWolff(ind_corr_t, run_corr_t,
@@ -223,15 +222,19 @@ void PhiFourth2D::wolffUpdate(Param p, int iter) {
       if(p.useGPUCluster) {
 	if(!p.useGPUMetro) {
 	  //We must copy from the host to the device
+#ifdef USE_GPU
 	  GPU_copyArraysToDevice(p);
+#endif
 	}
-	
+#ifdef USE_GPU	
 	int rand_site = int(unif(rng) * p.surfaceVol);	
 	GPU_wolffUpdateLR(p, rand_site, iter, i);
-	
+#endif
 	if(!p.useGPUMetro) {
 	  //We must copy from the device to the host
+#ifdef USE_GPU
 	  GPU_copyArraysToHost(p);
+#endif
 	}	
       } else {
 	wolffUpdateLR(phi, s, p, LR_couplings, iter, i);
@@ -257,10 +260,13 @@ void PhiFourth2D::metropolisUpdate(Param p, int iter) {
     if(p.useGPUMetro) {
       if(!p.useGPUCluster) {
 	//We must copy from the host to the device
+#ifdef USE_GPU
 	GPU_copyArraysToDevice(p);
+#endif
       }
-      
+#ifdef USE_GPU
       GPU_metropolisUpdateLR(p, iter);
+#endif
       if(p.doMetroCheck) {
 	//Use the same fields, check against the CPU.
 	metropolisUpdateLR(p, iter);
@@ -268,7 +274,9 @@ void PhiFourth2D::metropolisUpdate(Param p, int iter) {
       
       if(!p.useGPUCluster) {
 	//We must copy from the device to the host
+#ifdef USE_GPU
 	GPU_copyArraysToHost(p);
+#endif
       }
     } else {
       metropolisUpdateLR(p, iter);

@@ -26,7 +26,7 @@ void metropolisUpdateISR(int *s, Param p, int iter);
 double actionISR(int *s, Param p, double &KE, double &PE);
 
 //Long range phi fourth Monte Carlo routines
-void wolffUpdateILR(int *s, Param p, double *LR_couplings, int iter, int n);
+void wolffUpdateILR(int *s, Param p, double *LR_couplings, int iter);
 
 void wolffClusterAddILR(int i, int *s, int cSpin, 
 		       double *LR_couplings, Param p);
