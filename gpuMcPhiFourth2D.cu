@@ -49,6 +49,20 @@ __device__ __inline__ double fetch_double(int2 i){
 
 
 //--------------------------------------------------------------------------
+//Device function to emulate double prec atomic adds
+//--------------------------------------------------------------------------
+__device__ double atomicAdd(double* address, double val) {
+  unsigned long long int *address_as_ull = (unsigned long long int*)address;
+  unsigned long long int old = *address_as_ull, assumed;
+  do {
+    assumed = old;
+    old = atomicCAS(address_as_ull, assumed,
+		    __double_as_longlong(val + __longlong_as_double(assumed)));
+  } while (assumed != old);
+  return __longlong_as_double(old);
+}
+
+//--------------------------------------------------------------------------
 //Kernel to convert booleans to a summed integer
 //--------------------------------------------------------------------------
 __global__ void count_added(bool *added, int *sum){
