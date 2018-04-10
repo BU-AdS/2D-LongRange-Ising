@@ -51,7 +51,7 @@ __device__ __inline__ double fetch_double(int2 i){
 //--------------------------------------------------------------------------
 //Device function to emulate double prec atomic adds
 //--------------------------------------------------------------------------
-__device__ double atomicAdd(double* address, double val) {
+__device__ double atomicAddCustom(double* address, double val) {
   unsigned long long int *address_as_ull = (unsigned long long int*)address;
   unsigned long long int old = *address_as_ull, assumed;
   do {
@@ -380,7 +380,7 @@ __global__ void corrClusterCalcSpatial(double *gpu_phi_cpy, int S1, int Lt,
     __syncthreads();
     
     auto g = this_thread_block();
-    for(int a=0; a<32; a++) atomicAdd(&ind_corr[a], corr_lc[a]);    
+    for(int a=0; a<32; a++) atomicAddCustom(&ind_corr[a], corr_lc[a]);    
   }      
 }
 
@@ -427,7 +427,7 @@ __global__ void corrClusterCalcTemporal(double *gpu_phi_cpy, int S1, int Lt,
     __syncthreads();
 
     auto g = this_thread_block();
-    if (g.thread_rank() == tid && tid < Lt/2 + 1) atomicAdd(&ind_corr[tid], corr_lc[tid]);    
+    if (g.thread_rank() == tid && tid < Lt/2 + 1) atomicAddCustom(&ind_corr[tid], corr_lc[tid]);    
   }
 }
 
@@ -623,7 +623,7 @@ __global__ void KEreduce(int i, const int S1, const int Lt,
   */
   
   auto g = this_thread_block();
-  if (g.thread_rank() == 0) atomicAdd(&result[i], sdata[0]);
+  if (g.thread_rank() == 0) atomicAddCustom(&result[i], sdata[0]);
 }
 
 

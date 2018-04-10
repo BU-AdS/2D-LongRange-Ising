@@ -6,10 +6,10 @@
 
 #define I std::complex<double>(0.0,1.0)
 
-typedef enum theory_s {
+typedef enum theoryType_s {
   PHI4,
   ISING
-} theory;
+} theoryType;
 
 
 typedef enum latType_s {
@@ -44,7 +44,7 @@ class Param{
   bool useGPUCluster = true;
   bool doMetroCheck = false;
 
-  theory theory = ISING;
+  theoryType theory_type = ISING;
   latType lat_type = TWO_D;
   couplingType coupling_type = RAD;
   

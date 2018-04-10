@@ -83,12 +83,12 @@ int Param::init(int argc, char **argv, int *idx) {
     if (theory_in == "phi4" ||
 	theory_in == "PHI4" ||
 	theory_in == "Phi4") {
-      theory = PHI4;
+      theory_type = PHI4;
       
     } else if(theory_in == "ising" ||
 	      theory_in == "Ising" ||
 	      theory_in == "ISING") {
-      theory = ISING;
+      theory_type = ISING;
     } else {
       cout<<"Invalid theory type ("<<theory_in<<") given. Options are "<<endl;
       cout<<"phi4: Phi fourth theory"<<endl;
@@ -717,15 +717,21 @@ void Param::print() {
   cout<<"Architectures compiled: "<<(useGPU == true ? "GPU and " : "")<<(useOMP == true ? "CPU (OMP)" : "CPU (serial)")<<endl;
   cout<<"Architecture for Metropolis: "<<(useGPUMetro == true ? "GPU" : (useOMP == true ? "CPU (OMP)" : "CPU (serial)"))<<endl;
   cout<<"Architecture for Cluster: "<<(useGPUCluster == true ? "GPU" : (useOMP == true ? "CPU (OMP)" : "CPU (serial)"))<<endl;
+  cout<<"Theory type = "<<(theory_type == PHI4 ? "Phi Fourth" : "Ising")<<endl;
   cout<<"Lattice type = "<<(lat_type == TWO_D ? "2D" : "AdS")<<endl;
   cout<<"Coupling type = "<<(coupling_type == SR ? "Short-Range" :
 			     coupling_type == POW ? "Power Law" : "Radial")<<endl;
   cout<<"Cluster Algorithm = "<<(useWolff == true ? "Wolff" : "Swendsen-Wang")<<endl;
   cout<<"TimeSlices = "<<Lt<<endl;
   cout<<"Circumference = "<<S1<<endl;
-  cout<<"Boundary Mass squared (mu^2) = "<<musqr<<endl;  
-  cout<<"Boundary coupling (Lambda) = "<<lambda<<endl;
-  cout<<"Long-Range coupling sigma = "<<sigma<<endl;
+  if(theory_type == PHI4) {
+    cout<<"(Phi4) Boundary Mass squared (mu^2) = "<<musqr<<endl;  
+    cout<<"(Phi4) Boundary coupling (Lambda) = "<<lambda<<endl;
+  } else {
+    cout<<"(Ising) External field strength = "<<h<<endl;
+    if(coupling_type == SR) cout<<"(Ising) Constant coupling = "<<J<<endl;
+  }   
+  if(coupling_type != SR) cout<<"Long-Range coupling sigma = "<<sigma<<endl;
   cout<<"Temporal Scaling = "<<t_scale<<endl;
   
   cout<<endl<<"* MC Params *"<<endl;
@@ -1016,8 +1022,4 @@ void checkEdgeLength(const vector<Vertex> NodeList, Param P) {
     //exit(0);
   }
 }
-
-//inline double edgeLength(int q) {
-//return sqrt( 1 - 4*sin(M_PI/q)*sin(M_PI/q) );
-//}
 

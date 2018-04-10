@@ -93,16 +93,16 @@ int main(int argc, char **argv) {
     
     runMonteCarloAdSL(NodeList, p);
 #endif
-  } else {
-    
+  } else {    
     //Nodes on the 2D surface of the AdS space.
     p.surfaceVol = p.S1*p.Lt;
     
     //Print paramters
     p.print();
-
-    if(p.theory == PHI4) {
+    
+    if(p.theory_type == PHI4) {
       PhiFourth2D Sim(p);
+      cout<<"Yo!"<<endl;
       Sim.runSimulation(p);
     }
     else {

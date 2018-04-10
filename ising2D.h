@@ -34,11 +34,13 @@ class Ising2D {
   //Running correlation function arrays.
   double *run_corr_t;
   double *run_corr_s;
-
+  double **run_corr;
+  
   //Individual correlation function arrays..
   double **ind_corr_t;
   double **ind_corr_s;
-
+  double ***ind_corr;
+  
   //Holds Autocorrelation data
   double *auto_corr;
   
@@ -105,6 +107,10 @@ class Ising2D {
   void swendsenWangUpdate(Param p, int iter);
   void metropolisUpdate(Param p, int iter);
   void metropolisUpdateILR(Param p, int iter);
+  
+  void correlatorsImpWolffI(double **ind_corr_s, double *run_corr_s,
+			    double **ind_corr_t, double *run_corr_t,
+			    int meas, double aveS, Param p);
 
 };
 

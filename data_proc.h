@@ -28,4 +28,7 @@ void jackknife(double **ind, double *run, double *jk_err, int block,
 void corr_wolffClusterAddLR(int i, int *s, int cSpin, double *LR_couplings,
 			    double *phi, bool *cluster, Param p);
 
+void corr_wolffClusterAddLRI(int i, int *s, int cSpin, double *LR_couplings,
+			     bool *cluster, Param p);
+
 #endif

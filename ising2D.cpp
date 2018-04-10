@@ -17,7 +17,7 @@
 #include "mcIsing2D.h"
 
 #ifdef USE_GPU
-#include "gpuIsing2D.cuh"
+//#include "gpuIsing2D.cuh"
 #endif
 
 using namespace std;
@@ -53,6 +53,9 @@ Ising2D::Ising2D(Param p) {
   //Running correlation function arrays.
   run_corr_t = (double*)malloc((Lt/2+1)*sizeof(double));
   run_corr_s = (double*)malloc((S1/2+1)*sizeof(double));
+  run_corr = (double**)malloc((S1/2+1)*sizeof(double));
+
+  
   //Individual correlation functions.
   ind_corr_t = (double**)malloc((p.n_meas)*sizeof(double*));
   ind_corr_s = (double**)malloc((p.n_meas)*sizeof(double*));
@@ -153,7 +156,6 @@ void Ising2D::runSimulation(Param p) {
   thermalise(p);
   
   //reset timing variables.
-  metro = 0.0;
   cluster = 0.0;
   for(int iter = p.n_therm; iter < p.n_therm + p.n_skip*p.n_meas; iter++) {
     
@@ -179,12 +181,12 @@ void Ising2D::runSimulation(Param p) {
       //int rand_site = int(unif(rng) * p.surfaceVol);	      
       //GPU_correlatorsImpWolff(rand_site, meas-1, obs.avePhi*norm, p);
 
-      /*
+  
       long long time = 0.0;
       auto start1 = std::chrono::high_resolution_clock::now();
-      correlatorsImpWolff(ind_corr_t, run_corr_t,
-			  ind_corr_s, run_corr_s,
-			  meas-1, obs.avePhi*norm, p);
+      correlatorsImpWolffI(ind_corr_t, run_corr_t,
+			   ind_corr_s, run_corr_s,
+			   meas-1, obs.avePhi*norm, p);
       
       auto elapsed1 = std::chrono::high_resolution_clock::now() - start1;
       time = std::chrono::duration_cast<std::chrono::microseconds>(elapsed1).count();
@@ -207,7 +209,7 @@ void Ising2D::runSimulation(Param p) {
       
       //Calculate the autocorrelation of |phi|
       autocorrelation(obs.PhiAb_arr, obs.avePhiAb*norm, meas, auto_corr);
-      */
+
     }
   }
 }
@@ -250,18 +252,18 @@ void Ising2D::wolffUpdate(Param p, int iter) {
       if(!p.useGPUMetro) {
 	//We must copy from the host to the device
 #ifdef USE_GPU
-	GPU_copyArraysToDevice(p);
+	//GPU_copyArraysToDevice(p);
 #endif
       }
       
 #ifdef USE_GPU
-      int rand_site = int(unif(rng) * p.surfaceVol);
-      GPU_wolffUpdateILR(p, rand_site, iter);
+      //int rand_site = int(unif(rng) * p.surfaceVol);
+      //GPU_wolffUpdateILR(p, rand_site, iter);
 #endif	
       if(!p.useGPUMetro) {
 	//We must copy from the device to the host
 #ifdef USE_GPU
-	GPU_copyArraysToHost(p);
+	//GPU_copyArraysToHost(p);
 #endif
       }	
     } else {
@@ -289,11 +291,11 @@ void Ising2D::metropolisUpdate(Param p, int iter) {
       if(!p.useGPUCluster) {
 	//We must copy from the host to the device
 #ifdef USE_GPU
-	GPU_copyArraysToDevice(p);
+	//GPU_copyArraysToDevice(p);
 #endif
       }
 #ifdef USE_GPU      
-      GPU_metropolisUpdateLR(p, iter);
+      //GPU_metropolisUpdateLR(p, iter);
 #endif
       if(p.doMetroCheck) {
 	//Use the same fields, check against the CPU.
@@ -303,7 +305,7 @@ void Ising2D::metropolisUpdate(Param p, int iter) {
       if(!p.useGPUCluster) {
 	//We must copy from the device to the host
 #ifdef USE_GPU
-	GPU_copyArraysToHost(p);
+	//GPU_copyArraysToHost(p);
 #endif
       }
     } else {
@@ -313,7 +315,7 @@ void Ising2D::metropolisUpdate(Param p, int iter) {
 }
 
 
-inline double Coupling(double dt, double dth, Param p) {
+inline double coupling(double dt, double dth, Param p) {
 
   
   dt  *= M_PI/p.S1;
@@ -330,9 +332,10 @@ void Ising2D::createLRcouplings(Param p) {
   int Lt = p.Lt;
   int x_len = S1/2 + 1;
   int t_len = Lt/2 + 1;
-
-  double couplingNormTheta = 1.0/Coupling(0, 1, p);
-  //double couplingNormTime = 1.0/Coupling(1, 0, p);
+  
+  
+  double couplingNormTheta = 1.0/coupling(0, 1, p);
+  //double couplingNormTime = 1.0/coupling(1, 0, p);
 
   double sum_1 = 0.0;
   double sum_2 = 0.0;
@@ -346,7 +349,7 @@ void Ising2D::createLRcouplings(Param p) {
       int idx = i + j*x_len;      
       if(i!=0 || j!=0) {
 	if(p.usePowLaw) LR_couplings[idx] = pow(sqrt(i*i + j*j),-(2+sigma));
-	else  LR_couplings[idx] = couplingNormTheta*Coupling((double)j*p.t_scale, (double)i, p);
+	else  LR_couplings[idx] = couplingNormTheta*coupling((double)j*p.t_scale, (double)i, p);
 	sum_1 += LR_couplings[idx];
 	sum_2 += LR_couplings[idx]*LR_couplings[idx];
       }
@@ -359,7 +362,7 @@ void Ising2D::createLRcouplings(Param p) {
   
 #ifdef USE_GPU
   cudaMemcpy(gpu_LR_couplings, LR_couplings,
-	     arr_len*sizeof(double), cudaMemcpyHostToDevice);
+	     x_len*t_len*sizeof(double), cudaMemcpyHostToDevice);
 #endif
   
 }

@@ -104,15 +104,15 @@ void PhiFourth2D::correlatorsImpSW(double **ind_corr, double *run_corr,
   
 }
 
-int corr_sqnl_wc_size = 0;
-int corr_sqnl_wc_ave = 0;
-int corr_sqnl_wc_calls = 0;
+int corr_wc_size = 0;
+int corr_wc_ave = 0;
+int corr_wc_calls = 0;
 
 void PhiFourth2D::correlatorsImpWolff(double **ind_corr_t, double *run_corr_t,
 				      double **ind_corr_s, double *run_corr_s,
 				      int meas, double avePhi, Param p){
   
-  corr_sqnl_wc_calls++;
+  corr_wc_calls++;
   
   for(int a=0; a<p.surfaceVol; a++) {
     s_cpy[a] = s[a];
@@ -125,7 +125,7 @@ void PhiFourth2D::correlatorsImpWolff(double **ind_corr_t, double *run_corr_t,
   int cSpin = s_cpy[i];
   
   // The site belongs to the cluster, so flip it.
-  corr_sqnl_wc_size = 1;
+  corr_wc_size = 1;
   s_cpy[i] *= -1;
   phi_cpy[i] *= -1;
   cpu_added[i] = true;
@@ -135,15 +135,15 @@ void PhiFourth2D::correlatorsImpWolff(double **ind_corr_t, double *run_corr_t,
   //have failed.
   corr_wolffClusterAddLR(i, s_cpy, cSpin, LR_couplings, phi_cpy, cpu_added, p);
   
-  corr_sqnl_wc_ave += corr_sqnl_wc_size;
+  corr_wc_ave += corr_wc_size;
   
   setprecision(4);
-  cout<<"Average (CPU) corr. cluster size at iter "<<meas<<" = "<<corr_sqnl_wc_ave<<"/"<<corr_sqnl_wc_calls<<" = "<<1.0*corr_sqnl_wc_ave/corr_sqnl_wc_calls<<" = "<<100.0*corr_sqnl_wc_ave/(corr_sqnl_wc_calls*p.surfaceVol)<<"%"<<endl;
+  cout<<"Average (CPU) corr. cluster size at iter "<<meas<<" = "<<corr_wc_ave<<"/"<<corr_wc_calls<<" = "<<1.0*corr_wc_ave/corr_wc_calls<<" = "<<100.0*corr_wc_ave/(corr_wc_calls*p.surfaceVol)<<"%"<<endl;
 
   int S1 = p.S1;
   int Lt = p.Lt;
 
-  double clusterNorm = 1.0*p.surfaceVol/corr_sqnl_wc_size;
+  double clusterNorm = 1.0*p.surfaceVol/corr_wc_size;
 
   double val = 0.0;
   int idx = 0;
@@ -186,6 +186,76 @@ void PhiFourth2D::correlatorsImpWolff(double **ind_corr_t, double *run_corr_t,
   }
 }
 
+void Ising2D::correlatorsImpWolffI(double **ind_corr_t, double *run_corr_t,
+				   double **ind_corr_s, double *run_corr_s,
+				   int meas, double aveS, Param p){
+  
+  corr_wc_calls++;
+  
+  for(int a=0; a<p.surfaceVol; a++) {
+    s_cpy[a] = s[a];
+    cpu_added[a] = false;
+  }   
+  
+  //Choose a random spin.
+  int i = int(unif(rng) * p.surfaceVol);
+  int cSpin = s_cpy[i];
+  
+  // The site belongs to the cluster, so flip it.
+  corr_wc_size = 1;
+  s_cpy[i] *= -1;
+  cpu_added[i] = true;
+  
+  //This function is recursive and will call itself
+  //until all attempts to increase the cluster size
+  //have failed.
+  corr_wolffClusterAddLRI(i, s_cpy, cSpin, LR_couplings, cpu_added, p);
+  
+  corr_wc_ave += corr_wc_size;
+  
+  setprecision(4);
+  cout<<"Average (CPU) corr. cluster size at iter "<<meas<<" = "<<corr_wc_ave<<"/"<<corr_wc_calls<<" = "<<1.0*corr_wc_ave/corr_wc_calls<<" = "<<100.0*corr_wc_ave/(corr_wc_calls*p.surfaceVol)<<"%"<<endl;
+
+  int S1 = p.S1;
+  int Lt = p.Lt;
+
+  double clusterNorm = 1.0*p.surfaceVol/corr_wc_size;
+
+  double val = 0.0;
+  int idx = 0;
+  int t1,x1,t2,x2,dt,dx;
+  
+  //loop over all sources
+  for(int i=0; i<p.surfaceVol; i++) {
+    
+    if(cpu_added[i]){ 
+
+      t1 = i / S1;
+      x1 = i % S1;
+      
+      //loop over all sinks 
+      for(int j=0; j<p.surfaceVol; j++) {
+
+	if(cpu_added[j]) {
+	  
+	  //Index divided by circumference, using the int floor feature/bug,
+	  //gives the timeslice index.
+	  t2 = j / S1;
+	  dt = abs(t2-t1) > p.Lt/2 ? p.Lt - abs(t2-t1) : abs(t2-t1);
+	  
+	  //The index modulo the circumference gives the spatial index.
+	  x2 = j % S1;            
+	  dx = abs(x2-x1) > p.S1/2 ? p.S1 - abs(x2-x1) : abs(x2-x1);      
+	  
+	  val = (1 - aveS)*clusterNorm;
+	  
+	  ind_corr[meas][dx][dt] += val;
+	  run_corr[dx][dt] += val;
+	}
+      }
+    }
+  }
+}
 
 void corr_wolffClusterAddLR(int i, int *s, int cSpin, double *LR_couplings,
 			    double *phi, bool *cpu_added, Param p) {
@@ -195,8 +265,8 @@ void corr_wolffClusterAddLR(int i, int *s, int cSpin, double *LR_couplings,
   int x_len = S1/2 + 1;
 
   int t1,x1,t2,x2,dt,dx;
-  t1 = i / p.S1;
-  x1 = i % p.S1;
+  t1 = i / S1;
+  x1 = i % S1;
   
   double prob = 0.0;
   double rand = 0.0;
@@ -217,7 +287,7 @@ void corr_wolffClusterAddLR(int i, int *s, int cSpin, double *LR_couplings,
       prob = 1 - exp(2*phi_lc*phi[j]*LR_couplings[dx + dt*x_len]);
       rand = unif(rng);
       if(rand < prob) {
-	corr_sqnl_wc_size++;
+	corr_wc_size++;
 	// The site belongs to the cluster, so flip it.
 	s[j] *= -1;
 	phi[j] *= -1;
@@ -227,6 +297,47 @@ void corr_wolffClusterAddLR(int i, int *s, int cSpin, double *LR_couplings,
     }
   }
 }
+
+void corr_wolffClusterAddLRI(int i, int *s, int cSpin, double *LR_couplings,
+			     bool *cpu_added, Param p) {
+  
+  int S1 = p.S1;
+  int x_len = S1/2 + 1;
+  double J = p.J;
+  
+  int t1,x1,t2,x2,dt,dx;
+  t1 = i / S1;
+  x1 = i % S1;
+  
+  double prob = 0.0;
+  double rand = 0.0;
+  //We now loop over the possible lattice sites, adding sites
+  //(creating bonds) with the specified LR probablity.
+  for(int j=0; j<p.surfaceVol; j++) {
+    if(s[j] == cSpin && j != i) {
+      
+      //Index divided by circumference, using the int floor feature/bug,
+      //gives the timeslice index.
+      t2 = j / p.S1;
+      dt = abs(t2-t1) > p.Lt/2 ? p.Lt - abs(t2-t1) : abs(t2-t1);
+      
+      //The index modulo the circumference gives the spatial index.
+      x2 = j % p.S1;            
+      dx = abs(x2-x1) > p.S1/2 ? p.S1 - abs(x2-x1) : abs(x2-x1);      
+      
+      prob = 1 - exp(-2*J*LR_couplings[dx + dt*x_len]);
+      rand = unif(rng);
+      if(rand < prob) {
+	corr_wc_size++;
+	// The site belongs to the cluster, so flip it.
+	s[j] *= -1;
+	cpu_added[j] = true;
+	corr_wolffClusterAddLRI(j, s, cSpin, LR_couplings, cpu_added, p);
+      }
+    }
+  }
+}
+
 
 
 //Calculate the autocorrelation of |phi|

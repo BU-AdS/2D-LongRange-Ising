@@ -111,7 +111,7 @@ void PhiFourth2D::runSimulation(Param p) {
 #endif
       //update running average, dump to stdout. 
       //'meas' is ++ incremented in this function.
-      measureI(obs, meas, p);
+      measure(obs, meas, p);
       
       norm = 1.0/(meas);
 

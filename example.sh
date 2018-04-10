@@ -19,7 +19,7 @@ VERBOSITY='q'
 LATTICE='2D'
 
 #phi4 or Ising
-THEORY='ising'
+THEORY='ISING'
 
 #wolff = Wolff algorithm
 #sw    = Swednsen Wang algorithm
@@ -28,8 +28,8 @@ CLUSTER='WOLFF'
 #GPU/CPU
 CLUSTER_ARCH='CPU'
 METRO_ARCH='CPU'
-#Perform the Metropolis step on the CPU with the same random numbers
-#used on the GPU.
+
+#Perform the Metropolis step on the CPU with the same random numbers used on the GPU.
 METRO_CHECK='false'
 
 #wolff = Wolff algorithm
@@ -42,25 +42,25 @@ CLUSTER='WOLFF'
 COUPLING_TYPE='POW'
 
 #Ising J
-J=$1
+J=0.43
 
 #Ising h
-H=$2
+H=0.0
 
-TIMESLICES=64
-CIRCUMFERENCE=64
+TIMESLICES=32
+CIRCUMFERENCE=32
 T_SCALE=1.0
 
-N_METRO_COOL=10000
-N_THERM=1000
+N_METRO_COOL=100
+N_THERM=400
 N_MEAS=100
 N_SKIP=100
 N_CLUSTER=4
 DELTA_PHI=1.5
 
-MUSQR=-1.275
+MUSQR=-1.27
 LAMBDA=1.0
-SIGMA=3.0
+SIGMA=100.0
 
 make -j 12
 

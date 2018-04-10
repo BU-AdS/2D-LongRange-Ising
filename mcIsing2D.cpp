@@ -166,7 +166,7 @@ void wolffClusterAddISR(int i, int *s, int cSpin,
 
   //Forward in T
   if(!cluster[ tp(i,p) ] && s[tp(i,p)] == cSpin) {
-    if(unif(rng) < 1 - exp(2*J*s[i]*s[tp(i,p)])) {
+    if(unif(rng) < 1 - exp(-2*J)) {
       ising_wc_size++;
       ising_wc_t_size++;
       //cout<<"->tp";
@@ -176,7 +176,7 @@ void wolffClusterAddISR(int i, int *s, int cSpin,
 
   //Forward in X
   if(!cluster[ xp(i,p) ] && s[xp(i,p)] == cSpin) {
-    if(unif(rng) < 1 - exp(2*J*s[i]*s[xp(i,p)])) {
+    if(unif(rng) < 1 - exp(-2*J)) {
       ising_wc_size++;
       ising_wc_s_size++;
       //cout<<"->xp";
@@ -187,7 +187,7 @@ void wolffClusterAddISR(int i, int *s, int cSpin,
   
   //Backard in T 
   if(!cluster[ ttm(i,p) ] && s[ttm(i,p)] == cSpin) {  
-    if(unif(rng) < 1 - exp(2*J*s[i]*s[ttm(i,p)])) {
+    if(unif(rng) < 1 - exp(-2*J)) {
       ising_wc_size++;
       ising_wc_t_size++;
       //cout<<"->tm";
@@ -197,7 +197,7 @@ void wolffClusterAddISR(int i, int *s, int cSpin,
 
   //Backward in X
   if(!cluster[ xm(i,p) ] && s[xm(i,p)] == cSpin) {
-    if (unif(rng) < 1 - exp(2*J*s[i]*s[xm(i,p)])) {
+    if (unif(rng) < 1 - exp(-2*J)) {
       ising_wc_size++;
       ising_wc_s_size++;
       //cout<<"->xm";

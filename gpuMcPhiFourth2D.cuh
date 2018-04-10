@@ -16,6 +16,5 @@ __global__ void init(unsigned int seed, curandState_t* states);
 //Takes an array of states, ints, and puts a random int into each 
 __global__ void randoms(curandState_t* states, double* numbers);
 
-
 #endif
 #endif
