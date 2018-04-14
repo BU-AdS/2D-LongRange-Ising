@@ -139,7 +139,8 @@ void wolffUpdateISR(int *s, Param p, int iter) {
   //until all four attempts in the lattice directions
   // (+x, -x, +t, -t) have failed to ncrease the cluster.
   ising_wc_size = 1;
-  wolffClusterAddISR(i, s, cSpin, cluster, p);
+  double prob = 1 - exp(-2*p.J);
+  wolffClusterAddISR(i, s, cSpin, prob, cluster, p);
 
   ising_wc_ave += ising_wc_size;
 
@@ -151,11 +152,9 @@ void wolffUpdateISR(int *s, Param p, int iter) {
   
 }
 
-void wolffClusterAddISR(int i, int *s, int cSpin,
+void wolffClusterAddISR(int i, int *s, int cSpin, double prob,
 			bool *cluster, Param p) {
 
-  double J = p.J;
-  
   // The site belongs to the cluster, so flip it.
   cluster[i] = true;
   s[i] *= -1;
@@ -166,42 +165,42 @@ void wolffClusterAddISR(int i, int *s, int cSpin,
 
   //Forward in T
   if(!cluster[ tp(i,p) ] && s[tp(i,p)] == cSpin) {
-    if(unif(rng) < 1 - exp(-2*J)) {
+    if(unif(rng) < prob) {
       ising_wc_size++;
       ising_wc_t_size++;
       //cout<<"->tp";
-      wolffClusterAddISR(tp(i,p), s, cSpin, cluster, p);
+      wolffClusterAddISR(tp(i,p), s, cSpin, prob, cluster, p);
     }
   }
 
   //Forward in X
   if(!cluster[ xp(i,p) ] && s[xp(i,p)] == cSpin) {
-    if(unif(rng) < 1 - exp(-2*J)) {
+    if(unif(rng) < prob) {
       ising_wc_size++;
       ising_wc_s_size++;
       //cout<<"->xp";
-      wolffClusterAddISR(xp(i,p), s, cSpin, cluster, p);
+      wolffClusterAddISR(xp(i,p), s, cSpin, prob, cluster, p);
     }
   }
 
   
   //Backard in T 
   if(!cluster[ ttm(i,p) ] && s[ttm(i,p)] == cSpin) {  
-    if(unif(rng) < 1 - exp(-2*J)) {
+    if(unif(rng) < prob) {
       ising_wc_size++;
       ising_wc_t_size++;
       //cout<<"->tm";
-      wolffClusterAddISR(ttm(i,p), s, cSpin, cluster, p);
+      wolffClusterAddISR(ttm(i,p), s, cSpin, prob, cluster, p);
     }
   }
 
   //Backward in X
   if(!cluster[ xm(i,p) ] && s[xm(i,p)] == cSpin) {
-    if (unif(rng) < 1 - exp(-2*J)) {
+    if (unif(rng) < prob) {
       ising_wc_size++;
       ising_wc_s_size++;
       //cout<<"->xm";
-      wolffClusterAddISR(xm(i,p), s, cSpin, cluster, p);
+      wolffClusterAddISR(xm(i,p), s, cSpin, prob, cluster, p);
     }
   }   
 }

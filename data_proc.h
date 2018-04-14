@@ -31,7 +31,7 @@ void corr_wolffClusterAddLR(int i, int *s, int cSpin, double *LR_couplings,
 void corr_wolffClusterAddLRI(int i, int *s, int cSpin, double *LR_couplings,
 			     bool *cluster, Param p);
 
-void corr_wolffClusterAddSRI(int i, int *s, int cSpin,
+void corr_wolffClusterAddSRI(int i, int *s, int cSpin, double prob,
                              bool *cpu_added, Param p);
 
 

@@ -13,7 +13,7 @@
 //Short range phi fourth Monte Carlo routines
 void wolffUpdateISR(int *s, Param p, int iter);
 
-void wolffClusterAddISR(int i, int *s, int clusterSpin,
+void wolffClusterAddISR(int i, int *s, int clusterSpin, double prob,
 		       bool *site_cluster, Param p);
 
 void swendsenWangUpdateISR(int *s, Param p, int iter);

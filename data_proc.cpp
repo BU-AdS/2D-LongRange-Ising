@@ -197,11 +197,11 @@ void PhiFourth2D::correlatorsImpWolff(double **ind_corr, double *run_corr,
 	  //Index divided by circumference, using the int floor feature/bug,
 	  //gives the timeslice index.
 	  t2 = j / S1;
-	  dt = abs(t2-t1) > p.Lt/2 ? p.Lt - abs(t2-t1) : abs(t2-t1);
+	  dt = abs(t2-t1) > Lt/2 ? Lt - abs(t2-t1) : abs(t2-t1);
 	  
 	  //The index modulo the circumference gives the spatial index.
 	  x2 = j % S1;            
-	  dx = abs(x2-x1) > p.S1/2 ? p.S1 - abs(x2-x1) : abs(x2-x1);      
+	  dx = abs(x2-x1) > S1/2 ? S1 - abs(x2-x1) : abs(x2-x1);      
 	  
 	  idx = dx + x_len*dt;
 	  
@@ -238,8 +238,11 @@ void Ising2D::correlatorsImpWolffI(double **ind_corr, double *run_corr,
   //until all attempts to increase the cluster size
   //have failed.
 
-  if(p.coupling_type == SR) corr_wolffClusterAddSRI(i, s_cpy, cSpin, cpu_added, p);
-  else corr_wolffClusterAddLRI(i, s_cpy, cSpin, LR_couplings, cpu_added, p);
+  if(p.coupling_type == SR) {
+    double prob = 1 - exp(-2*p.J);
+    corr_wolffClusterAddSRI(i, s_cpy, cSpin, prob, cpu_added, p);
+  }
+  else corr_wolffClusterAddLRI(i, s_cpy, cSpin, isingProb, cpu_added, p);
   
   corr_wc_ave += corr_wc_size;
   
@@ -254,7 +257,6 @@ void Ising2D::correlatorsImpWolffI(double **ind_corr, double *run_corr,
   int x_len = S1/2 + 1;
   int idx = 0;
   double val = 0.0;
-  double phi_lc = 0.0;
   int t1,x1,t2,x2,dt,dx;
   double clusterNorm = 1.0*p.surfaceVol/corr_wc_size;
   
@@ -267,18 +269,18 @@ void Ising2D::correlatorsImpWolffI(double **ind_corr, double *run_corr,
       x1 = i % S1;
       
       //loop over all sinks 
-      for(int j=0; j<p.surfaceVol; j++) {
+      for(int j=0; j<vol; j++) {
 
 	if(cpu_added[j]) {
 	  
 	  //Index divided by circumference, using the int floor feature/bug,
 	  //gives the timeslice index.
 	  t2 = j / S1;
-	  dt = abs(t2-t1) > p.Lt/2 ? p.Lt - abs(t2-t1) : abs(t2-t1);
+	  dt = abs(t2-t1) > Lt/2 ? Lt - abs(t2-t1) : abs(t2-t1);
 	  
 	  //The index modulo the circumference gives the spatial index.
 	  x2 = j % S1;            
-	  dx = abs(x2-x1) > p.S1/2 ? p.S1 - abs(x2-x1) : abs(x2-x1);      
+	  dx = abs(x2-x1) > S1/2 ? S1 - abs(x2-x1) : abs(x2-x1);      
 
 	  idx = dx + x_len*dt;
 	  val = (1 - aveS*aveS)*clusterNorm;
@@ -319,6 +321,7 @@ void corr_wolffClusterAddLR(int i, int *s, int cSpin, double *LR_couplings,
       dx = abs(x2-x1) > p.S1/2 ? p.S1 - abs(x2-x1) : abs(x2-x1);      
       
       prob = 1 - exp(2*phi_lc*phi[j]*LR_couplings[dx + dt*x_len]);
+      
       rand = unif(rng);
       if(rand < prob) {
 	corr_wc_size++;
@@ -332,12 +335,12 @@ void corr_wolffClusterAddLR(int i, int *s, int cSpin, double *LR_couplings,
   }
 }
 
-void corr_wolffClusterAddLRI(int i, int *s, int cSpin, double *LR_couplings,
+void corr_wolffClusterAddLRI(int i, int *s, int cSpin, double *isingProb,
 			     bool *cpu_added, Param p) {
   
   int S1 = p.S1;
+  int Lt = p.Lt;
   int x_len = S1/2 + 1;
-  double J = p.J;
   
   int t1,x1,t2,x2,dt,dx;
   t1 = i / S1;
@@ -353,29 +356,29 @@ void corr_wolffClusterAddLRI(int i, int *s, int cSpin, double *LR_couplings,
       //Index divided by circumference, using the int floor feature/bug,
       //gives the timeslice index.
       t2 = j / p.S1;
-      dt = abs(t2-t1) > p.Lt/2 ? p.Lt - abs(t2-t1) : abs(t2-t1);
+      dt = abs(t2-t1) > Lt/2 ? Lt - abs(t2-t1) : abs(t2-t1);
       
       //The index modulo the circumference gives the spatial index.
       x2 = j % p.S1;            
-      dx = abs(x2-x1) > p.S1/2 ? p.S1 - abs(x2-x1) : abs(x2-x1);      
+      dx = abs(x2-x1) > S1/2 ? S1 - abs(x2-x1) : abs(x2-x1);      
       
-      prob = 1 - exp(-2*J*LR_couplings[dx + dt*x_len]);
+      //prob = 1 - exp(-2*J*LR_couplings[dx + dt*x_len]);
+      prob = isingProb[dx + dt*x_len];
+      
       rand = unif(rng);
       if(rand < prob) {
 	corr_wc_size++;
 	// The site belongs to the cluster, so flip it.
 	s[j] *= -1;
 	cpu_added[j] = true;
-	corr_wolffClusterAddLRI(j, s, cSpin, LR_couplings, cpu_added, p);
+	corr_wolffClusterAddLRI(j, s, cSpin, isingProb, cpu_added, p);
       }
     }
   }
 }
 
-void corr_wolffClusterAddSRI(int i, int *s, int cSpin,
+void corr_wolffClusterAddSRI(int i, int *s, int cSpin, double prob,
 			     bool *cpu_added, Param p) {
-  
-  double J = p.J;
   
   // The site belongs to the cluster, so flip it.
   cpu_added[i] = true;
@@ -387,38 +390,38 @@ void corr_wolffClusterAddSRI(int i, int *s, int cSpin,
 
   //Forward in T
   if(!cpu_added[ tp(i,p) ] && s[tp(i,p)] == cSpin) {
-    if(unif(rng) < 1 - exp(-2*J)) {
+    if(unif(rng) < prob) {
       corr_wc_size++;
       //cout<<"->tp";
-      corr_wolffClusterAddSRI(tp(i,p), s, cSpin, cpu_added, p);
+      corr_wolffClusterAddSRI(tp(i,p), s, cSpin, prob, cpu_added, p);
     }
   }
 
   //Forward in X
   if(!cpu_added[ xp(i,p) ] && s[xp(i,p)] == cSpin) {
-    if(unif(rng) < 1 - exp(-2*J)) {
+    if(unif(rng) < prob) {
       corr_wc_size++;
       //cout<<"->xp";
-      corr_wolffClusterAddSRI(xp(i,p), s, cSpin, cpu_added, p);
+      corr_wolffClusterAddSRI(xp(i,p), s, cSpin, prob, cpu_added, p);
     }
   }
 
   
   //Backard in T 
   if(!cpu_added[ ttm(i,p) ] && s[ttm(i,p)] == cSpin) {  
-    if(unif(rng) < 1 - exp(-2*J)) {
+    if(unif(rng) < prob) {
       corr_wc_size++;
       //cout<<"->tm";
-      corr_wolffClusterAddSRI(ttm(i,p), s, cSpin, cpu_added, p);
+      corr_wolffClusterAddSRI(ttm(i,p), s, cSpin, prob, cpu_added, p);
     }
   }
 
   //Backward in X
   if(!cpu_added[ xm(i,p) ] && s[xm(i,p)] == cSpin) {
-    if (unif(rng) < 1 - exp(-2*J)) {
+    if (unif(rng) < prob) {
       corr_wc_size++;
       //cout<<"->xm";
-      corr_wolffClusterAddSRI(xm(i,p), s, cSpin, cpu_added, p);
+      corr_wolffClusterAddSRI(xm(i,p), s, cSpin, prob, cpu_added, p);
     }
   }   
 }
