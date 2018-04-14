@@ -249,7 +249,7 @@ void clusterPossibleILR(int i, int *s, int cSpin,
 
 }
 
-void wolffUpdateILR(int *s, Param p, double *LR_couplings, int iter) {
+void wolffUpdateILR(int *s, Param p, double *isingProb, int iter) {
 
   ising_wc_calls++;
 
@@ -269,7 +269,7 @@ void wolffUpdateILR(int *s, Param p, double *LR_couplings, int iter) {
   //This function is recursive and will call itself
   //until all attempts to increase the cluster size
   //have failed.
-  wolffClusterAddILR(i, s, cSpin, LR_couplings, p);
+  wolffClusterAddILR(i, s, cSpin, isingProb, p);
   
   ising_wc_ave += ising_wc_size;
 
@@ -279,7 +279,7 @@ void wolffUpdateILR(int *s, Param p, double *LR_couplings, int iter) {
   }
 }
 
-void wolffClusterAddILR(int i, int *s, int cSpin, double *LR_couplings, Param p) {
+void wolffClusterAddILR(int i, int *s, int cSpin, double *isingProb, Param p) {
 
   int S1 = p.S1;
   int x_len = S1/2 + 1;
@@ -305,13 +305,14 @@ void wolffClusterAddILR(int i, int *s, int cSpin, double *LR_couplings, Param p)
       x2 = j % p.S1;            
       dx = abs(x2-x1) > p.S1/2 ? p.S1 - abs(x2-x1) : abs(x2-x1);      
       
-      prob = 1 - exp(-2*J*LR_couplings[dx + dt*x_len]);
+      //prob = 1 - exp(-2*J*LR_couplings[dx + dt*x_len]);
+      prob = isingProb[dx + dt*x_len];
       rand = unif(rng);
       if(rand < prob) {
 	ising_wc_size++;
 	// The site belongs to the cluster, so flip it.
 	s[j] *= -1;
-	wolffClusterAddILR(j, s, cSpin, LR_couplings, p);
+	wolffClusterAddILR(j, s, cSpin, isingProb, p);
       }
     }
   }
@@ -375,7 +376,7 @@ double energyILR(int *s, Param p, double *LR_couplings, double &KE) {
 	    x2 = (j+k) % S1;            
 	    dx = abs(x2-x1) > S1/2 ? S1-abs(x2-x1) : abs(x2-x1);      
 	    
-	    val = s_lc*s[j]*LR_couplings[dx+dt*x_len];	    
+	    val = s_lc*s[j]*LR_couplings[dx+dt*x_len];
 	    local += val;
 	  }
 	}

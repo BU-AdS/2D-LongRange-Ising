@@ -28,6 +28,9 @@ class Ising2D {
   //Array for the LR couplings.
   double *LR_couplings;
 
+  //Array for the cluster acceptance probabilities.
+  double *isingProb;
+
   //Array to hold spin values.  
   int *s;
   
@@ -97,6 +100,7 @@ class Ising2D {
   void measureI(observables &obs, int &idx, Param p);
   
   void createLRcouplings(Param p);
+  void exponentiateLRcouplings(Param p);
 
   void swendsenWangUpdateILR(Param p, int iter);  
   //Wrappers for the different LR and SR cluster functions.

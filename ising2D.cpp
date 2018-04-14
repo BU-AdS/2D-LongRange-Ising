@@ -46,6 +46,10 @@ Ising2D::Ising2D(Param p) {
   
   //Long Range coupling array
   LR_couplings = (double*)malloc(arr_len*sizeof(double));
+
+  //Long Range coupling array
+  isingProb = (double*)malloc(arr_len*sizeof(double));
+  
   //Arrays to hold spin and phi values.  
   s = (int*)malloc(vol*sizeof(int));
   s_cpy = (int*)malloc(vol*sizeof(int));
@@ -176,10 +180,11 @@ void Ising2D::runSimulation(Param p) {
   int meas = 0;
 
   if(p.coupling_type != SR) {
-    //Create LR couplings and kinetic term denomnators
+    //Create LR couplings
     long long time = 0.0;
     auto start1 = std::chrono::high_resolution_clock::now();
     createLRcouplings(p);
+    exponentiateLRcouplings(p);
     auto elapsed1 = std::chrono::high_resolution_clock::now() - start1;
     time = std::chrono::duration_cast<std::chrono::microseconds>(elapsed1).count();
     cout<<"Coupling creation time = "<<time/(1.0e6)<<endl;
@@ -212,7 +217,6 @@ void Ising2D::runSimulation(Param p) {
       //Calculate correlaton functions and update the average.
       //int rand_site = int(unif(rng) * p.surfaceVol);	      
       //GPU_correlatorsImpWolff(rand_site, meas-1, obs.avePhi*norm, p);
-
   
       long long time = 0.0;
       auto start1 = std::chrono::high_resolution_clock::now();
@@ -297,7 +301,7 @@ void Ising2D::wolffUpdate(Param p, int iter) {
 #endif
       }	
     } else {
-      wolffUpdateILR(s, p, LR_couplings, iter);
+      wolffUpdateILR(s, p, isingProb, iter);
     }
   }
 }
@@ -395,6 +399,28 @@ void Ising2D::createLRcouplings(Param p) {
 	     x_len*t_len*sizeof(double), cudaMemcpyHostToDevice);
 #endif
   
+}
+
+//In the Ising cluster algorithm, the probability of flipping a site is
+//wholly dependent on spatial separation and the J value. We can therefore
+//pre-compute the value of 1-exp(-2*J*LRcoupling[idx]) used in Wolff.
+void Ising2D::exponentiateLRcouplings(Param p) {
+  
+  int S1 = p.S1;
+  int Lt = p.Lt;
+  double J = p.J;
+  int x_len = S1/2 + 1;
+  int t_len = Lt/2 + 1;
+    
+  for(int j=0; j<t_len; j++){
+    for(int i=0; i<x_len; i++){
+
+      //Associate dx with i, dt with j. dx runs fastest
+      int idx = i + j*x_len;      
+      if(i!=0 || j!=0) isingProb[idx] = 1 - exp(-2*J*LR_couplings[idx]);	
+      
+    }
+  }  
 }
 
 //NB we use the same variable names for both Ising and Phi4th,
