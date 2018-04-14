@@ -158,7 +158,6 @@ double actionSR(double *phi_arr, int *s, Param p,
   double phi;
   double lambda_p = 0.25*p.lambda;
   double musqr_p  = 0.50*p.musqr;
-
   
   for (int i = 0; i < p.surfaceVol; i++)
     if (s[i] * phi_arr[i] < 0)

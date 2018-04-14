@@ -252,6 +252,11 @@ void clusterPossibleILR(int i, int *s, int cSpin,
 void wolffUpdateILR(int *s, Param p, double *LR_couplings, int iter) {
 
   ising_wc_calls++;
+
+  if(ising_wc_calls == p.n_therm) {
+    ising_wc_calls = 1;
+    ising_wc_ave = 0;
+  }
   
   //Choose a random spin.
   int i = int(unif(rng) * p.surfaceVol);
@@ -276,7 +281,6 @@ void wolffUpdateILR(int *s, Param p, double *LR_couplings, int iter) {
 
 void wolffClusterAddILR(int i, int *s, int cSpin, double *LR_couplings, Param p) {
 
-  double s_lc = s[i];
   int S1 = p.S1;
   int x_len = S1/2 + 1;
   double J = p.J;
@@ -301,7 +305,7 @@ void wolffClusterAddILR(int i, int *s, int cSpin, double *LR_couplings, Param p)
       x2 = j % p.S1;            
       dx = abs(x2-x1) > p.S1/2 ? p.S1 - abs(x2-x1) : abs(x2-x1);      
       
-      prob = 1 - exp(2*J*s_lc*s[j]*LR_couplings[dx + dt*x_len]);
+      prob = 1 - exp(-2*J*LR_couplings[dx + dt*x_len]);
       rand = unif(rng);
       if(rand < prob) {
 	ising_wc_size++;
@@ -315,10 +319,93 @@ void wolffClusterAddILR(int i, int *s, int cSpin, double *LR_couplings, Param p)
   
 }
 
-double actionILR(int *s, Param p, double *LR_couplings, 
-		 double &KE, double &PE) {  
+double energyISR(int *s, Param p, double &KE) {  
+
+  KE = 0.0;
   
-  return PE + KE;
+  int S1 = p.S1;
+  int Lt = p.Lt;
+  int vol = S1*Lt;  
+  int s_lc = 1;
+  
+  for (int i = 0; i < vol; i++) {    
+    s_lc = s[i];    
+    KE += s_lc*(s[xp(i,p)] + s[xm(i,p)] + s[tp(i,p)] + s[ttm(i,p)]);  
+  }
+  return -0.5*p.J*KE;
+}
+
+double energyILR(int *s, Param p, double *LR_couplings, double &KE) {  
+
+  KE = 0.0;
+  int S1 = p.S1;
+  int Lt = p.Lt;
+  int vol = S1*Lt;  
+  int x_len = S1/2 + 1;
+  int s_lc = 1;
+  
+  for (int i = 0; i < vol; i++) {    
+    s_lc = s[i];
+
+    int t1,x1;
+    t1 = i / S1;
+    x1 = i % S1;
+
+    //KE terms
+#ifdef USE_OMP
+    
+    int chunk = CACHE_LINE_SIZE/sizeof(double);
+    
+#pragma omp parallel 
+    {
+      double local = 0.0;
+      double val = 0.0;
+      int t2,dt,x2,dx;
+#pragma omp for nowait 
+      for(int j=0; j<vol; j+=chunk) {
+	for(int k=0; k<chunk; k++) { 
+
+	  if( (j+k) != i ) {
+	    //Index divided by circumference, using the int floor feature/bug,
+	    //gives the timeslice index.
+	    t2 = (j+k) / S1;
+	    dt = abs(t2-t1) > Lt/2 ? Lt - abs(t2-t1) : abs(t2-t1);
+	    
+	    //The index modulo the circumference gives the spatial index.
+	    x2 = (j+k) % S1;            
+	    dx = abs(x2-x1) > S1/2 ? S1-abs(x2-x1) : abs(x2-x1);      
+	    
+	    val = s_lc*s[j]*LR_couplings[dx+dt*x_len];	    
+	    local += val;
+	  }
+	}
+      }
+#pragma omp atomic 
+      KE += local;
+    }    
+#else
+
+    int t2,dt,x2,dx;
+    for(int j=0; j<p.surfaceVol; j++) {
+      
+      if( j != i ) {
+	//Index divided by circumference, using the int floor feature/bug,
+	//gives the timeslice index.
+	t2 = j / p.S1;
+	dt = abs(t2-t1) > p.Lt/2 ? p.Lt - abs(t2-t1) : abs(t2-t1);
+	
+	//The index modulo the circumference gives the spatial index.
+	x2 = j % p.S1;            
+	dx = abs(x2-x1) > p.S1/2 ? p.S1-abs(x2-x1) : abs(x2-x1);      
+
+	KE += s_lc*s[j]*LR_couplings[dx+dt*x_len];
+	
+      }
+    }
+#endif
+  }
+  
+  return -0.5*p.J*KE;
 }
 
 

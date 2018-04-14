@@ -14,38 +14,69 @@
 
 using namespace std;
 
-void writeObservables(double **ind_corr_t, double *run_corr_t, 
-		      double **ind_corr_s, double *run_corr_s,
+void writeObservables(double **ind_corr, double *run_corr, int *norm_corr,
 		      int idx, observables obs, Param p){
 
   double norm = 1.0/idx;
-  double inv_vol = 1.0/(p.Lt*p.S1);
+  int S1 = p.S1;
+  int Lt = p.Lt;
+  double inv_vol = 1.0/(Lt*S1);
+  int x_len = S1/2 + 1;
+  char fname[256];
   
   //The observable (spec heat, suscep, etc) are used only as a guide
   //to discern criticality, The real quantities of interest are
   //The critical exponents, especally \eta, and its dependence
   //on \sigma, hence we MUST have proper error estimates of the
-  //correlation function values. Hardcoded to dump result every 10th
-  //measurement, with a jk block of 5.
-  double *jk_err_t = (double*)malloc((p.Lt/2+1)*sizeof(double));
-  jackknife(ind_corr_t, run_corr_t, jk_err_t, 5, idx, p.Lt/2+1, p); 
-  ofstream filet("correlators_t.dat");
-  for(int i=1; i<p.Lt/2; i++) {
-    filet<<i<<" "<<run_corr_t[i]*inv_vol*norm;
-    filet<<" "<<jk_err_t[i]*inv_vol<<endl;
+  //correlation function values. Jackkinfe is hardcoded to dump
+  //results every 10th measurement, with a jk block of 5.
+
+  for(int dth = 0; dth <S1/2+1; dth++) {
+    double *jk_err = (double*)malloc((Lt/2+1)*sizeof(double));
+    jackknife(ind_corr, run_corr, jk_err, 5, idx, Lt/2+1, dth, p);
+    
+    sprintf(fname, "correlators_dth%d.dat", dth);
+    ofstream filet(fname);
+    for(int i=0; i<Lt/2+1; i++) {
+      filet<<i<<" "<<run_corr[dth + i*x_len]*norm/(norm_corr[dth + i*x_len]);
+      filet<<" "<<jk_err[i]*norm/(norm_corr[dth + i*x_len])<<endl;
+    }
+    filet.close();
+    free(jk_err);
   }
-  filet.close();
-  free(jk_err_t);
-  
-  double *jk_err_s = (double*)malloc((p.S1/2+1)*sizeof(double));
-  jackknife(ind_corr_s, run_corr_s, jk_err_s, 5, idx, p.S1/2+1, p);
-  ofstream files("correlators_s.dat");
-  for(int i=1; i<p.S1/2; i++) {
-    files<<i<<" "<<run_corr_s[i]*inv_vol*norm;
-    files<<" "<<jk_err_s[i]*inv_vol<<endl;
+
+  for(int dt = 0; dt <Lt/2+1; dt++) {
+    double *jk_err = (double*)malloc((S1/2+1)*sizeof(double));
+    jackknife(ind_corr, run_corr, jk_err, 5, idx, S1/2+1, dt, p);
+    
+    sprintf(fname, "correlators_dt%d.dat", dt);
+    ofstream filet(fname);
+    for(int i=0; i<Lt/2+1; i++) {
+      filet<<i<<" "<<run_corr[i + dt*x_len]*norm/(norm_corr[i + dt*x_len]);
+      filet<<" "<<jk_err[i]*norm/(norm_corr[i + dt*x_len])<<endl;
+    }
+    filet.close();
+    free(jk_err);
   }
-  files.close();
-  free(jk_err_s);
+
+  /*
+  int t1,x1,t2,x2,dt,dx;
+  for(int i=0; i<p.surfaceVol; i++) {
+    t1 = i / p.S1;
+    x1 = i % p.S1;
+    for(int j=0; j<p.surfaceVol; j++) {
+      
+      //Index divided by circumference, using the int floor feature/bug,
+      //gives the timeslice index.
+      t2 = j / S1;
+      dt = abs(t2-t1) > Lt/2 ? Lt - abs(t2-t1) : abs(t2-t1);
+      
+      //The index modulo the circumference gives the spatial index.
+      x2 = j % S1;
+      dx = abs(x2-x1) > S1/2 ? S1 - abs(x2-x1) : abs(x2-x1);        
+    }
+  }
+  */  
   
   ofstream file_obs("observables.dat");
   for(int i=0; i<idx; i++) {
@@ -208,6 +239,19 @@ void visualiserIsing(int *s, Param p) {
     for(int j=0; j<p.Lt; j++) {
       if(s[i + p.S1*j] < 0) cout<<"\033[1;41m \033[0m";
       else cout<<"\033[1;44m \033[0m";
+    }
+    cout<<endl;
+  }
+}
+
+void visualiserIsingCluster(int *s, bool *cluster, Param p) {  
+  
+  for(int i=0; i<p.S1; i++) {
+    for(int j=0; j<p.Lt; j++) {
+      if(cluster[i +p.S1*j]) cout<<"\033[1;42m \033[0m";
+      else if(s[i + p.S1*j] < 0) cout<<"\033[1;41m \033[0m";
+      else cout<<"\033[1;44m \033[0m";
+      
     }
     cout<<endl;
   }

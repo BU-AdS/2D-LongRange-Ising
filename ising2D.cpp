@@ -51,42 +51,74 @@ Ising2D::Ising2D(Param p) {
   s_cpy = (int*)malloc(vol*sizeof(int));
 
   //Running correlation function arrays.
-  run_corr_t = (double*)malloc((Lt/2+1)*sizeof(double));
-  run_corr_s = (double*)malloc((S1/2+1)*sizeof(double));
-  run_corr = (double**)malloc((S1/2+1)*sizeof(double));
-
-  
+  run_corr = (double*)malloc(arr_len*sizeof(double));
+  //Correlation function normalisation array.
+  norm_corr = (int*)malloc(arr_len*sizeof(int));  
   //Individual correlation functions.
-  ind_corr_t = (double**)malloc((p.n_meas)*sizeof(double*));
-  ind_corr_s = (double**)malloc((p.n_meas)*sizeof(double*));
-
+  ind_corr = (double**)malloc(p.n_meas*sizeof(double*));
+  
   //Autocorrelation
-  auto_corr = (double*)malloc((p.n_meas)*sizeof(double));
+  auto_corr = (double*)malloc(p.n_meas*sizeof(double));
   
   //Initialise Phi and spin fields.
   for(int i = 0;i < vol; i++) {
     s[i] = (2.0*unif(rng) - 1.0 > 0) ? 1 : -1;
     //cout<<"s["<<i<<"] = "<<s[i]<<endl;
   } 
-
+  
   //Long-range coupling
   for(int j=0; j<t_len; j++)
     for(int i=0; i<x_len; i++)
       LR_couplings[i+j*x_len] = 0.0;
-
+  
   //Running correlation function arrays
-  for(int i=0; i<Lt/2+1; i++) run_corr_t[i] = 0.0;
-  for(int i=0; i<S1/2+1; i++) run_corr_s[i] = 0.0;
+  for(int i=0; i<arr_len; i++) {
+    run_corr[i] = 0.0;
+    norm_corr[i] = 0;
+  }
 
+  int t1,x1,t2,x2,dt,dx,idx;
+  for(int i=0; i<p.surfaceVol; i++) {
+    t1 = i/S1;
+    x1 = i%S1;
+    for(int j=0; j<p.surfaceVol; j++) {
+      //Index divided by circumference, using the int floor feature/bug,
+      //gives the timeslice index.
+      t2 = j / S1;
+      dt = abs(t2-t1) > p.Lt/2 ? p.Lt - abs(t2-t1) : abs(t2-t1);
+      
+      //The index modulo the circumference gives the spatial index.
+      x2 = j % S1;            
+      dx = abs(x2-x1) > p.S1/2 ? p.S1 - abs(x2-x1) : abs(x2-x1);      
+      
+      idx = dx + x_len*dt;
+      norm_corr[idx]++;
+    }
+  }
+
+  for(int j=0; j<p.surfaceVol; j++) {
+    //if((j%S1) == 0) cout<<endl; 
+    //Index divided by circumference, using the int floor feature/bug,
+    //gives the timeslice index.
+    t2 = j / S1;
+    dt = t2 > p.Lt/2 ? p.Lt - t2 : t2;
+    
+    //The index modulo the circumference gives the spatial index.
+    x2 = j % S1;            
+    dx = x2 > p.S1/2 ? p.S1 - x2 : x2;      
+    
+    idx = dx + x_len*dt;
+    //cout<<norm_corr[idx]<<" ";
+  }
+  
+  
   //Individual correlation function arrays, autocorrelation.
   for(int i=0; i<p.n_meas; i++) {
     auto_corr[i] = 0.0;    
-    ind_corr_t[i] = (double*)malloc((Lt/2+1)*sizeof(double));
-    ind_corr_s[i] = (double*)malloc((S1/2+1)*sizeof(double));    
-    for(int j=0; j<Lt/2+1; j++) ind_corr_t[i][j] = 0.0;
-    for(int j=0; j<S1/2+1; j++) ind_corr_s[i][j] = 0.0;
+    ind_corr[i] = (double*)malloc(arr_len*sizeof(double));
+    for(int j=0; j<arr_len; j++) ind_corr[i][j] = 0.0;
   }
-  
+
   auto elapsed1 = std::chrono::high_resolution_clock::now() - start1;
   time = std::chrono::duration_cast<std::chrono::microseconds>(elapsed1).count();
   cpu_added = (bool*)malloc(vol*sizeof(bool));
@@ -175,7 +207,7 @@ void Ising2D::runSimulation(Param p) {
       norm = 1.0/(meas);
 
       //Visualisation tool
-      visualiserIsing(s, p);
+      //visualiserIsing(s, p);
       
       //Calculate correlaton functions and update the average.
       //int rand_site = int(unif(rng) * p.surfaceVol);	      
@@ -184,10 +216,9 @@ void Ising2D::runSimulation(Param p) {
   
       long long time = 0.0;
       auto start1 = std::chrono::high_resolution_clock::now();
-      correlatorsImpWolffI(ind_corr_t, run_corr_t,
-			   ind_corr_s, run_corr_s,
+      correlatorsImpWolffI(ind_corr, run_corr,
 			   meas-1, obs.avePhi*norm, p);
-      
+	
       auto elapsed1 = std::chrono::high_resolution_clock::now() - start1;
       time = std::chrono::duration_cast<std::chrono::microseconds>(elapsed1).count();
       cout<<"Correlation Function Calculation time = "<<time/(1.0e6)<<endl;
@@ -203,8 +234,7 @@ void Ising2D::runSimulation(Param p) {
       
       //Jacknife and dump the data
       if(meas%10 == 0) {	
-	writeObservables(ind_corr_t, run_corr_t, ind_corr_s,
-			 run_corr_s, meas, obs, p);
+	writeObservables(ind_corr, run_corr, norm_corr, meas, obs, p);
       }
       
       //Calculate the autocorrelation of |phi|
@@ -367,29 +397,60 @@ void Ising2D::createLRcouplings(Param p) {
   
 }
 
+//NB we use the same variable names for both Ising and Phi4th,
+//e.g. the phi4th field value phi is used for the ising spin value sigma.
 void Ising2D::measureI(observables &obs, int &idx, Param p) {
-  
-  double rhoVol  = 1.0/p.surfaceVol;
-  double rhoVol2 = rhoVol*rhoVol;
 
+  int vol = p.surfaceVol;
+  double rhoVol  = 1.0/vol;
+  double J=p.J;
+  
+  //Energy
+  if(p.coupling_type == SR) {
+    obs.tmpE = energyISR(s, p, obs.KE);
+  } else {
+    obs.tmpE = energyILR(s, p, LR_couplings, obs.KE);
+  }
+
+  obs.aveE  += rhoVol*obs.tmpE;
+  obs.aveE2 += rhoVol*obs.tmpE*rhoVol*obs.tmpE;
+  
   obs.MagPhi = 0.0;
-  for(int i = 0;i < p.surfaceVol; i++) {
+  for(int i = 0;i < vol; i++) {
     obs.MagPhi += s[i];
   }  
   obs.MagPhi *= rhoVol;
 
-  obs.avePhi  += abs(obs.MagPhi);
-  obs.avePhi2 += obs.MagPhi*obs.MagPhi;
-  obs.avePhi4 += obs.MagPhi*obs.MagPhi*obs.MagPhi*obs.MagPhi;
+  obs.avePhiAb += abs(obs.MagPhi);
+  obs.avePhi   += obs.MagPhi;
+  obs.avePhi2  += obs.MagPhi*obs.MagPhi;
+  obs.avePhi4  += obs.MagPhi*obs.MagPhi*obs.MagPhi*obs.MagPhi;
 
+  obs.E_arr[idx]     = rhoVol*obs.tmpE;
+  obs.E2_arr[idx]    = rhoVol*obs.tmpE*obs.tmpE;
+  obs.PhiAb_arr[idx] = abs(obs.MagPhi);
+  obs.Phi_arr[idx]   = obs.MagPhi;
+  obs.Phi2_arr[idx]  = obs.MagPhi*obs.MagPhi;
+  obs.Phi4_arr[idx]  = obs.MagPhi*obs.MagPhi*obs.MagPhi*obs.MagPhi;
+  
   idx++;
   
   cout<<setprecision(8);
   double norm = 1.0/(idx);
 
+  obs.Suscep[idx-1]   = (obs.avePhi2*norm - pow(obs.avePhiAb*norm, 2))*vol/J;
+  obs.SpecHeat[idx-1] = (obs.aveE2*norm - pow(obs.aveE*norm, 2))*vol/(J*J);
   obs.Binder[idx-1] = 1.0-obs.avePhi4/(3.0*obs.avePhi2*obs.avePhi2*norm);
   
   //Dump to stdout
   cout<<"Measurement "<<idx<<endl;
-  cout<<"Binder = "<<obs.Binder[idx-1]<<endl;
+  cout<<"Ave Energy= "<<obs.aveE*norm<<endl;
+  cout<<"Ave |s|   = "<<obs.avePhiAb*norm<<endl;
+  cout<<"Ave s     = "<<obs.avePhi*norm<<endl;
+  cout<<"Ave s^2   = "<<obs.avePhi2*norm<<endl;
+  cout<<"Ave s^4   = "<<obs.avePhi4*norm<<endl;
+  cout<<"Suscep    = "<<obs.Suscep[idx-1]<<endl;
+  cout<<"Spec Heat = "<<obs.SpecHeat[idx-1]<<endl;
+  cout<<"Binder    = "<<obs.Binder[idx-1]<<endl;
+
 }

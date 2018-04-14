@@ -22,6 +22,9 @@ class PhiFourth2D: public Ising2D {
  public: 
   double *phi;
   double *phi_cpy;
+
+  double **ind_corr_phi3;
+  double *run_corr_phi3;
   
   //Constructor
   PhiFourth2D(Param p);
@@ -44,10 +47,7 @@ class PhiFourth2D: public Ising2D {
   void swendsenWangUpdate(Param p, int iter);
   void metropolisUpdate(Param p, int iter);
   void metropolisUpdateLR(Param p, int iter);
-  
-
-
-  
+    
 #ifdef USE_GPU
   
   double *gpu_phi;
@@ -63,14 +63,12 @@ class PhiFourth2D: public Ising2D {
 #endif
   
   //Correlation function calculator
-  void correlators(double **ind_corr, double *run_corr, bool temporalDir,
+  void correlators(double **ind_corr, double *run_corr,
 		   int meas, double avePhi, Param p);
   void correlatorsImpSW(double **ind_corr, double *run_corr,
-			bool temporalDir,
 			int meas, double avePhi, Param p);
   
-  void correlatorsImpWolff(double **ind_corr_s, double *run_corr_s,
-			   double **ind_corr_t, double *run_corr_t,
+  void correlatorsImpWolff(double **ind_corr, double *run_corr,
 			   int meas, double avePhi, Param p);
   
 };

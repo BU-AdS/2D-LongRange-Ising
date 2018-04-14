@@ -728,8 +728,8 @@ void Param::print() {
     cout<<"(Phi4) Boundary Mass squared (mu^2) = "<<musqr<<endl;  
     cout<<"(Phi4) Boundary coupling (Lambda) = "<<lambda<<endl;
   } else {
-    cout<<"(Ising) External field strength = "<<h<<endl;
-    if(coupling_type == SR) cout<<"(Ising) Constant coupling = "<<J<<endl;
+    cout<<"(Ising) External field strength (h) = "<<h<<endl;
+    cout<<"(Ising) Constant coupling (J) = "<<J<<endl;
   }   
   if(coupling_type != SR) cout<<"Long-Range coupling sigma = "<<sigma<<endl;
   cout<<"Temporal Scaling = "<<t_scale<<endl;

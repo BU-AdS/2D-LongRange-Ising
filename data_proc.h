@@ -23,12 +23,16 @@ void autocorrelation(double *PhiAb_arr, double avePhiAbs,
 		     int meas, double *auto_corr);
 
 void jackknife(double **ind, double *run, double *jk_err, int block, 
-	       int data_points, int arr_length, Param p);
+	       int data_points, int arr_length, int dth, Param p);
 
 void corr_wolffClusterAddLR(int i, int *s, int cSpin, double *LR_couplings,
 			    double *phi, bool *cluster, Param p);
 
 void corr_wolffClusterAddLRI(int i, int *s, int cSpin, double *LR_couplings,
 			     bool *cluster, Param p);
+
+void corr_wolffClusterAddSRI(int i, int *s, int cSpin,
+                             bool *cpu_added, Param p);
+
 
 #endif

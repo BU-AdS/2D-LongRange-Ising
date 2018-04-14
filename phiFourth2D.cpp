@@ -35,6 +35,7 @@ PhiFourth2D::PhiFourth2D(Param p) : Ising2D(p) {
   cout<<"CPU malloc and init start..."<<endl;
 
   int vol = p.surfaceVol;
+  int arr_len = (p.S1/2 + 1)*(p.Lt/2 + 1);
   
   //Arrays to hold phi values.  
   phi = (double*)malloc(vol*sizeof(double));
@@ -48,6 +49,11 @@ PhiFourth2D::PhiFourth2D(Param p) : Ising2D(p) {
   }
   cpu_added = (bool*)malloc(vol*sizeof(bool));
 
+  //Running phi^3 correlation function arrays.
+  run_corr_phi3 = (double*)malloc(arr_len*sizeof(double));
+  //Individual phi^3 correlation functions.
+  ind_corr_phi3 = (double**)malloc(p.n_meas*sizeof(double*));
+  
   auto elapsed1 = std::chrono::high_resolution_clock::now() - start1;
   time = std::chrono::duration_cast<std::chrono::microseconds>(elapsed1).count();
   cout<<"CPU malloc and init time = "<<time/(1.0e6)<<endl;
@@ -116,7 +122,7 @@ void PhiFourth2D::runSimulation(Param p) {
       norm = 1.0/(meas);
 
       //Visualisation tool
-      visualiserSqr(phi, obs.avePhiAb*norm, p);
+      //visualiserSqr(phi, obs.avePhiAb*norm, p);
       
       //Calculate correlaton functions and update the average.
       //int rand_site = int(unif(rng) * p.surfaceVol);
@@ -126,8 +132,7 @@ void PhiFourth2D::runSimulation(Param p) {
      
       long long time = 0.0;
       auto start1 = std::chrono::high_resolution_clock::now();
-      correlatorsImpWolff(ind_corr_t, run_corr_t,
-			  ind_corr_s, run_corr_s,
+      correlatorsImpWolff(ind_corr, run_corr,
 			  meas-1, obs.avePhi*norm, p);
       
       auto elapsed1 = std::chrono::high_resolution_clock::now() - start1;
@@ -147,8 +152,7 @@ void PhiFourth2D::runSimulation(Param p) {
       
       //Jacknife and dump the data
       if(meas%10 == 0) {	
-	writeObservables(ind_corr_t, run_corr_t, ind_corr_s,
-			 run_corr_s, meas, obs, p);
+	writeObservables(ind_corr, run_corr, norm_corr, meas, obs, p);
       }
       
       //Calculate the autocorrelation of |phi|
@@ -304,14 +308,13 @@ void PhiFourth2D::measure(observables &obs, int &idx, Param p) {
   obs.MagPhi = 0.0;
   for(int i = 0;i < p.surfaceVol; i++) {
     obs.MagPhi += phi[i];
-    //cout<<phi[i]<<endl;
   }
   obs.MagPhi *= rhoVol;
   
-  obs.avePhiAb  += abs(obs.MagPhi);
-  obs.avePhi    += obs.MagPhi;
-  obs.avePhi2   += obs.MagPhi*obs.MagPhi;
-  obs.avePhi4   += obs.MagPhi*obs.MagPhi*obs.MagPhi*obs.MagPhi;
+  obs.avePhiAb += abs(obs.MagPhi);
+  obs.avePhi   += obs.MagPhi;
+  obs.avePhi2  += obs.MagPhi*obs.MagPhi;
+  obs.avePhi4  += obs.MagPhi*obs.MagPhi*obs.MagPhi*obs.MagPhi;
   
   obs.E_arr[idx]     = rhoVol*obs.tmpE;
   obs.E2_arr[idx]    = rhoVol*obs.tmpE*obs.tmpE;

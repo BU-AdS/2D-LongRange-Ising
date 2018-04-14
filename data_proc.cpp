@@ -10,6 +10,7 @@
 #include "util.h"
 #include "hyp_util.h"
 #include "data_proc.h"
+#include "data_io.h"
 #include "mcPhiFourth2D.h"
 #include "phiFourth2D.h"
 
@@ -18,6 +19,37 @@ using namespace std;
 extern int seed;
 extern mt19937 rng;
 extern uniform_real_distribution<double> unif;
+
+//Basic utilites
+// x = 0,1,..., p.S1-1  and
+// t = 0,1,..., p.Lt-1
+// i = x + p.S1*t so
+// x = i % p.S1 and
+// t = i/p.S1 
+inline int xp(int i, Param p) {
+  //if( (i+1)%p.S1 == 0 ) return (i/p.S1)*p.S1;
+  //else return i+1;
+  return (i + 1) % p.S1 + p.S1 * (i / p.S1);
+}
+
+inline int xm(int i, Param p) {
+  //if( i%p.S1 == 0 ) return (i/p.S1)*p.S1 + (p.S1-1);
+  //else return i-1;  
+  return (i - 1 + p.S1) % p.S1 + p.S1 * (i / p.S1);
+}
+
+inline int tp(int i, Param p) {
+  //if(i/p.S1 == p.Lt-1) return (i - (p.Lt-1)*p.S1);
+  //else return i+p.S1;
+  return i % p.S1 + p.S1 * ((i / p.S1 + 1) % p.Lt);
+}
+
+inline int ttm(int i, Param p){
+  //if(i/p.S1 == 0) return (i + (p.Lt-1)*p.S1);
+  //else return i-p.S1;
+  return i % p.S1 + p.S1 * ((i / p.S1 - 1 + p.Lt) % p.Lt);
+}
+
 
 /*
 //Overloaded version to handle AdS lattices
@@ -36,46 +68,47 @@ void correlators(double **ind_corr, int meas, double *run_corr, bool dir,
 }
 */
 
-void PhiFourth2D::correlators(double **ind_corr, double *run_corr, bool temporalDir,
+void PhiFourth2D::correlators(double **ind_corr, double *run_corr,
 			      int meas, double avePhi, Param p) {
   
-  int s_size = p.S1;
-  int t_size = p.Lt;
-  int idx    = 0;
-
+  int S1 = p.S1;
+  int vol = p.surfaceVol;
+  int x_len = S1/2 + 1;
+  int idx = 0;
   double val = 0.0;
+  double phi_lc = 0.0;
 
+  int t1,x1,t2,x2,dt,dx;
+  
   //loop over all sources
-  for(int i=0; i<p.surfaceVol; i++) {
+  for(int i=0; i<vol; i++) {
+
+    t1 = i/S1;
+    x1 = i%S1;
+    phi_lc = phi[i];
     
-    //loop over all sinks in the specified direction
-    if(temporalDir) {
-      for(int j=0; j<t_size; j++) {
+    //loop over all sinks.
+    for(int j=0; j<vol; j++) {
+      
+      //Index divided by circumference, using the int floor feature/bug,
+      //gives the timeslice index.
+      t2 = j / S1;
+      dt = abs(t2-t1) > p.Lt/2 ? p.Lt - abs(t2-t1) : abs(t2-t1);
+      
+      //The index modulo the circumference gives the spatial index.
+      x2 = j % S1;            
+      dx = abs(x2-x1) > p.S1/2 ? p.S1 - abs(x2-x1) : abs(x2-x1);      
 
-	idx = abs(i/s_size-j);
-	if(idx > t_size/2) idx = t_size - idx;
+      idx = dx + x_len*dt;
+      
+      val = (phi_lc*phi[j] - avePhi*avePhi);
 
-	val = ((phi[i] - avePhi) *
-	       (phi[i%s_size + j*s_size] - avePhi));
-
-	ind_corr[meas][idx] += val;
-	run_corr[idx] += val;
-      }
-    } else {
-      for(int j=0; j<s_size; j++) {
-	
-	idx = abs(i%s_size-j);
-	if(idx > s_size/2) idx = s_size - idx;
-	
-	val = ((phi[i] - avePhi) *
-	       (phi[s_size*(i/s_size) + j] - avePhi));
-	
-	ind_corr[meas][idx] += val;
-	run_corr[idx] += val;
-      }
+      ind_corr[meas][idx] += val;
+      run_corr[idx] += val;
     }
   }
 }
+
 
 
 // Improved Correlation Functions.
@@ -99,8 +132,7 @@ void correlatorsImp(double **ind_corr, int meas, double *run_corr,
 */
 
 void PhiFourth2D::correlatorsImpSW(double **ind_corr, double *run_corr,
-				   bool temporalDir, int meas, double avePhi,
-				   Param p){
+				   int meas, double avePhi, Param p){
   
 }
 
@@ -108,8 +140,7 @@ int corr_wc_size = 0;
 int corr_wc_ave = 0;
 int corr_wc_calls = 0;
 
-void PhiFourth2D::correlatorsImpWolff(double **ind_corr_t, double *run_corr_t,
-				      double **ind_corr_s, double *run_corr_s,
+void PhiFourth2D::correlatorsImpWolff(double **ind_corr, double *run_corr,
 				      int meas, double avePhi, Param p){
   
   corr_wc_calls++;
@@ -142,52 +173,49 @@ void PhiFourth2D::correlatorsImpWolff(double **ind_corr_t, double *run_corr_t,
 
   int S1 = p.S1;
   int Lt = p.Lt;
-
+  int vol = p.surfaceVol;
+  int x_len = S1/2 + 1;
+  int idx = 0;
+  double val = 0.0;
+  double phi_lc = 0.0;
+  int t1,x1,t2,x2,dt,dx;
   double clusterNorm = 1.0*p.surfaceVol/corr_wc_size;
 
-  double val = 0.0;
-  int idx = 0;
-
   //loop over all sources
-  for(int i=0; i<p.surfaceVol; i++) {
-    
+  for(int i=0; i<vol; i++) {
+
     if(cpu_added[i]){ 
+      t1 = i/S1;
+      x1 = i%S1;
+      phi_lc = phi[i];
       
-      //loop over all sinks in the specified direction
-      for(int j=0; j<Lt; j++) {
+      //loop over all sinks.
+      for(int j=0; j<vol; j++) {
+
+	if(cpu_added[j]) {
 	
-	idx = abs(i/S1-j);
-	if(idx > Lt/2) idx = Lt - idx;
-	
-	if(cpu_added[i%S1 + j*S1]) {
+	  //Index divided by circumference, using the int floor feature/bug,
+	  //gives the timeslice index.
+	  t2 = j / S1;
+	  dt = abs(t2-t1) > p.Lt/2 ? p.Lt - abs(t2-t1) : abs(t2-t1);
 	  
-	  val = ((phi_cpy[i] - avePhi) *
-		 (phi_cpy[i%S1 + j*S1] - avePhi))*clusterNorm;
+	  //The index modulo the circumference gives the spatial index.
+	  x2 = j % S1;            
+	  dx = abs(x2-x1) > p.S1/2 ? p.S1 - abs(x2-x1) : abs(x2-x1);      
 	  
-	  ind_corr_t[meas][idx] += val;
-	  run_corr_t[idx] += val;
-	}
-      }
-      for(int j=0; j<S1; j++) {
-	
-	idx = abs(i%S1-j);
-	if(idx > S1/2) idx = S1 - idx;
-	
-	if(cpu_added[S1*(i/S1) + j]) {
+	  idx = dx + x_len*dt;
 	  
-	  val = ((phi_cpy[i] - avePhi) *
-		 (phi_cpy[S1*(i/S1) + j] - avePhi))*clusterNorm;
-	  
-	  ind_corr_s[meas][idx] += val;
-	  run_corr_s[idx] += val;
+	  val = (phi_lc*phi[j] - avePhi*avePhi)*clusterNorm;
+
+	  ind_corr[meas][idx] += val;
+	  run_corr[idx] += val;
 	}
       }
     }
   }
 }
 
-void Ising2D::correlatorsImpWolffI(double **ind_corr_t, double *run_corr_t,
-				   double **ind_corr_s, double *run_corr_s,
+void Ising2D::correlatorsImpWolffI(double **ind_corr, double *run_corr,
 				   int meas, double aveS, Param p){
   
   corr_wc_calls++;
@@ -209,21 +237,26 @@ void Ising2D::correlatorsImpWolffI(double **ind_corr_t, double *run_corr_t,
   //This function is recursive and will call itself
   //until all attempts to increase the cluster size
   //have failed.
-  corr_wolffClusterAddLRI(i, s_cpy, cSpin, LR_couplings, cpu_added, p);
+
+  if(p.coupling_type == SR) corr_wolffClusterAddSRI(i, s_cpy, cSpin, cpu_added, p);
+  else corr_wolffClusterAddLRI(i, s_cpy, cSpin, LR_couplings, cpu_added, p);
   
   corr_wc_ave += corr_wc_size;
   
   setprecision(4);
   cout<<"Average (CPU) corr. cluster size at iter "<<meas<<" = "<<corr_wc_ave<<"/"<<corr_wc_calls<<" = "<<1.0*corr_wc_ave/corr_wc_calls<<" = "<<100.0*corr_wc_ave/(corr_wc_calls*p.surfaceVol)<<"%"<<endl;
 
+  //visualiserIsingCluster(s, cpu_added, p);
+  
   int S1 = p.S1;
   int Lt = p.Lt;
-
-  double clusterNorm = 1.0*p.surfaceVol/corr_wc_size;
-
-  double val = 0.0;
+  int vol = p.surfaceVol;
+  int x_len = S1/2 + 1;
   int idx = 0;
+  double val = 0.0;
+  double phi_lc = 0.0;
   int t1,x1,t2,x2,dt,dx;
+  double clusterNorm = 1.0*p.surfaceVol/corr_wc_size;
   
   //loop over all sources
   for(int i=0; i<p.surfaceVol; i++) {
@@ -246,11 +279,12 @@ void Ising2D::correlatorsImpWolffI(double **ind_corr_t, double *run_corr_t,
 	  //The index modulo the circumference gives the spatial index.
 	  x2 = j % S1;            
 	  dx = abs(x2-x1) > p.S1/2 ? p.S1 - abs(x2-x1) : abs(x2-x1);      
+
+	  idx = dx + x_len*dt;
+	  val = (1 - aveS*aveS)*clusterNorm;
 	  
-	  val = (1 - aveS)*clusterNorm;
-	  
-	  ind_corr[meas][dx][dt] += val;
-	  run_corr[dx][dt] += val;
+	  ind_corr[meas][idx] += val;
+	  run_corr[idx] += val;
 	}
       }
     }
@@ -338,6 +372,57 @@ void corr_wolffClusterAddLRI(int i, int *s, int cSpin, double *LR_couplings,
   }
 }
 
+void corr_wolffClusterAddSRI(int i, int *s, int cSpin,
+			     bool *cpu_added, Param p) {
+  
+  double J = p.J;
+  
+  // The site belongs to the cluster, so flip it.
+  cpu_added[i] = true;
+  s[i] *= -1;
+
+  // - If the (aligned) neighbour spin does not already belong to the
+  // cluster, then try to add it to the cluster.
+  // - If the site has already been added, then we may skip the test.
+
+  //Forward in T
+  if(!cpu_added[ tp(i,p) ] && s[tp(i,p)] == cSpin) {
+    if(unif(rng) < 1 - exp(-2*J)) {
+      corr_wc_size++;
+      //cout<<"->tp";
+      corr_wolffClusterAddSRI(tp(i,p), s, cSpin, cpu_added, p);
+    }
+  }
+
+  //Forward in X
+  if(!cpu_added[ xp(i,p) ] && s[xp(i,p)] == cSpin) {
+    if(unif(rng) < 1 - exp(-2*J)) {
+      corr_wc_size++;
+      //cout<<"->xp";
+      corr_wolffClusterAddSRI(xp(i,p), s, cSpin, cpu_added, p);
+    }
+  }
+
+  
+  //Backard in T 
+  if(!cpu_added[ ttm(i,p) ] && s[ttm(i,p)] == cSpin) {  
+    if(unif(rng) < 1 - exp(-2*J)) {
+      corr_wc_size++;
+      //cout<<"->tm";
+      corr_wolffClusterAddSRI(ttm(i,p), s, cSpin, cpu_added, p);
+    }
+  }
+
+  //Backward in X
+  if(!cpu_added[ xm(i,p) ] && s[xm(i,p)] == cSpin) {
+    if (unif(rng) < 1 - exp(-2*J)) {
+      corr_wc_size++;
+      //cout<<"->xm";
+      corr_wolffClusterAddSRI(xm(i,p), s, cSpin, cpu_added, p);
+    }
+  }   
+}
+
 
 
 //Calculate the autocorrelation of |phi|
@@ -366,12 +451,13 @@ void autocorrelation(double *PhiAb_arr, double avePhiAbs,
 //Data is entered in 'raw form.' normalisation of the data is done
 //at the data write stage.
 void jackknife(double **ind, double *run, double *jk_err, int block, 
-	       int data_points, int arr_length, Param p) {
-  
+	       int data_points, int arr_length, int dth, Param p) {
+
+  //Initialise
+  int x_len = p.S1/2+1;
   int num_resamp = data_points/block;
   double coeff = (1.0*num_resamp - 1.0)/(1.0*num_resamp);
-  double resamp_norm = 1.0/(data_points - block);
-  
+  double resamp_norm = 1.0/(data_points - block);  
   double **resamp_ave = (double**)malloc(arr_length*sizeof(double*));
   for(int r=0; r<arr_length; r++) {
     jk_err[r] = 0.0;
@@ -384,7 +470,7 @@ void jackknife(double **ind, double *run, double *jk_err, int block,
     for(int i=0; i<num_resamp; i++) {
       for(int j=0; j<data_points; j++) {   
 	if(j < i*block || j >= (i+1)*block)  {
-	  resamp_ave[r][i] += ind[j][r];
+	  resamp_ave[r][i] += ind[j][dth + i*x_len];
 	}
       }
       resamp_ave[r][i] *= resamp_norm;

@@ -14,6 +14,6 @@ C=1
 
 lin(x) = -M*x + C
 
-fit [0.0:32] lin(x) 'correlators_t.dat' using (log($1)):(log($2)):(coeff*(($3)/($2))) via M,C
+fit [0:1.5] lin(x) 'correlators_t.dat' using (log($1)):(log($2)):(coeff*(($3)/($2))) via M,C
 
 plot "correlators_t.dat" using (log($1)):(log($2)):(coeff*(($3)/($2))) with yerrorbars, lin(x)

@@ -10,8 +10,8 @@
 
 using namespace std;
 
-//int seed = clock();
-int seed = 1234;
+int seed = clock();
+//int seed = 1234;
 mt19937 rng(seed);
 uniform_real_distribution<double> unif(0.0,1.0);
 //int CACHE_LINE_SIZE = sysconf(_SC_LEVEL1_DCACHE_LINESIZE);

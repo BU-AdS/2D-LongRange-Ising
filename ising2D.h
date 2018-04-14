@@ -31,15 +31,12 @@ class Ising2D {
   //Array to hold spin values.  
   int *s;
   
-  //Running correlation function arrays.
-  double *run_corr_t;
-  double *run_corr_s;
-  double **run_corr;
-  
-  //Individual correlation function arrays..
-  double **ind_corr_t;
-  double **ind_corr_s;
-  double ***ind_corr;
+  //Running correlation function arrays [x_idx + (S1/2+1)*t_idx]
+  double *run_corr;  
+  //Individual correlation function arrays. [measurement][x_idx + (S1/2+1)*t_idx]
+  double **ind_corr;
+  //Correlation function normalisation [x_idx + (S1/2+1)*t_idx]
+  int *norm_corr;
   
   //Holds Autocorrelation data
   double *auto_corr;
@@ -108,10 +105,9 @@ class Ising2D {
   void metropolisUpdate(Param p, int iter);
   void metropolisUpdateILR(Param p, int iter);
   
-  void correlatorsImpWolffI(double **ind_corr_s, double *run_corr_s,
-			    double **ind_corr_t, double *run_corr_t,
+  void correlatorsImpWolffI(double **ind_corr, double *run_corr,
 			    int meas, double aveS, Param p);
-
+  
 };
 
 #endif
