@@ -15,7 +15,7 @@
 #include "data_proc.h"
 #include "data_io.h"
 #include "mcPhiFourth2D.h"
-#include "gpuMcPhiFourth2D.cuh"
+#include "gpuMC.cuh"
 
 using namespace std;
 
@@ -218,31 +218,25 @@ void PhiFourth2D::thermalise(Param p) {
 //------------------------------------------------//
 void PhiFourth2D::wolffUpdate(Param p, int iter) {
 
-  for(int i=0; i<p.n_cluster; i++) {
-    if(p.coupling_type == SR) {
-      wolffUpdateSR(phi, s, p, iter);
-    }
-    else {
-      if(p.useGPUCluster) {
-	if(!p.useGPUMetro) {
-	  //We must copy from the host to the device
+  if(p.coupling_type == SR) {
+    for(int i=0; i<p.n_cluster; i++) wolffUpdateSR(phi, s, p, iter);
+  }
+  else {
+    if(p.useGPUCluster) {
 #ifdef USE_GPU
-	  GPU_copyArraysToDevice(p);
-#endif
-	}
-#ifdef USE_GPU	
+      if(!p.useGPUMetro) GPU_copyArraysToDevice(p);
+      
+      for(int i=0; i<p.n_cluster; i++) {
 	int rand_site = int(unif(rng) * p.surfaceVol);	
 	GPU_wolffUpdateLR(p, rand_site, iter, i);
-#endif
-	if(!p.useGPUMetro) {
-	  //We must copy from the device to the host
-#ifdef USE_GPU
-	  GPU_copyArraysToHost(p);
-#endif
-	}	
-      } else {
-	wolffUpdateLR(phi, s, p, LR_couplings, iter, i);
       }
+      
+      if(!p.useGPUMetro) GPU_copyArraysToHost(p);
+#else
+      cout<<"GPU Wolf not built"<<endl;
+#endif
+    } else {
+      for(int i=0; i<p.n_cluster; i++) wolffUpdateLR(phi, s, p, LR_couplings, iter, i);
     }
   }
 }
@@ -262,26 +256,19 @@ void PhiFourth2D::metropolisUpdate(Param p, int iter) {
   }
   else {
     if(p.useGPUMetro) {
-      if(!p.useGPUCluster) {
-	//We must copy from the host to the device
 #ifdef USE_GPU
-	GPU_copyArraysToDevice(p);
-#endif
-      }
-#ifdef USE_GPU
+      
+      if(!p.useGPUCluster) GPU_copyArraysToDevice(p);
       GPU_metropolisUpdateLR(p, iter);
-#endif
       if(p.doMetroCheck) {
 	//Use the same fields, check against the CPU.
 	metropolisUpdateLR(p, iter);
       }
       
-      if(!p.useGPUCluster) {
-	//We must copy from the device to the host
-#ifdef USE_GPU
-	GPU_copyArraysToHost(p);
+      if(!p.useGPUCluster) GPU_copyArraysToHost(p);
+#else
+      cout<<"GPU Metro not built"<<endl;
 #endif
-      }
     } else {
       metropolisUpdateLR(p, iter);
     }

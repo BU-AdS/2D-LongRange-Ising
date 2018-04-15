@@ -169,7 +169,7 @@ void PhiFourth2D::correlatorsImpWolff(double **ind_corr, double *run_corr,
   corr_wc_ave += corr_wc_size;
   
   setprecision(4);
-  cout<<"Average (CPU) corr. cluster size at iter "<<meas<<" = "<<corr_wc_ave<<"/"<<corr_wc_calls<<" = "<<1.0*corr_wc_ave/corr_wc_calls<<" = "<<100.0*corr_wc_ave/(corr_wc_calls*p.surfaceVol)<<"%"<<endl;
+  cout<<"Average (CPU) corr. cluster size at measurement "<<meas+1<<" = "<<corr_wc_ave<<"/"<<corr_wc_calls<<" = "<<(1.0*corr_wc_ave)/corr_wc_calls<<" = "<<(100.0*corr_wc_ave)/(corr_wc_calls*p.surfaceVol)<<"%"<<endl;
 
   int S1 = p.S1;
   int Lt = p.Lt;
@@ -247,7 +247,7 @@ void Ising2D::correlatorsImpWolffI(double **ind_corr, double *run_corr,
   corr_wc_ave += corr_wc_size;
   
   setprecision(4);
-  cout<<"Average (CPU) corr. cluster size at iter "<<meas<<" = "<<corr_wc_ave<<"/"<<corr_wc_calls<<" = "<<1.0*corr_wc_ave/corr_wc_calls<<" = "<<100.0*corr_wc_ave/(corr_wc_calls*p.surfaceVol)<<"%"<<endl;
+  cout<<"Average (CPU) corr. cluster size at measurement "<<meas+1<<" = "<<corr_wc_ave<<"/"<<corr_wc_calls<<" = "<<(1.0*corr_wc_ave)/(corr_wc_calls)<<" = "<<(100.0*corr_wc_ave)/(corr_wc_calls*p.surfaceVol)<<"%"<<endl;
 
   //visualiserIsingCluster(s, cpu_added, p);
   
@@ -298,6 +298,7 @@ void corr_wolffClusterAddLR(int i, int *s, int cSpin, double *LR_couplings,
   
   double phi_lc = phi[i];
   int S1 = p.S1;
+  int Lt = p.Lt;
   int x_len = S1/2 + 1;
 
   int t1,x1,t2,x2,dt,dx;
@@ -309,16 +310,16 @@ void corr_wolffClusterAddLR(int i, int *s, int cSpin, double *LR_couplings,
   //We now loop over the possible lattice sites, adding sites
   //(creating bonds) with the specified LR probablity.
   for(int j=0; j<p.surfaceVol; j++) {
-    if(s[j] == cSpin && j != i) {
+    if(s[j] == cSpin ) {
       
       //Index divided by circumference, using the int floor feature/bug,
       //gives the timeslice index.
       t2 = j / p.S1;
-      dt = abs(t2-t1) > p.Lt/2 ? p.Lt - abs(t2-t1) : abs(t2-t1);
+      dt = abs(t2-t1) > Lt/2 ? Lt - abs(t2-t1) : abs(t2-t1);
       
       //The index modulo the circumference gives the spatial index.
       x2 = j % p.S1;            
-      dx = abs(x2-x1) > p.S1/2 ? p.S1 - abs(x2-x1) : abs(x2-x1);      
+      dx = abs(x2-x1) > S1/2 ? S1 - abs(x2-x1) : abs(x2-x1);      
       
       prob = 1 - exp(2*phi_lc*phi[j]*LR_couplings[dx + dt*x_len]);
       
@@ -351,7 +352,7 @@ void corr_wolffClusterAddLRI(int i, int *s, int cSpin, double *isingProb,
   //We now loop over the possible lattice sites, adding sites
   //(creating bonds) with the specified LR probablity.
   for(int j=0; j<p.surfaceVol; j++) {
-    if(s[j] == cSpin && j != i) {
+    if(s[j] == cSpin ) {
       
       //Index divided by circumference, using the int floor feature/bug,
       //gives the timeslice index.
@@ -362,16 +363,17 @@ void corr_wolffClusterAddLRI(int i, int *s, int cSpin, double *isingProb,
       x2 = j % p.S1;            
       dx = abs(x2-x1) > S1/2 ? S1 - abs(x2-x1) : abs(x2-x1);      
       
-      //prob = 1 - exp(-2*J*LR_couplings[dx + dt*x_len]);
-      prob = isingProb[dx + dt*x_len];
-      
+      //prob = 1 - exp(-2*p.J*LR_couplings[dx + dt*x_len]);
+      prob = isingProb[dx + dt*x_len];      
       rand = unif(rng);
+      
       if(rand < prob) {
 	corr_wc_size++;
 	// The site belongs to the cluster, so flip it.
 	s[j] *= -1;
 	cpu_added[j] = true;
 	corr_wolffClusterAddLRI(j, s, cSpin, isingProb, cpu_added, p);
+	//corr_wolffClusterAddLRI(j, s, cSpin, LR_couplings, cpu_added, p);
       }
     }
   }

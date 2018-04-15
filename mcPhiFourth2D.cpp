@@ -661,6 +661,12 @@ void wolffUpdateLR(double *phi, int *s, Param p,
   init_connectivityPhi4(p);
 #endif
 
+  if(iter == p.n_therm) {
+    cout<<endl<<endl<<"Resetting cluster stats."<<endl<<endl;
+    phi4_wc_calls = 0;
+    phi4_wc_ave = 0;
+  }
+  
   phi4_wc_calls++;
   
   //Choose a random spin.

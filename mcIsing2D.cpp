@@ -229,10 +229,12 @@ void init_connectivityI(Param p) {
 void Ising2D::metropolisUpdateILR(Param p, int iter) {
   
   
+  
 }
 
 void Ising2D::swendsenWangUpdateILR(Param p, int iter) {
   
+
 }
 
 void swendsenWangClusterAddILR(int i, int *s, int cSpin, int clusterNum, 
@@ -250,9 +252,15 @@ void clusterPossibleILR(int i, int *s, int cSpin,
 
 void wolffUpdateILR(int *s, Param p, double *isingProb, int iter) {
 
+  
+// #ifdef USE_OMP
+//   init_connectivityI(p);
+// #endif
+
   ising_wc_calls++;
 
-  if(ising_wc_calls == p.n_therm) {
+  if(iter == p.n_therm) {
+    cout<<"Resetting Cluster Stats."<<endl;    
     ising_wc_calls = 1;
     ising_wc_ave = 0;
   }
@@ -274,16 +282,111 @@ void wolffUpdateILR(int *s, Param p, double *isingProb, int iter) {
 
   if(iter%p.n_skip == 0) {
     setprecision(4);
-    cout<<"Average (CPU) cluster size at iter "<<iter<<" = "<<ising_wc_ave<<"/"<<ising_wc_calls<<" = "<<1.0*ising_wc_ave/ising_wc_calls<<" = "<<100.0*ising_wc_ave/(ising_wc_calls*p.surfaceVol)<<"%"<<endl;
+    cout<<"Average (CPU) cluster size at iter "<<iter<<" = "<<ising_wc_ave<<"/"<<ising_wc_calls<<" = "<<(1.0*ising_wc_ave)/ising_wc_calls<<" = "<<(100.0*ising_wc_ave)/(ising_wc_calls*p.surfaceVol)<<"%"<<endl;
   }
+
+// #ifdef USE_OMP
+//   for(int a=0; a<p.surfaceVol; a++) free(addedI[a]);
+//   free(addedI);
+//   toCheckI.clear();
+// #endif
+  
 }
 
 void wolffClusterAddILR(int i, int *s, int cSpin, double *isingProb, Param p) {
 
   int S1 = p.S1;
+  int Lt = p.Lt;
   int x_len = S1/2 + 1;
-  double J = p.J;
+  int vol = S1*Lt;
+
+  /*
+#ifdef USE_OMP
   
+  //This implementation parallelises over the entire surface of the lattice.
+  //It performs a boolean check to see if the candidate site has the
+  //correct spin, then performs the probablisitic test to add the site.
+  
+  int newSites = 0;
+  int omp_nt = omp_get_num_threads();
+  int lc_sze = vol/omp_nt;
+  int t1,x1;
+  t1 = i / S1;
+  x1 = i % S1;
+
+  //We now loop over the possible lattice sites, adding sites
+  //(creating bonds) with the specified LR probablity.
+#pragma omp parallel 
+  {
+    int newSites_local = 0;
+    double prob = 0.0;
+    double rand = 0.0;
+    double added_local[lc_sze];
+    for(int k=0; k<lc_sze; k++) {
+      added_local[k] = -1;
+    }
+    int t2,dt,x2,dx;
+
+#pragma omp for nowait 
+    for(int j=0; j<vol; j+=lc_sze) {
+      for(int k=0; k<lc_sze; k++) {
+	int idx = j+k;
+	if(s[idx] == cSpin) {
+	  
+	  //Index divided by circumference, using the int floor feature/bug,
+	  //gives the timeslice index.
+	  t2 = (idx) / S1;
+	  dt = abs(t2-t1) > Lt/2 ? Lt - abs(t2-t1) : abs(t2-t1);
+	  
+	  //The index modulo the circumference gives the spatial index.
+	  x2 = (idx) % p.S1;            
+	  dx = abs(x2-x1) > S1/2 ? S1 - abs(x2-x1) : abs(x2-x1);      
+	  
+	  prob = isingProb[dx+dt*x_len];
+	  rand = unif(rng);
+	  if(rand < prob) {
+	    ising_wc_size++;
+	    added_local[k] = 1;
+	    ++newSites_local;
+	  }
+	}
+      }
+    }
+#pragma omp critical
+    newSites += newSites_local;
+#pragma omp for
+    for(int j=0; j<vol; j+=lc_sze) {
+      for(int k=0; k<lc_sze; k++) {
+	int idx = j+k;
+	if(added_local[k] > 0) addedI[i][idx] = added_local[k];
+      }
+    }
+  }
+    
+  if(newSites > 0) {
+    //'added' now contains all of the spins on the wave front. Each
+    //of these new sites must be explored, but no new exploration 
+    //need test these sites. First, sort the added array so that all
+    //the hits are at the beginning, order is unimportant.
+    int pos = 0;
+    int l = 0;
+    for(l=0; l<vol; l++) {
+      if(addedI[i][l] > 0) {
+	addedI[i][pos] = l;
+	pos++;
+      }
+    }
+
+    // These sites belongs to the cluster, so flip them.
+    for(int k=0; k<newSites; k++) {
+      s[addedI[i][k]] *= -1;
+    }    
+    for(int k=0; k<newSites; k++)
+      wolffClusterAddILR(addedI[i][k], s, cSpin, isingProb, p);
+  }
+
+#else
+  */  
   int t1,x1,t2,x2,dt,dx;
   t1 = i / p.S1;
   x1 = i % p.S1;
@@ -292,17 +395,17 @@ void wolffClusterAddILR(int i, int *s, int cSpin, double *isingProb, Param p) {
   double rand = 0.0;
   //We now loop over the possible lattice sites, adding sites
   //(creating bonds) with the specified LR probablity.
-  for(int j=0; j<p.surfaceVol; j++) {
-    if(s[j] == cSpin && j != i) {
+  for(int j=0; j<vol; j++) {
+    if(s[j] == cSpin) {
       
       //Index divided by circumference, using the int floor feature/bug,
       //gives the timeslice index.
       t2 = j / p.S1;
-      dt = abs(t2-t1) > p.Lt/2 ? p.Lt - abs(t2-t1) : abs(t2-t1);
+      dt = abs(t2-t1) > Lt/2 ? Lt - abs(t2-t1) : abs(t2-t1);
       
       //The index modulo the circumference gives the spatial index.
       x2 = j % p.S1;            
-      dx = abs(x2-x1) > p.S1/2 ? p.S1 - abs(x2-x1) : abs(x2-x1);      
+      dx = abs(x2-x1) > S1/2 ? S1 - abs(x2-x1) : abs(x2-x1);      
       
       //prob = 1 - exp(-2*J*LR_couplings[dx + dt*x_len]);
       prob = isingProb[dx + dt*x_len];
@@ -315,7 +418,8 @@ void wolffClusterAddILR(int i, int *s, int cSpin, double *isingProb, Param p) {
       }
     }
   }
-
+  
+  //#endif
   
 }
 
