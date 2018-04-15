@@ -3,7 +3,7 @@
 #One must pass the CL variables to the executables in the specific order
 #given. Options are listed as comments above the variable.
 
-export OMP_NUM_THREADS=1
+export OMP_NUM_THREADS=8
 
 #d=Dirichlet, n=Neumann
 BC='d'
@@ -27,7 +27,7 @@ CLUSTER='WOLFF'
 
 #GPU/CPU
 CLUSTER_ARCH='CPU'
-METRO_ARCH='CPU'
+METRO_ARCH='GPU'
 
 #Perform the Metropolis step on the CPU with the same random numbers used on the GPU.
 METRO_CHECK='false'
@@ -55,11 +55,11 @@ T_SCALE=1.0
 N_METRO_COOL=100
 N_THERM=1000
 N_MEAS=1000
-N_SKIP=10
+N_SKIP=50
 N_CLUSTER=4
 DELTA_PHI=1.5
 
-MUSQR=-1.27
+MUSQR=-1.275
 LAMBDA=1.0
 SIGMA=$3
 

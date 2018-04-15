@@ -27,7 +27,7 @@ class Ising2D {
   
   //Array for the LR couplings.
   double *LR_couplings;
-
+  
   //Array for the cluster acceptance probabilities.
   double *isingProb;
 
@@ -57,7 +57,7 @@ class Ising2D {
   double *debug_arr1;
   double *debug_arr2;
 
-  #ifdef USE_GPU  
+#ifdef USE_GPU  
   // CUDA's random number library uses curandState_t to keep track of the seed value
   // we will store a random state for every thread  
   curandState_t* states;
@@ -69,6 +69,7 @@ class Ising2D {
   double *gpu_rands_aux;
   double *gpu_result;
   double *gpu_LR_couplings;
+  double *gpu_isingProb;
 
   double *gpu_ind_corr_t;//FIXME
   double *gpu_ind_corr_s;//FIXME 
@@ -79,11 +80,9 @@ class Ising2D {
   int *gpu_s;
   int *gpu_s_cpy;
 
-  double GPU_metropolisUpdateLR(Param p, int iter);
-  void GPU_wolffUpdateLR(Param p, int rand_site, int iter, int i);
-  void GPU_copyArraysToHost(Param p);
-  void GPU_copyArraysToDevice(Param p);
-  void GPU_correlatorsImpWolff(int i, int meas, double avePhi, Param p);
+  void GPU_wolffUpdateILR(Param p, int i, int iter);  
+  void GPU_copyArraysToHostI(Param p);
+  void GPU_copyArraysToDeviceI(Param p);
   
   //Constructor
   Ising2D(Param p);
