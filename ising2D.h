@@ -99,7 +99,7 @@ class Ising2D {
   
   void measureI(observables &obs, int &idx, Param p);
   
-  void createLRcouplings(Param p);
+  void createLRcouplings(Param &p);
   void exponentiateLRcouplings(Param p);
 
   void swendsenWangUpdateILR(Param p, int iter);  

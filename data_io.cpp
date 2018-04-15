@@ -51,7 +51,7 @@ void writeObservables(double **ind_corr, double *run_corr, int *norm_corr,
     
     sprintf(fname, "correlators_dt%d.dat", dt);
     ofstream filet(fname);
-    for(int i=0; i<Lt/2+1; i++) {
+    for(int i=0; i<S1/2+1; i++) {
       filet<<i<<" "<<run_corr[i + dt*x_len]*norm/(norm_corr[i + dt*x_len]);
       filet<<" "<<jk_err[i]*norm/(norm_corr[i + dt*x_len])<<endl;
     }

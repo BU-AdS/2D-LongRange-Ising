@@ -39,7 +39,7 @@ CLUSTER='WOLFF'
 #SR = Short range
 #POW = 1/|x-y|^{2+sigma} type
 #RAD = 1/(cosh(dt) - cos(dtheta))^{1+sigma/2}
-COUPLING_TYPE='RAD'
+COUPLING_TYPE='SR'
 
 #Ising J
 #J=0.4406867935
@@ -49,19 +49,18 @@ J=$1
 H=0.0
 
 TIMESLICES=$2
-CIRCUMFERENCE=$2
-T_SCALE=1.0
+CIRCUMFERENCE=$3
 
 N_METRO_COOL=100
-N_THERM=1000
+N_THERM=5000
 N_MEAS=1000
-N_SKIP=10
+N_SKIP=20
 N_CLUSTER=4
 DELTA_PHI=1.5
 
 MUSQR=-1.27
 LAMBDA=1.0
-SIGMA=$3
+SIGMA=100.0
 
 make -j 12
 
@@ -70,7 +69,7 @@ make -j 12
 #COMMAND="nvprof --metrics all -o metrics_512.nvvp ./adsrun --BC ${BC} --centre ${CENTRE} --verbosity ${VERBOSITY}
 COMMAND="./adsrun --BC ${BC} --centre ${CENTRE} --verbosity ${VERBOSITY} --theory ${THEORY} 
                   --latType ${LATTICE} --couplingType ${COUPLING_TYPE} --J ${J} --h ${H}
-		  --Lt ${TIMESLICES} --S1 ${CIRCUMFERENCE} --tScale ${T_SCALE}
+		  --Lt ${TIMESLICES} --S1 ${CIRCUMFERENCE}
                   --nTherm ${N_THERM} --nMeas ${N_MEAS} --nSkip ${N_SKIP} 
                   --nCluster ${N_CLUSTER} --nMetroCool ${N_METRO_COOL} --deltaPhi ${DELTA_PHI} 
                   --muSqr ${MUSQR} --lambda ${LAMBDA} --sigma ${SIGMA} --clusterAlg ${CLUSTER} 

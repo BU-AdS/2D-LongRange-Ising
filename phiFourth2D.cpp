@@ -122,7 +122,7 @@ void PhiFourth2D::runSimulation(Param p) {
       norm = 1.0/(meas);
 
       //Visualisation tool
-      //visualiserSqr(phi, obs.avePhiAb*norm, p);
+      visualiserSqr(phi, obs.avePhiAb*norm, p);
       
       //Calculate correlaton functions and update the average.
       //int rand_site = int(unif(rng) * p.surfaceVol);

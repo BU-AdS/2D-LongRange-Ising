@@ -359,7 +359,7 @@ inline double coupling(double dt, double dth, Param p) {
 
 }
 
-void Ising2D::createLRcouplings(Param p) {
+void Ising2D::createLRcouplings(Param &p) {
   
   double sigma = p.sigma;
   int S1 = p.S1;
@@ -375,7 +375,11 @@ void Ising2D::createLRcouplings(Param p) {
   double sum_2 = 0.0;
   
   LR_couplings[0] = couplingNormTheta;  
-  
+
+  //Scales the temporal direction so that the coupling it unit valued
+  //at one latice spacing.
+  p.t_scale = acosh(1 + pow(couplingNormTheta,1.0/(1+p.sigma/2)))*S1/M_PI;
+
   for(int j=0; j<t_len; j++){
     for(int i=0; i<x_len; i++){
 
@@ -387,7 +391,7 @@ void Ising2D::createLRcouplings(Param p) {
 	sum_1 += LR_couplings[idx];
 	sum_2 += LR_couplings[idx]*LR_couplings[idx];
       }
-      printf("%.3e ", LR_couplings[idx]);
+      printf("%.8e ", LR_couplings[idx]);
     }
     cout<<endl;
   }
