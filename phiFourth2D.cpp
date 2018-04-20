@@ -316,7 +316,7 @@ void PhiFourth2D::measure(observables &obs, int &idx, Param p) {
   double norm = 1.0/(idx);
 
   obs.Suscep[idx-1]   = (obs.avePhi2*norm-pow(obs.avePhiAb*norm,2))/rhoVol;
-  obs.SpecHeat[idx-1] = (obs.aveE2*norm-pow(obs.aveE*norm,2))/rhoVol;
+  obs.SpecHeat[idx-1] = (obs.aveE2*norm-pow(obs.aveE*norm,2));
   obs.Binder[idx-1]   = 1.0-obs.avePhi4/(3.0*obs.avePhi2*obs.avePhi2*norm);
   
   //Dump to stdout

@@ -16,7 +16,7 @@ void Param::usage(char **argv) {
 
   printf("\n\n");
   printf("This is an exhaustive list of run-time options. Those not set at\n");
-  printf("run time will be given a default value. All input options will\n");
+  printf("run time will be given a default value. Important input options will\n");
   printf("dumped to stdout at execution. Please ensure that they are sensible!\n\n");
 
   // The user is advised to study these parameters and set them accordingly.

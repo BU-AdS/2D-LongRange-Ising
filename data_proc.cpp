@@ -256,7 +256,6 @@ void Ising2D::correlatorsImpWolffI(double **ind_corr, double *run_corr,
   int vol = p.surfaceVol;
   int x_len = S1/2 + 1;
   int idx = 0;
-  double val = 0.0;
   int t1,x1,t2,x2,dt,dx;
   double clusterNorm = 1.0*p.surfaceVol/corr_wc_size;
   
@@ -283,10 +282,9 @@ void Ising2D::correlatorsImpWolffI(double **ind_corr, double *run_corr,
 	  dx = abs(x2-x1) > S1/2 ? S1 - abs(x2-x1) : abs(x2-x1);      
 
 	  idx = dx + x_len*dt;
-	  val = (1 - aveS*aveS)*clusterNorm;
-	  
-	  ind_corr[meas][idx] += val;
-	  run_corr[idx] += val;
+
+	  ind_corr[meas][idx] += clusterNorm;
+	  run_corr[idx] += clusterNorm;
 	}
       }
     }
@@ -490,4 +488,87 @@ void jackknife(double **ind, double *run, double *jk_err, int block,
     }
     jk_err[r] = sqrt(coeff*jk_err[r]);    
   }  
+}
+
+double jackknifeVar(double *x, double *xsq, double val, int block, int data_points, double J) {
+  
+  //Initialise
+  int num_resamp = data_points/block;
+  double coeff = (1.0*num_resamp - 1.0)/(1.0*num_resamp);
+  double resamp_norm = 1.0/(data_points - block);  
+  double *resamp_x = (double*)malloc(num_resamp*sizeof(double));
+  double *resamp_xsq = (double*)malloc(num_resamp*sizeof(double));
+  double *resamp_val = (double*)malloc(num_resamp*sizeof(double));
+  double jk_err = 0.0;
+  for(int a=0; a<num_resamp; a++) {
+    resamp_x[a]   = 0.0;
+    resamp_xsq[a] = 0.0;
+    resamp_val[a] = 0.0;
+  }
+
+  //Get resampled averages
+  for(int i=0; i<num_resamp; i++) {
+    for(int j=0; j<data_points; j++) {   
+      if(j < i*block || j >= (i+1)*block)  {
+	resamp_x[i] += x[j];
+	resamp_xsq[i] += xsq[j];
+      }
+    }
+    resamp_x[i] *= resamp_norm;
+    resamp_xsq[i] *= resamp_norm;
+  }
+
+  //Use resampled averages to get resampled values of <E(x)^2> - <E(x)>^2.
+  for(int i=0; i<num_resamp; i++) {   
+    resamp_val[i] = (resamp_xsq[i] - resamp_x[i]*resamp_x[i]);
+  }
+  
+  //Get jk_error
+  for(int i=0; i<num_resamp; i++) {
+    jk_err += pow(val - resamp_val[i],2);
+  }
+
+  return sqrt(coeff*jk_err);    
+  
+}
+
+double jackknifeBin(double *xsq, double *x4, double val, int block, int data_points) {
+  
+  //Initialise
+  int num_resamp = data_points/block;
+  double coeff = (1.0*num_resamp - 1.0)/(1.0*num_resamp);
+  double resamp_norm = 1.0/(data_points - block);  
+  double *resamp_x4 = (double*)malloc(num_resamp*sizeof(double));
+  double *resamp_xsq = (double*)malloc(num_resamp*sizeof(double));
+  double *resamp_val = (double*)malloc(num_resamp*sizeof(double));
+  double jk_err = 0.0;
+  for(int a=0; a<num_resamp; a++) {
+    resamp_x4[a] = 0.0;
+    resamp_xsq[a] = 0.0;
+    resamp_val[a]  = 0.0;
+  }
+
+  //Get resampled averages (do normalising in calculation of Binder C.)
+  for(int i=0; i<num_resamp; i++) {
+    for(int j=0; j<data_points; j++) {   
+      if(j < i*block || j >= (i+1)*block)  {
+	resamp_x4[i] += x4[j];
+	resamp_xsq[i] += xsq[j];
+      }
+    }
+  }
+  
+  //Use resampled averages to get resampled values of 1-<E(x)^4>/(3*<E(x)^2>^2)
+  for(int i=0; i<num_resamp; i++) {   
+    resamp_val[i] = (1.0 - resamp_x4[i]/(3*resamp_xsq[i]*resamp_xsq[i]*resamp_norm));
+    //cout<<(1 - resamp_x4[i]/(3*resamp_xsq[i]*resamp_xsq[i]*resamp_norm))<<endl;
+  }
+  
+  //Get jk_error
+  for(int i=0; i<num_resamp; i++) {
+    jk_err += pow(val - resamp_val[i],2);
+  }
+  
+  return sqrt(coeff*jk_err);    
+  
 }

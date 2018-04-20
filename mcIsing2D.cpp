@@ -144,10 +144,11 @@ void wolffUpdateISR(int *s, Param p, int iter) {
 
   ising_wc_ave += ising_wc_size;
 
-  if( iter%p.n_skip == 0) {
+  if(iter%p.n_skip == 0) {
     setprecision(4);
-    cout<<"Ave. cluster size at iter "<<iter<<" = "<<ising_wc_ave<<"/"<<ising_wc_calls<<" = "<<1.0*ising_wc_ave/ising_wc_calls<<endl;
+    cout<<"Average (CPU) cluster size at iter "<<iter<<" = "<<ising_wc_ave<<"/"<<ising_wc_calls<<" = "<<(1.0*ising_wc_ave)/ising_wc_calls<<" = "<<(100.0*ising_wc_ave)/(ising_wc_calls*p.surfaceVol)<<"%"<<endl;
   }
+  
   delete[] cluster;
   
 }

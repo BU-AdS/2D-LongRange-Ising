@@ -350,6 +350,13 @@ void Ising2D::GPU_wolffUpdateILR(Param p, int i, int iter) {
   //left to be checked, the routine halts and the Wolff cluster is defined.
   bool internalCheck;
 
+  //FIXME: One can change the routine here so that instead of launching a
+  //kernel for only one site at a time, one can launch one kernel for all
+  //the newly added sites. For example, if site i adds sites j,k,l,m, then
+  //we should be able to launch a kernal that asks if each candidate site
+  //can be added from any of j,k,l,m. From here, more new sites are added,
+  //and hence more sites will be tested. 
+  
   //This boolean is depenedent on internal check. We set it to true so that
   //the while loop actually starts. Once `internalCheck` is false,
   //Check will evaluate to false.

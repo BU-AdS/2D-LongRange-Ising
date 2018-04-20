@@ -191,7 +191,14 @@ void Ising2D::runSimulation(Param p) {
       cout<<"(Thermalised) Average time per cluster update = "<<cluster/(therm_iter*p.n_cluster*1.0e6)<<"s"<<endl;
 
       //If using the GPU, copy the spin array to the host.
-      if(p.useGPUCluster) GPU_copyArraysToHostI(p);
+      if(p.useGPUCluster) {
+#ifdef USE_GPU	
+	GPU_copyArraysToHostI(p);
+#else
+	cout<<"ERROR: GPU tools not built"<<endl;
+	exit(0);
+#endif
+      }
       
       //update running average, dump to stdout. 
       //'meas' is ++ incremented in this function.
@@ -200,7 +207,7 @@ void Ising2D::runSimulation(Param p) {
       norm = 1.0/(meas);
 
       //Visualisation tool
-      visualiserIsing(s, p);
+      //visualiserIsing(s, p);
       
       //Calculate correlaton functions and update the average.
       //int rand_site = int(unif(rng) * p.surfaceVol);	      
@@ -337,7 +344,7 @@ void Ising2D::createLRcouplings(Param &p) {
 
   //Scales the temporal direction so that the coupling it unit valued
   //at one latice spacing.
-  p.t_scale = acosh(1 + pow(couplingNormTheta,1.0/(1+p.sigma/2)))*S1/M_PI;
+  //p.t_scale = acosh(1 + pow(couplingNormTheta,1.0/(1+p.sigma/2)))*S1/M_PI;
 
   for(int j=0; j<t_len; j++){
     for(int i=0; i<x_len; i++){
@@ -406,8 +413,8 @@ void Ising2D::measureI(observables &obs, int &idx, Param p) {
     obs.tmpE = energyILR(s, p, LR_couplings, obs.KE);
   }
 
-  obs.aveE  += rhoVol*obs.tmpE;
-  obs.aveE2 += rhoVol*obs.tmpE*rhoVol*obs.tmpE;
+  obs.aveE  += obs.tmpE;
+  obs.aveE2 += obs.tmpE*obs.tmpE;
   
   obs.MagPhi = 0.0;
   for(int i = 0;i < vol; i++) {
@@ -420,22 +427,20 @@ void Ising2D::measureI(observables &obs, int &idx, Param p) {
   obs.avePhi2  += obs.MagPhi*obs.MagPhi;
   obs.avePhi4  += obs.MagPhi*obs.MagPhi*obs.MagPhi*obs.MagPhi;
 
-  obs.E_arr[idx]     = rhoVol*obs.tmpE;
-  obs.E2_arr[idx]    = rhoVol*obs.tmpE*obs.tmpE;
-  obs.PhiAb_arr[idx] = abs(obs.MagPhi);
-  obs.Phi_arr[idx]   = obs.MagPhi;
-  obs.Phi2_arr[idx]  = obs.MagPhi*obs.MagPhi;
-  obs.Phi4_arr[idx]  = obs.MagPhi*obs.MagPhi*obs.MagPhi*obs.MagPhi;
-  
-  idx++;
-  
-  cout<<setprecision(8);
+  idx++;  
   double norm = 1.0/(idx);
-
-  obs.Suscep[idx-1]   = (obs.avePhi2*norm - pow(obs.avePhiAb*norm, 2))*vol/J;
-  obs.SpecHeat[idx-1] = (obs.aveE2*norm - pow(obs.aveE*norm, 2))*vol/(J*J);
-  obs.Binder[idx-1] = 1.0-obs.avePhi4/(3.0*obs.avePhi2*obs.avePhi2*norm);
   
+  obs.E_arr[idx-1]     = obs.tmpE;
+  obs.E2_arr[idx-1]    = obs.tmpE*obs.tmpE;
+  obs.PhiAb_arr[idx-1] = abs(obs.MagPhi);
+  obs.Phi_arr[idx-1]   = obs.MagPhi;
+  obs.Phi2_arr[idx-1]  = obs.MagPhi*obs.MagPhi;
+  obs.Phi4_arr[idx-1]  = obs.MagPhi*obs.MagPhi*obs.MagPhi*obs.MagPhi;
+  obs.Suscep[idx-1]    = (obs.avePhi2*norm - pow(obs.avePhiAb*norm, 2))*vol*J;
+  obs.SpecHeat[idx-1]  = (obs.aveE2*norm - pow(obs.aveE*norm, 2))*(J*J);
+  obs.Binder[idx-1]    = 1.0-obs.avePhi4/(3.0*obs.avePhi2*obs.avePhi2*norm);
+
+  cout<<setprecision(8);
   //Dump to stdout
   cout<<"Measurement "<<idx<<endl;
   cout<<"Ave Energy= "<<obs.aveE*norm<<endl;

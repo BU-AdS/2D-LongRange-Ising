@@ -20,23 +20,25 @@ void writeObservables(double **ind_corr, double *run_corr, int *norm_corr,
   double norm = 1.0/idx;
   int S1 = p.S1;
   int Lt = p.Lt;
-  double inv_vol = 1.0/(Lt*S1);
+  int vol = S1*Lt;
   int x_len = S1/2 + 1;
   char fname[256];
   
   //The observable (spec heat, suscep, etc) are used only as a guide
   //to discern criticality, The real quantities of interest are
   //The critical exponents, especally \eta, and its dependence
-  //on \sigma, hence we MUST have proper error estimates of the
-  //correlation function values. Jackkinfe is hardcoded to dump
-  //results every 10th measurement, with a jk block of 5.
+  //on \sigma, hence MUST have proper error estimates of the
+  //correlation function values.
+
+  // FIXME: Jackkinfe is hardcoded to dump
+  //        results every 10th measurement, with a jk block of 5.
 
   for(int dth = 0; dth <S1/2+1; dth++) {
     double *jk_err = (double*)malloc((Lt/2+1)*sizeof(double));
     jackknife(ind_corr, run_corr, jk_err, 5, idx, Lt/2+1, dth, p);
     
     sprintf(fname, "correlators_dth%d.dat", dth);
-    ofstream filet(fname);
+    ofstream filet(fname);    
     for(int i=0; i<Lt/2+1; i++) {
       filet<<i<<" "<<run_corr[dth + i*x_len]*norm/(norm_corr[dth + i*x_len]);
       filet<<" "<<jk_err[i]*norm/(norm_corr[dth + i*x_len])<<endl;
@@ -59,30 +61,45 @@ void writeObservables(double **ind_corr, double *run_corr, int *norm_corr,
     free(jk_err);
   }
 
-  /*
-  int t1,x1,t2,x2,dt,dx;
-  for(int i=0; i<p.surfaceVol; i++) {
-    t1 = i / p.S1;
-    x1 = i % p.S1;
-    for(int j=0; j<p.surfaceVol; j++) {
-      
-      //Index divided by circumference, using the int floor feature/bug,
-      //gives the timeslice index.
-      t2 = j / S1;
-      dt = abs(t2-t1) > Lt/2 ? Lt - abs(t2-t1) : abs(t2-t1);
-      
-      //The index modulo the circumference gives the spatial index.
-      x2 = j % S1;
-      dx = abs(x2-x1) > S1/2 ? S1 - abs(x2-x1) : abs(x2-x1);        
-    }
-  }
-  */  
+  double J = p.J;
+  if(p.theory_type != ISING) J = 1.0;
   
-  ofstream file_obs("observables.dat");
-  for(int i=0; i<idx; i++) {
-    file_obs<<i<<" "<<obs.Suscep[i]<<" "<<obs.SpecHeat[i]<<" "<<obs.Binder[i]<<endl;
-  }
+  //Jacknife the second moments of means.
+  double jkErrSuscep;
+  jkErrSuscep = (vol*J)*jackknifeVar(obs.PhiAb_arr, obs.Phi2_arr,
+				     obs.Suscep[idx-1]/(vol*J), 5, idx, J);
+  
+  double jkErrSpecHeat;
+  jkErrSpecHeat = J*J*jackknifeVar(obs.E_arr, obs.E2_arr,
+				   obs.SpecHeat[idx-1]/(J*J), 5, idx, J*J);
+  
+  //Jacknife the Binder cumumlant
+  double jkErrBinder;
+  jkErrBinder = jackknifeBin(obs.Phi2_arr, obs.Phi4_arr,
+			     obs.Binder[idx-1], 5, idx);
+
+  //Dump jackknifed observables
+  ofstream file_obsJK;
+  file_obsJK.open("JKobservables.dat", ios_base::app);
+  file_obsJK<<idx<<" "<<p.sigma<<" "<<p.J<<" ";
+  file_obsJK<<obs.SpecHeat[idx-1]<<" "<<jkErrSpecHeat<<" ";
+  file_obsJK<<obs.Suscep[idx-1]<<" "<<jkErrSuscep<<" ";
+  file_obsJK<<obs.Binder[idx-1]<<" "<<jkErrBinder<<endl;  
+  file_obsJK.close();
+  
+  //Dump raw observable data for any further offline analysis
+  ofstream file_obs;
+  file_obs.open("observables.dat", ios_base::app);
+  int meas = 0;
+    for(int i=0; i<10; i++) {
+      meas = idx - 10 + i;
+      file_obs<<meas<<" "<<p.sigma<<" "<<p.J<<" "<<obs.E_arr[meas]<<" ";
+      file_obs<<obs.E2_arr[meas]<<" "<<obs.PhiAb_arr[meas]<<" "<<obs.Phi_arr[meas]<<" ";
+      file_obs<<obs.Phi2_arr[meas]<<" "<<obs.Phi4_arr[meas]<<" "<<obs.Suscep[meas]<<" ";
+      file_obs<<obs.SpecHeat[meas]<<" "<<obs.Binder[meas]<<endl;
+    }
   file_obs.close();
+  
   
 }
 
