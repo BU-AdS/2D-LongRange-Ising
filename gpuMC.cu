@@ -4,7 +4,9 @@
 #include <curand.h>
 #include <curand_kernel.h>
 #include <cuda_runtime.h>
+#ifdef CUDA_9
 #include <cooperative_groups.h>
+#endif
 #include <stdio.h>
 
 #include <gpuMC.cuh>
@@ -21,7 +23,9 @@ const int sze = 32;
 extern int CACHE_LINE_SIZE;
 int chunk = CACHE_LINE_SIZE/sizeof(double);
 
+#ifdef CUDA_9
 using namespace cooperative_groups;
+#endif
 
 void gpu_corr_wolffClusterAddLR(int i, int *s, int cSpin, double *LR_couplings,
 				double *phi, bool *cluster, Param p);
@@ -86,10 +90,13 @@ __global__ void count_added(bool *added, int *sum){
     if (tid < s) sdata[tid] += sdata[tid + s];
     __syncthreads();
   }
-  
+
+#ifdef CUDA_9
   auto g = this_thread_block();
   if (g.thread_rank() == 0) atomicAdd(sum, sdata[0]);
-  
+#else
+  if(tid == 0) atomicAdd(sum, sdata[0]);
+#endif
 }
 
 
@@ -266,9 +273,7 @@ __global__ void clusterAddILR(const double *gpu_rands, const double *gpu_isingPr
   int tid = threadIdx.x;
   int bdim = blockDim.x;  
   int idx = bid * bdim + tid;
-  
-  double coupling = 0;
-
+ 
   if(gpu_s[idx]*cSpin > 0) {
 
     int t2,x2,dt,dx;
@@ -281,11 +286,11 @@ __global__ void clusterAddILR(const double *gpu_rands, const double *gpu_isingPr
     //The index modulo the circumference gives the spatial index.
     x2 = idx % S1;            
     dx = abs(x2-x1) > S1/2 ? S1 - abs(x2-x1) : abs(x2-x1);      
-    
-    //if(usePow) coupling = pow(sqrt(dx*dx + dt*dt), -(2+sigma));
-    //else coupling = couplingNorm*couplingFunction(dx, t_scale*dt, sigma, S1);
-    
+        
 #ifdef DEBUG
+    double coupling = 0.0;
+    if(usePow) coupling = pow(sqrt(dx*dx + dt*dt), -(2+sigma));
+    else coupling = couplingNorm*couplingFunction(dx, t_scale*dt, sigma, S1);
     printf("(TESTING) block %d, thread %d, idx %d : %d %d %f %f %f\n",
 	   blockIdx.x, threadIdx.x, idx, cSpin, gpu_s[idx], gpu_rands[idx], coupling, 1 - exp(-2.0*J*coupling));
 #endif
@@ -294,6 +299,8 @@ __global__ void clusterAddILR(const double *gpu_rands, const double *gpu_isingPr
     if(gpu_rands[idx] < gpu_isingProb[dx + (S1/2+1)*dt]) {
       
 #ifdef DEBUG
+      if(usePow) coupling = pow(sqrt(dx*dx + dt*dt), -(2+sigma));
+      else coupling = couplingNorm*couplingFunction(dx, t_scale*dt, sigma, S1);
       printf("(ADDING) block %d, thread %d, idx %d : %d %d %f %f %f\n",
 	     blockIdx.x, threadIdx.x, idx, cSpin, gpu_s[idx], gpu_rands[idx], coupling, 1 - exp(-2.0*J*coupling));
 #endif      
@@ -645,9 +652,14 @@ __global__ void KEreduce(int i, const int S1, const int Lt,
     __syncthreads();
     }
   */
-  
+
+#ifdef CUDA_9
   auto g = this_thread_block();
   if (g.thread_rank() == 0) atomicAddCustom(&result[i], sdata[0]);
+#else
+  if(tid == 0) atomicAddCustom(&result[i], sdata[0]);
+#endif
+  
 }
 
 
@@ -1006,9 +1018,13 @@ __global__ void corrClusterCalcSpatial(double *gpu_phi_cpy, int S1, int Lt,
       }
     }
     __syncthreads();
-    
+
+#ifdef CUDA_9
     auto g = this_thread_block();
-    for(int a=0; a<32; a++) atomicAddCustom(&ind_corr[a], corr_lc[a]);    
+    for(int a=0; a<32; a++) atomicAddCustom(&ind_corr[a], corr_lc[a]);
+#else
+    if (tid == 0) atomicAddCustom(&ind_corr[a], corr_lc[a]); 
+#endif    
   }      
 }
 
@@ -1054,8 +1070,12 @@ __global__ void corrClusterCalcTemporal(double *gpu_phi_cpy, int S1, int Lt,
     }
     __syncthreads();
 
+#ifdef CUDA_9
     auto g = this_thread_block();
-    if (g.thread_rank() == tid && tid < Lt/2 + 1) atomicAddCustom(&ind_corr[tid], corr_lc[tid]);    
+    if (g.thread_rank() == tid && tid < Lt/2 + 1) atomicAddCustom(&ind_corr[tid], corr_lc[tid]);
+#else
+    if(tid == 0) atomicAddCustom(&ind_corr[tid], corr_lc[tid]);
+#endif
   }
 }
 
