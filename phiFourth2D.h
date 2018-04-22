@@ -1,5 +1,5 @@
-#ifndef MC_UTIL_H
-#define MC_UTIL_H
+#ifndef PHIFOURTH2D_H
+#define PHIFOURTH2D_H
 
 #include <limits.h>
 #include <math.h>
@@ -13,7 +13,6 @@
 #include <curand_kernel.h>
 #include <cuda_runtime.h>
 #endif
-
 
 #include "ising2D.h"
 

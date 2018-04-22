@@ -190,7 +190,6 @@ void PhiFourth2D::thermalise(Param p) {
       auto elapsed = std::chrono::high_resolution_clock::now() - start;
       metro = std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();
       cout<<"Metro cool down iter "<<iter<<" average time per (hot phase) update = "<<metro/((iter+1)*1.0e6)<<"s"<<endl<<endl;
-      //exit(0);
     }
   }
 
@@ -256,15 +255,13 @@ void PhiFourth2D::metropolisUpdate(Param p, int iter) {
   }
   else {
     if(p.useGPUMetro) {
-#ifdef USE_GPU
-      
+#ifdef USE_GPU      
       if(!p.useGPUCluster) GPU_copyArraysToDevice(p);
       GPU_metropolisUpdateLR(p, iter);
       if(p.doMetroCheck) {
 	//Use the same fields, check against the CPU.
 	metropolisUpdateLR(p, iter);
-      }
-      
+      }      
       if(!p.useGPUCluster) GPU_copyArraysToHost(p);
 #else
       cout<<"GPU Metro not built"<<endl;

@@ -40,8 +40,8 @@ class Param{
   int nThreads = 0;
   int nBlocks = 0;
   
-  bool useGPUMetro = true;
-  bool useGPUCluster = true;
+  bool useGPUMetro = false;
+  bool useGPUCluster = false;
   bool doMetroCheck = false;
 
   theoryType theory_type = ISING;
@@ -65,8 +65,8 @@ class Param{
   
   char fname[256];
 
-  int S1 = 32;
-  int Lt = 32;
+  int S1 = 16;
+  int Lt = 64;
   int AdSVol = 0;
   int R = 9;
   int surfaceVol = 0;
@@ -75,12 +75,12 @@ class Param{
   double J = 1.0;
   double h = 0.0;
   double lambda = 1.0;
-  double sigma = 1.33;
+  double sigma = 10.0;
 
-  int n_metro_cool = 1000;
-  int n_therm = 100000;
+  int n_metro_cool = 0;
+  int n_therm = 1000;
   int n_meas = 1000;
-  int n_skip = 1000;
+  int n_skip = 100;
   int n_cluster = 8;
   double delta_phi = 1.5;
 

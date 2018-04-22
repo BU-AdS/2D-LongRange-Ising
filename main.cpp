@@ -43,6 +43,7 @@ int main(int argc, char **argv) {
   if(argc > 1) p.init(argc, argv, &k);
 
   //Sanity checks
+  //---------------------------
 #ifndef USE_GPU
   if(p.useGPUMetro || p.useGPUCluster) {
     printf("ERROR: Cannot use GPU routines if they haven't been built. ");
@@ -50,7 +51,14 @@ int main(int argc, char **argv) {
     exit(0);
   }
 #endif
-  
+
+  if(p.doMetroCheck && !p.useGPUMetro) {
+    printf("WARNING: Cannot perform CPU metro check when not performing\n");
+    printf("Metropolis on the GPU. Overriding doMetroCheck to false.\n");
+    p.doMetroCheck = false;
+  }
+
+    
   if(p.lat_type == ADS) {
 
 #if 0
@@ -102,7 +110,6 @@ int main(int argc, char **argv) {
     
     if(p.theory_type == PHI4) {
       PhiFourth2D Sim(p);
-      cout<<"Yo!"<<endl;
       Sim.runSimulation(p);
     }
     else {
