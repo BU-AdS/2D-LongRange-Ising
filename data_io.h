@@ -11,6 +11,7 @@
 //Calcuate the Jack-Knife error and write the correlation functions
 //to file
 void writeObservables(double **ind_corr, double *run_corr, int *norm_corr,
+		      double **ind_ft_corr, double *run_ft_corr,
 		      int idx, observables obs, Param p);
 
 void PrintNodeTables(const std::vector<Vertex> NodeList, Param P);

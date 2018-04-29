@@ -44,6 +44,7 @@ void Param::usage(char **argv) {
   printf("--nTherm <n>                     The number of thermalisation steps (1 x metro + nCluster x Cluster)\n");
   printf("--nSkip  <n>                     The number of samples to skip between measuremnets.\n");
   printf("--nMeas  <n>                     The number of measurements to make.\n");
+  printf("--nWriteMeas  <n>                Jackknife and dump the data every nth measurement.\n");
   printf("--nCluster <n>                   The number of cluster sweeps to make per Metropolis step.\n");
   printf("--deltaPhi <float>               The parameter that governs how much an individual phi value is changed in the Metropolis test.\n");
 
@@ -438,6 +439,21 @@ int Param::init(int argc, char **argv, int *idx) {
     n_meas = atoi(argv[i+1]);
     if(n_meas < 0) {
       cout<<"Invalid number of measurements ("<<n_meas<<") given. Please ensure that n_meas >= 0."<<endl;
+      exit(0);
+    }
+    i++;
+    ret = 0;
+    goto out;
+  }
+
+  //Measurements
+  if( strcmp(argv[i], "--nWriteMeas") == 0){
+    if (i+1 >= argc){
+      usage(argv);
+    }
+    n_write = atoi(argv[i+1]);
+    if(n_write <= 0) {
+      cout<<"Invalid number of measurements ("<<n_write<<") given. Please ensure that n_write > 0."<<endl;
       exit(0);
     }
     i++;

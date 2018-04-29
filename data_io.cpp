@@ -15,6 +15,7 @@
 using namespace std;
 
 void writeObservables(double **ind_corr, double *run_corr, int *norm_corr,
+		      double **ind_ft_corr, double *run_ft_corr,
 		      int idx, observables obs, Param p){
 
   double norm = 1.0/idx;
@@ -23,8 +24,8 @@ void writeObservables(double **ind_corr, double *run_corr, int *norm_corr,
   int vol = S1*Lt;
   int x_len = S1/2 + 1;
   char fname[256];
-  
-  //The observable (spec heat, suscep, etc) are used only as a guide
+
+  //The observables (spec heat, suscep, etc) are used only as a guide
   //to discern criticality, The real quantities of interest are
   //The critical exponents, especally \eta, and its dependence
   //on \sigma, hence MUST have proper error estimates of the
@@ -41,7 +42,7 @@ void writeObservables(double **ind_corr, double *run_corr, int *norm_corr,
     ofstream filet(fname);    
     for(int i=0; i<Lt/2+1; i++) {
       filet<<i<<" "<<run_corr[dth + i*x_len]*norm/(norm_corr[dth + i*x_len]);
-      filet<<" "<<jk_err[i]*norm/(norm_corr[dth + i*x_len])<<endl;
+      filet<<" "<<jk_err[i]*norm/(norm_corr[dth + i*x_len])<<endl;      
     }
     filet.close();
     free(jk_err);
@@ -61,6 +62,22 @@ void writeObservables(double **ind_corr, double *run_corr, int *norm_corr,
     free(jk_err);
   }
 
+  //Go to l=2
+  for(int l=0; l<3; l++) {    
+    sprintf(fname, "correlators_FTl%d.dat", l);
+    ofstream filet(fname);
+    
+    double *jk_err = (double*)malloc((Lt/2+1)*sizeof(double));
+    jackknifeFT(ind_ft_corr, run_ft_corr, jk_err, 5, idx, l, p);
+
+    for(int dt=0; dt<Lt/2+1; dt++) {
+      filet<<dt<<" "<<run_ft_corr[3*dt + l]*norm<<" "<<jk_err[dt]<<endl;
+    }
+    filet.close();
+    free(jk_err);
+  }
+  
+  
   double J = p.J;
   if(p.theory_type != ISING) J = 1.0;
   

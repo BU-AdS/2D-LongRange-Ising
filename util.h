@@ -80,6 +80,7 @@ class Param{
   int n_metro_cool = 0;
   int n_therm = 1000;
   int n_meas = 1000;
+  int n_write = 100;
   int n_skip = 100;
   int n_cluster = 8;
   double delta_phi = 1.5;

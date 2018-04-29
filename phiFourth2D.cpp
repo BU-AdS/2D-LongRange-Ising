@@ -151,8 +151,9 @@ void PhiFourth2D::runSimulation(Param p) {
       */
       
       //Jacknife and dump the data
-      if(meas%10 == 0) {	
-	writeObservables(ind_corr, run_corr, norm_corr, meas, obs, p);
+      if(meas%p.n_write == 0) {	
+	writeObservables(ind_corr, run_corr, norm_corr, ind_ft_corr, run_ft_corr,
+			 meas, obs, p);
       }
       
       //Calculate the autocorrelation of |phi|

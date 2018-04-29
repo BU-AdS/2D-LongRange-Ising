@@ -60,9 +60,14 @@ Ising2D::Ising2D(Param p) {
   norm_corr = (int*)malloc(arr_len*sizeof(int));  
   //Individual correlation functions.
   ind_corr = (double**)malloc(p.n_meas*sizeof(double*));
+  //FT arrays.
+  ind_ft_corr = (double**)malloc(((p.Lt/2+1)*3)*sizeof(double*));
+  run_ft_corr = (double*)malloc(3*(p.Lt/2+1)*sizeof(double));
   
   //Autocorrelation
   auto_corr = (double*)malloc(p.n_meas*sizeof(double));
+
+  //------------------------------------------------------------------
   
   //Initialise Phi and spin fields.
   for(int i = 0;i < vol; i++) {
@@ -106,7 +111,14 @@ Ising2D::Ising2D(Param p) {
     ind_corr[i] = (double*)malloc(arr_len*sizeof(double));
     for(int j=0; j<arr_len; j++) ind_corr[i][j] = 0.0;
   }
-
+  
+  //ft correlation function
+  for(int i=0; i<(p.Lt/2 +1)*3; i++) {
+    ind_ft_corr[i] = (double*)malloc(p.n_meas*sizeof(double));
+    run_ft_corr[i] = 0.0;
+    for(int j=0; j<p.n_meas; j++) ind_ft_corr[i][j] = 0.0;     
+  }
+  
   auto elapsed1 = std::chrono::high_resolution_clock::now() - start1;
   time = std::chrono::duration_cast<std::chrono::microseconds>(elapsed1).count();
   cpu_added = (bool*)malloc(vol*sizeof(bool));
@@ -221,16 +233,36 @@ void Ising2D::runSimulation(Param p) {
       auto elapsed1 = std::chrono::high_resolution_clock::now() - start1;
       time = std::chrono::duration_cast<std::chrono::microseconds>(elapsed1).count();
       cout<<"Correlation Function Calculation time = "<<time/(1.0e6)<<endl;
-      
-      
-      //Jacknife and dump the data
-      if(meas%10 == 0) {	
-	writeObservables(ind_corr, run_corr, norm_corr, meas, obs, p);
+
+      time = 0.0;
+      start1 = std::chrono::high_resolution_clock::now();
+      //FT the correlation function values.
+      FTcorrelation(ind_ft_corr, run_ft_corr, ind_corr, norm_corr, meas-1, p);
+	
+      elapsed1 = std::chrono::high_resolution_clock::now() - start1;
+      time = std::chrono::duration_cast<std::chrono::microseconds>(elapsed1).count();
+      cout<<"Correlation Function FT time = "<<time/(1.0e6)<<endl;
+
+      if(meas%p.n_write == 0) {	
+	time = 0.0;
+	start1 = std::chrono::high_resolution_clock::now();
+	//Jacknife and dump the data
+	writeObservables(ind_corr, run_corr, norm_corr, ind_ft_corr, run_ft_corr,
+			 meas, obs, p);
+	elapsed1 = std::chrono::high_resolution_clock::now() - start1;
+	time = std::chrono::duration_cast<std::chrono::microseconds>(elapsed1).count();
+	cout<<"Correlation, observables, and FT Jackknife time = "<<time/(1.0e6)<<endl;
       }
-      
+
+      time = 0.0;
+      start1 = std::chrono::high_resolution_clock::now();
       //Calculate the autocorrelation of |phi|
       autocorrelation(obs.PhiAb_arr, obs.avePhiAb*norm, meas, auto_corr);
-
+      
+      elapsed1 = std::chrono::high_resolution_clock::now() - start1;
+      time = std::chrono::duration_cast<std::chrono::microseconds>(elapsed1).count();
+      cout<<"Autocorrelation calculation time = "<<time/(1.0e6)<<endl;      
+      
     }
   }
 }
@@ -251,8 +283,7 @@ void Ising2D::thermalise(Param p) {
   //Perform n_therm pure metropolis hits during the hot phase.
   auto start = std::chrono::high_resolution_clock::now();        
   for(int iter = 0; iter < p.n_metro_cool; iter++) {
-    metropolisUpdate(p, iter);  
-    
+    metropolisUpdate(p, iter);     
     if((iter)%p.n_skip == 0 && iter > 0){
       auto elapsed = std::chrono::high_resolution_clock::now() - start;
       metro = std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();
@@ -320,8 +351,8 @@ void Ising2D::metropolisUpdate(Param p, int iter) {
 
 inline double coupling(double dt, double dth, Param p) {
   
-  dt  *= M_PI/p.S1;
-  dth *= M_PI/p.S1;  
+  dt  *= 2*M_PI/p.S1;
+  dth *= 2*M_PI/p.S1;  
   return pow( (cosh(dt) - cos(dth)) , -(1+p.sigma/2));
   
 }

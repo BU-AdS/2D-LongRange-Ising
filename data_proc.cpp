@@ -426,6 +426,30 @@ void corr_wolffClusterAddSRI(int i, int *s, int cSpin, double prob,
   }   
 }
 
+//Fourier transfrom the correlation functions
+void FTcorrelation(double **ind_ft_corr, double *run_ft_corr,
+		   double **ind_corr, int *norm_corr, 
+		   int meas, Param p) {
+
+  int x_len = p.S1/2 + 1;
+  
+  //loop over l projection
+  for(int l=0; l<3; l++) {
+    //loop over time slices
+    for(int dt = 0; dt <p.Lt/2+1; dt++) {
+      //loop over spatial index
+      for(int dx = 0; dx<p.S1/2+1; dx++) {
+	ind_ft_corr[3*dt+l][meas] += (cos(l*dx*2.0*M_PI/p.S1)*ind_corr[meas][dx + dt*x_len]/norm_corr[dx + dt*x_len]);
+	//cout<<cos(l*dx*2.0*M_PI/p.S1)<<" "<<ind_corr[meas][dx + dt*(p.S1/2+1)]<<" ";
+      }
+      ind_ft_corr[3*dt+l][meas] /= p.S1;
+      run_ft_corr[3*dt+l] += ind_ft_corr[3*dt+l][meas];
+      //cout<<run_ft_corr[3*dt+l]<<" "<<ind_ft_corr[3*dt+l][meas]<<endl;
+    }
+  }
+}
+		     
+
 
 
 //Calculate the autocorrelation of |phi|
@@ -571,4 +595,35 @@ double jackknifeBin(double *xsq, double *x4, double val, int block, int data_poi
   
   return sqrt(coeff*jk_err);    
   
+}
+
+
+void jackknifeFT(double **ind_ft_corr, double *run_ft_corr, double *jk_err,
+		 int block, int data_points, int l, Param p) {
+  
+  //Initialise
+  int Lt = p.Lt;
+  int num_resamp = data_points/block;
+  double coeff = (1.0*num_resamp - 1.0)/(1.0*num_resamp);
+  double resamp_norm = 1.0/(data_points - block);  
+  double *resamp_ft_corr = (double*)malloc(num_resamp*sizeof(double));
+  for(int a=0; a<num_resamp; a++) resamp_ft_corr[a] = 0.0;
+  
+  //Get resampled averages
+  for(int dt=0; dt<Lt/2 + 1; dt++) {
+    for(int i=0; i<num_resamp; i++) {
+      for(int j=0; j<data_points; j++) {   
+	if(j < i*block || j >= (i+1)*block)  {
+	  resamp_ft_corr[i] += ind_ft_corr[3*dt + l][j];
+	}
+      }
+      resamp_ft_corr[i] *= resamp_norm;
+    }
+    
+    //Get jk error
+    for(int i=0; i<num_resamp; i++) {
+      jk_err[dt] += pow(run_ft_corr[3*dt+l]/data_points - resamp_ft_corr[i],2);
+    }
+    jk_err[dt] = sqrt(coeff*jk_err[dt]);      
+  }
 }
