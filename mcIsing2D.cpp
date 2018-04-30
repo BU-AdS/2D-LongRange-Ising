@@ -413,9 +413,10 @@ int wolffClusterAddILRProto(int *spinStack, int *spinStackLC, int *s, int &stack
   
   //We now loop over the possible lattice sites, adding sites
   //(creating bonds) with the specified LR probablity.
+  
   for(int j=0; j<vol; j++) {
     if(s[j] == cSpin) {
-
+      
       //Index divided by circumference, using the int floor feature/bug,
       //gives the timeslice index.
       t2 = j / S1;
@@ -540,132 +541,3 @@ double energyILR(int *s, Param p, double *LR_couplings, double &KE) {
   return -0.5*p.J*KE;
 }
 
-#if 0
-
-void wolffClusterAddILRProto(int i, int *s, int cSpin, double *isingProb, Param p) {
-
-  //This implementation attempts to parallelises only over those sites which 
-  //are candidate sites. This has the advantage that the number of computations 
-  //reduce in number as the cluster is filled.
-
-  int newSites = 0;
-  int lc_sze = toCheckI.size()/omp_get_num_threads();
-  int LC_arr_len = p.surfaceVol/2+1;
-
-  int t1,x1;
-  t1 = i / p.S1;
-  x1 = i % p.S1;
-
-  //We now loop over the possible lattice sites, adding sites
-  //(creating bonds) with the specified LR probablity.
-#pragma omp parallel 
-  {
-    int sitesRemoved_local = 0;
-    int newSites_local = 0;
-    double prob = 0.0;
-    double rand = 0.0;
-    int t2,dt,x2,dx;
-    int added_local[lc_sze][2];
-    for(int k=0; k<lc_sze; k++) {
-      added_local[k][0] = -1;
-      added_local[k][1] = 0;
-    }
-    
-#pragma omp for nowait 
-    for(int j=0; j<toCheckI.size(); j+=lc_sze) {
-      for(int k=0; k<lc_sze; k++) { 
-	int idx = toCheckI[j+k];
-
-	//cout<<"Checking: j="<<j<<" k="<<k<<" size="<<toCheckI.size()<<" toCheckI="<<toCheckI[j+k]<<endl;
-	
-	//Index divided by circumference, using the int floor feature/bug,
-	//gives the timeslice index.
-	t2 = (idx) / p.S1;
-	dt = abs(t2-t1) > p.Lt/2 ? p.Lt - abs(t2-t1) : abs(t2-t1);
-	
-	//The index modulo the circumference gives the spatial index.
-	x2 = (idx) % p.S1;            
-	dx = abs(x2-x1) > p.S1/2 ? p.S1 - abs(x2-x1) : abs(x2-x1);      
-	
-	prob = 1 - exp(2*phi_lc*phi[idx]*LR_couplings[dt+dx*LC_arr_len]);
-	rand = unif(rng);
-	//cout<<rand<<" "<<prob<<endl;
-	if(rand < prob) {
-	  sqnl_wc_size++;
-	  cout<<"Hit: j="<<j<<" k="<<k<<" size="<<toCheckI.size()<<" toCheckI="<<toCheckI[j+k]<<endl;
-	  //toSeed.push_back(idx);
-	  //++sitesAdded_local;
-	  added_local[newSites_local][0] = idx;
-	  added_local[newSites_local][1] = j+k;
-	  ++newSites_local;
-	}
-      }
-    }
-
-#pragma omp critical
-    newSites += newSites_local;
-#pragma omp for
-    for(int k=0; k<lc_sze; k++) {
-      if(added_local[k][0] > 0) {
-	cout<<"Adding site "<<added_local[k][0]<<endl;
-	addedI[i][added_local[k][0]] = 1;
-	s[added_local[k][0]] *= -1;
-	phi[added_local[k][0]] *= -1;
-	cout<<"Added site "<<added_local[k][0]<<endl;
-       	
-      }
-    }
-  }
-  
-  sitesToCheckI += newSites;
-  
-  if(newSites > 0) {
-    cout<<"SITES TO ADD!"<<endl;
-    //'added' now contains all of the spins on the wave front. Each
-    //of these new sites must be explored, but no new exploration 
-    //need test these sites. First, sort the added array so that all
-    //the hits are at the beginning, order is unimportant.
-    int pos = 0;
-    int l = 0;
-    for(l=0; l<p.surfaceVol; l++) {
-      if(addedI[i][l] > 0) {
-	cout<<"ADDING "<<l<<endl;
-	addedI[i][pos] = l;
-	pos++;
-
-	cout<<"REDUCE THE SEARCH SPACE"<<endl;
-	cout<<"Removing element "<<added_local[k][1]<<" (idx="<<added_local[k][0]<<")"<<endl;
-	toCheckI.erase (toCheckI.begin() + added_local[k][1]);
-	cout<<"SEARCH SPACE REDUCED"<<endl;
-
-      }
-    }
-    cout<<"ADDED!"<<endl;
-  }
-
-  addedI[i][p.surfaceVol] = newSites;
-  
-  cout<<"clusterIterI: "<<clusterIterI<<" SITES TO CHECK: "<<sitesToCheckI;
-  cout<<" Checked site: "<<i<<" New Sites: "<<newSites;
-  
-  for(int k=0; k<addedI[i][p.surfaceVol]; k++) {
-    cout<<" Going to "<<addedI[i][k]<<" k="<<k<<" loop max="<<addedI[i][p.surfaceVol]<<endl;
-    sitesToCheckI -= 1;
-    wolffClusterAddLRProto(addedI[i][k], s, cSpin, LR_couplings, phi, p);
-  }
-
-#ifdef USE_OMP
-  //update the toCheckI array with all the sites of the same sign.
-  toCheckI.push_back(i);
-  for(int j=0; j<p.surfaceVol; j++) {
-    if(phi[j]*cSpin > 0 && j != i) {
-      toCheckI.push_back(j);
-    }
-  }
-  //cout<<endl<<"START: "<<toCheckI.size()<<endl;
-  for(int j=0; j<p.surfaceVol; j++) {
-    //if(phi[j]*cSpin > 0) cout<<j<<":"<<phi[j]<<" ";
-  }  
-#endif
-
-#endif
