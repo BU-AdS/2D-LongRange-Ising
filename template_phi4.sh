@@ -19,30 +19,30 @@ THEORY='phi4'
 CLUSTER='WOLFF'
 
 #GPU/CPU
-CLUSTER_ARCH='CPU'
-METRO_ARCH='CPU'
+CLUSTER_ARCH='GPU'
+METRO_ARCH='GPU'
 
 #Perform the Metropolis step on the CPU with the same random numbers used on the GPU.
-METRO_CHECK='true'
+METRO_CHECK='false'
 
 #SR = Short range
 #POW = 1/|x-y|^{2+sigma} type
 #RAD = 1/(cosh(dt) - cos(dtheta))^{1+sigma/2}
-COUPLING_TYPE='RAD'
+COUPLING_TYPE='POW'
 
-CIRCUMFERENCE=16
-TIMESLICES=64
+CIRCUMFERENCE=64
+TIMESLICES=256
 
 N_METRO_COOL=100
 N_THERM=1000
 N_MEAS=1000
-N_SKIP=50
+N_SKIP=10
 N_CLUSTER=4
 DELTA_PHI=1.5
 
 MUSQR=-1.275
 LAMBDA=1.0
-SIGMA=10.0
+SIGMA=100.0
 
 COMMAND="./adsrun --verbosity ${VERBOSITY} --theory ${THEORY} --latType ${LATTICE} 
 		  --couplingType ${COUPLING_TYPE} --Lt ${TIMESLICES} 

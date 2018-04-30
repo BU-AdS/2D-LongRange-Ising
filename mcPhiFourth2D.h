@@ -30,7 +30,8 @@ double actionSR(double *phi, int *s, Param p, double &KE, double &PE);
 void wolffUpdateLR(double *phi, int *s, Param p,
 		   double *LR_couplings, int iter, int n);
 
-void wolffClusterAddLR(int i, int *s, int cSpin, 
+void wolffClusterAddLR(int *spinStack, int *spinStackLR, int *s,
+		       int &stackSize, int cSpin, 
 		       double *LR_couplings, double *phi, Param p);
 
 void swendsenWangUpdateLR(double *phi, int *s, Param p,

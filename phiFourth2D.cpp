@@ -285,10 +285,10 @@ void PhiFourth2D::measure(observables &obs, int &idx, Param p) {
     obs.tmpE = actionLR(phi, s, p, LR_couplings, obs.KE, obs.PE);
   }
 
-  obs.aveKE += rhoVol*obs.KE;
-  obs.avePE += rhoVol*obs.PE;
-  obs.aveE  += rhoVol*obs.tmpE;
-  obs.aveE2 += rhoVol2*obs.tmpE*obs.tmpE;
+  obs.aveKE += obs.KE;
+  obs.avePE += obs.PE;
+  obs.aveE  += obs.tmpE;
+  obs.aveE2 += obs.tmpE*obs.tmpE;
   
   obs.MagPhi = 0.0;
   for(int i = 0;i < p.surfaceVol; i++) {
@@ -301,8 +301,8 @@ void PhiFourth2D::measure(observables &obs, int &idx, Param p) {
   obs.avePhi2  += obs.MagPhi*obs.MagPhi;
   obs.avePhi4  += obs.MagPhi*obs.MagPhi*obs.MagPhi*obs.MagPhi;
   
-  obs.E_arr[idx]     = rhoVol*obs.tmpE;
-  obs.E2_arr[idx]    = rhoVol*obs.tmpE*obs.tmpE;
+  obs.E_arr[idx]     = obs.tmpE;
+  obs.E2_arr[idx]    = obs.tmpE*obs.tmpE;
   obs.PhiAb_arr[idx] = abs(obs.MagPhi);
   obs.Phi_arr[idx]   = obs.MagPhi;
   obs.Phi2_arr[idx]  = obs.MagPhi*obs.MagPhi;
@@ -313,8 +313,8 @@ void PhiFourth2D::measure(observables &obs, int &idx, Param p) {
   cout<<setprecision(8);
   double norm = 1.0/(idx);
 
-  obs.Suscep[idx-1]   = (obs.avePhi2*norm-pow(obs.avePhiAb*norm,2))/rhoVol;
-  obs.SpecHeat[idx-1] = (obs.aveE2*norm-pow(obs.aveE*norm,2));
+  obs.Suscep[idx-1]   = (obs.avePhi2*norm - pow(obs.avePhiAb*norm,2))/rhoVol;
+  obs.SpecHeat[idx-1] = (obs.aveE2*norm - pow(obs.aveE*norm, 2));
   obs.Binder[idx-1]   = 1.0-obs.avePhi4/(3.0*obs.avePhi2*obs.avePhi2*norm);
   
   //Dump to stdout

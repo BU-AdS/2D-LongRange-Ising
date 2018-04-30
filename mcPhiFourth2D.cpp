@@ -656,54 +656,124 @@ void clusterPossibleLR(int i, int *s, int cSpin,
 
 void wolffUpdateLR(double *phi, int *s, Param p,
 		   double *LR_couplings, int iter, int n) {
-  
-#ifdef USE_OMP
-  init_connectivityPhi4(p);
-#endif
 
-  if(iter == p.n_therm) {
+  phi4_wc_calls++;
+  
+  if(iter == p.n_therm && n == 0) {
     cout<<endl<<endl<<"Resetting cluster stats."<<endl<<endl;
     phi4_wc_calls = 0;
     phi4_wc_ave = 0;
   }
+
+  int S1 = p.S1;
+  int Lt = p.Lt;
+  int vol = S1*Lt;
   
-  phi4_wc_calls++;
+  int *spinStack = (int*)malloc(vol*sizeof(int));
+  int *spinStackLC = (int*)malloc(vol*sizeof(int));
+  int stackSize = 0;  
   
   //Choose a random spin.
-  int i = int(unif(rng) * p.surfaceVol);
+  int i = int(unif(rng) * vol);
   int cSpin = s[i];
   
   // The site belongs to the cluster, so flip it.
   phi4_wc_size = 1;
   s[i] *= -1;
   phi[i] *= -1;
-
-  //This function is recursive and will call itself
-  //until all attempts to increase the cluster size
-  //have failed.
-  wolffClusterAddLR(i, s, cSpin, LR_couplings, phi, p);
+  spinStack[0] = i;
+  stackSize++;
+  while(stackSize > 0) {
+    //This function is NOT recursive. It performs a single sweep of the lattice
+    //to ascertain which sites (if any) will be added.
+    wolffClusterAddLR(spinStack, spinStackLC, s, stackSize,
+		      cSpin, LR_couplings, phi, p);
+  }
   
   phi4_wc_ave += phi4_wc_size;
-
+  
   if( iter%p.n_skip == 0 && n == 0) {
     setprecision(4);
     cout<<"Average (CPU) cluster size at iter "<<iter<<" = "<<phi4_wc_ave<<"/"<<phi4_wc_calls<<" = "<<1.0*phi4_wc_ave/phi4_wc_calls<<" = "<<100.0*phi4_wc_ave/(phi4_wc_calls*p.surfaceVol)<<"%"<<endl;
   }
-#ifdef USE_OMP
-  for(int a=0; a<p.surfaceVol; a++) free(added[a]);
-  free(added);
-  toCheck.clear();
-#endif
+  free(spinStack);
+  free(spinStackLC);
 }
 
-void wolffClusterAddLR(int i, int *s, int cSpin, double *LR_couplings,
-		       double *phi, Param p) {
-  
-  double phi_lc = phi[i];
-  int S1 = p.S1;
-  int x_len = S1/2 + 1;
+void wolffClusterAddLR(int *spinStack, int *spinStackLC, int *s, int &stackSize,
+		       int cSpin, double *LR_couplings, double *phi, Param p) {
 
-#ifdef USE_OMP
+  //Here we construct the cumulative probability function.
+  //We have n sites in the spin stack. The probability of a
+  //candidate site k being added from site i=1...n is p(add i). The
+  //probability of k being added is:
+  //
+  //P(add k) = 1 - p(!add 1)p(!add 2)...p(!add n).
+  //
+  //We know that p(!add i) = 1 - ( 1 - exp(-2*J_{ik}*phi_i*phi_k)) 
+  //                       = exp(-2*J_{ik}*phi_i*phi_k)
+  //hence
+  //
+  //P(add k) = 1 - exp(-2*phi_k*\sum_i J_{ik}*phi_i)
+  //
+  //We add site k if a random number is less than
+  //P(add k).
+  
+  int t1,x1,t2,x2,dt,dx;
+  int S1 = p.S1;
+  int Lt = p.Lt;
+  int x_len = S1/2 + 1;
+  int vol = S1*Lt;
+  
+  double prob = 0.0;
+  double rand = 0.0;
+  double arg = 0.0;
+  int stackSizeLC = stackSize;
+  stackSize = 0;
+  
+  //We now loop over the possible lattice sites, adding sites
+  //(creating bonds) with the specified LR probablity.
+  
+  for(int j=0; j<vol; j++) {
+    if(s[j] == cSpin) {
+      
+      //Index divided by circumference, using the int floor feature/bug,
+      //gives the timeslice index.
+      t2 = j / S1;
+      
+      //The index modulo the circumference gives the spatial index.
+      x2 = j % S1;            
+
+      //Now we may loop over the spinStack to calculate P(add k)        
+      arg = 0.0;
+      for(int a=0; a<stackSizeLC; a++) {
+
+	t1 = spinStack[a]/S1;
+	x1 = spinStack[a]%S1;	
+	dt = abs(t2-t1) > Lt/2 ? Lt - abs(t2-t1) : abs(t2-t1);
+	dx = abs(x2-x1) > S1/2 ? S1 - abs(x2-x1) : abs(x2-x1);
+
+	arg += LR_couplings[dx + dt*x_len]*phi[spinStack[a]];
+      }
+      
+      prob = 1 - exp(2.0*phi[j]*arg);
+      rand = unif(rng);
+      
+      if(rand < prob) {
+	// The site belongs to the cluster, so flip it.
+	phi4_wc_size++;
+	s[j] *= -1;
+	phi[j] *= -1;
+	spinStackLC[stackSize] = j;
+	stackSize++;
+      }
+    }
+  }
+  for(int a=0; a<stackSize; a++) spinStack[a] = spinStackLC[a];
+}
+
+  /*  
+      #ifdef USE_OMP
   
   //This implementation parallelises over the entire surface of the lattice.
   //It performs a boolean check to see if the candidate site has the
@@ -789,42 +859,8 @@ void wolffClusterAddLR(int i, int *s, int cSpin, double *LR_couplings,
   }
 
 #else
-
-  int t1,x1,t2,x2,dt,dx;
-  t1 = i / p.S1;
-  x1 = i % p.S1;
+  */
   
-  double prob = 0.0;
-  double rand = 0.0;
-  //We now loop over the possible lattice sites, adding sites
-  //(creating bonds) with the specified LR probablity.
-  for(int j=0; j<p.surfaceVol; j++) {
-    if(s[j] == cSpin && j != i) {
-      
-      //Index divided by circumference, using the int floor feature/bug,
-      //gives the timeslice index.
-      t2 = j / p.S1;
-      dt = abs(t2-t1) > p.Lt/2 ? p.Lt - abs(t2-t1) : abs(t2-t1);
-      
-      //The index modulo the circumference gives the spatial index.
-      x2 = j % p.S1;            
-      dx = abs(x2-x1) > p.S1/2 ? p.S1 - abs(x2-x1) : abs(x2-x1);      
-      
-      prob = 1 - exp(2*phi_lc*phi[j]*LR_couplings[dx + dt*x_len]);
-      rand = unif(rng);
-      if(rand < prob) {
-	phi4_wc_size++;
-	// The site belongs to the cluster, so flip it.
-	s[j] *= -1;
-	phi[j] *= -1;  
-	wolffClusterAddLR(j, s, cSpin, LR_couplings, phi, p);
-      }
-    }
-  }
-  
-#endif
-  
-}
 
 double actionLR(double *phi_arr, int *s, Param p,
 		double *LR_couplings, 

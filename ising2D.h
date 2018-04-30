@@ -58,7 +58,8 @@ class Ising2D {
 
   int *s_cpy;
   bool *cpu_added;
-
+  int *cpu_stack;
+  
   double *debug_arr1;
   double *debug_arr2;
 
@@ -69,7 +70,7 @@ class Ising2D {
   curandState_t* states_aux;
   void GPU_initRand(Param p, int seed, curandState_t *states);
 #endif
-
+  
   double *gpu_rands;
   double *gpu_rands_aux;
   double *gpu_result;
@@ -81,7 +82,8 @@ class Ising2D {
   
   bool *gpu_added;
   bool *gpu_cluster;
-  
+  int *gpu_stack;
+    
   int *gpu_s;
   int *gpu_s_cpy;
 

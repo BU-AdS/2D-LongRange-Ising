@@ -350,13 +350,13 @@ void wolffUpdateILRProto(int *s, Param p, double *isingProb, int iter) {
   int S1 = p.S1;
   int Lt = p.Lt;
   int vol = S1*Lt;
-  
+
   int *spinStack = (int*)malloc(vol*sizeof(int));
   int *spinStackLC = (int*)malloc(vol*sizeof(int));
   int stackSize = 0;
   
   //Choose a random spin.
-  int i = int(unif(rng) * p.surfaceVol);
+  int i = int(unif(rng) *vol);
   int cSpin = s[i];
   
   // The site belongs to the cluster. Flip it, add to the stack.
@@ -374,7 +374,7 @@ void wolffUpdateILRProto(int *s, Param p, double *isingProb, int iter) {
   
   if(iter%p.n_skip == 0) {
     setprecision(4);
-    cout<<"Average (CPU) cluster size at iter "<<iter<<" = "<<ising_wc_ave<<"/"<<ising_wc_calls<<" = "<<(1.0*ising_wc_ave)/ising_wc_calls<<" = "<<(100.0*ising_wc_ave)/(ising_wc_calls*p.surfaceVol)<<"%"<<endl;
+    cout<<"Average (CPU) cluster size at iter "<<iter<<" = "<<ising_wc_ave<<"/"<<ising_wc_calls<<" = "<<(1.0*ising_wc_ave)/ising_wc_calls<<" = "<<(100.0*ising_wc_ave)/(ising_wc_calls*vol)<<"%"<<endl;
   }  
   free(spinStack);
   free(spinStackLC);

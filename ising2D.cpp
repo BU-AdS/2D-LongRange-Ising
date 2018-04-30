@@ -122,6 +122,8 @@ Ising2D::Ising2D(Param p) {
   auto elapsed1 = std::chrono::high_resolution_clock::now() - start1;
   time = std::chrono::duration_cast<std::chrono::microseconds>(elapsed1).count();
   cpu_added = (bool*)malloc(vol*sizeof(bool));
+  cpu_stack = (int*)malloc(vol*sizeof(int));
+  
   cout<<"CPU malloc and init time = "<<time/(1.0e6)<<endl;
   
 #ifdef USE_GPU
@@ -145,7 +147,8 @@ Ising2D::Ising2D(Param p) {
   cudaMalloc((void**) &gpu_s_cpy, vol*sizeof(int));
 
   cudaMalloc((void**) &gpu_added, vol*sizeof(bool));
-  cudaMalloc((void**) &gpu_cluster, vol*sizeof(bool));  
+  cudaMalloc((void**) &gpu_cluster, vol*sizeof(bool));
+  cudaMalloc((void**) &gpu_stack, vol*sizeof(int));  
   
   elapsed1 = std::chrono::high_resolution_clock::now() - start1;
   time = std::chrono::duration_cast<std::chrono::microseconds>(elapsed1).count();
@@ -449,7 +452,7 @@ void Ising2D::measureI(observables &obs, int &idx, Param p) {
   obs.aveE2 += obs.tmpE*obs.tmpE;
   
   obs.MagPhi = 0.0;
-  for(int i = 0;i < vol; i++) {
+  for(int i=0; i<vol; i++) {
     obs.MagPhi += s[i];
   }  
   obs.MagPhi *= rhoVol;

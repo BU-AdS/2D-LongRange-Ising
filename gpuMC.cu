@@ -250,8 +250,8 @@ __global__ void candidatePhi(curandState_t *states, double* rands,
 //--------------------------------------------------------------------------
 __device__ double couplingFunction(double dth, double dt, double sigma, int S1){
   
-  dth *= M_PI/S1;  
-  dt  *= M_PI/S1;
+  dth *= 2*M_PI/S1;  
+  dt  *= 2*M_PI/S1;
   
   return pow((cosh(dt) - cos(dth)) , -(1+sigma/2));
   
@@ -357,11 +357,6 @@ void Ising2D::GPU_wolffUpdateILR(Param p, int i, int iter) {
   //left to be checked, the routine halts and the Wolff cluster is defined.
   bool internalCheck;
 
-  //FIXME
-  int *cpu_stack = (int*)malloc(vol*sizeof(int));
-  int *gpu_stack;
-  cudaMalloc((void**) &gpu_stack, vol*sizeof(int));
-  
   //This boolean is depenedent on internal check. We set it to true so that
   //the while loop actually starts. Once `internalCheck` is false,
   //Check will evaluate to false.
@@ -405,7 +400,7 @@ void Ising2D::GPU_wolffUpdateILR(Param p, int i, int iter) {
 //--------------------------------------------------------------------------
 __global__ void clusterAddLR(const double *gpu_rands, double *gpu_phi, int *gpu_s,
 			     const int S1, const int Lt, const int cSpin,
-			     bool *gpu_added,
+			     bool *gpu_added, int *gpu_stack, int stackSize,
 			     const double sigma, const bool usePow,
 			     const double couplingNorm) {
   
@@ -419,7 +414,8 @@ __global__ void clusterAddLR(const double *gpu_rands, double *gpu_phi, int *gpu_
     double coupling = 0;
     double phi_j = gpu_phi[idx];
     
-    int t1,x1,t2,x2,dt,dx;
+    int t1,x1,t2,x2;
+    double dt,dx;
     //Index divided by circumference, using the int floor feature/bug,
     //gives the timeslice index.
     t2 = idx / S1;
@@ -427,6 +423,7 @@ __global__ void clusterAddLR(const double *gpu_rands, double *gpu_phi, int *gpu_
     x2 = idx % S1;
 
     double arg = 0.0;
+    double prob = 0.0;
     for(int a=0; a<stackSize; a++) {
       
       t1 = gpu_stack[a]/S1;
@@ -435,11 +432,11 @@ __global__ void clusterAddLR(const double *gpu_rands, double *gpu_phi, int *gpu_
       dx = abs(x2-x1) > S1/2 ? S1 - abs(x2-x1) : abs(x2-x1);      
 
       if(usePow) coupling = pow(sqrt(dx*dx + dt*dt), -(2+sigma));
-      else coupling = couplingNorm*couplingFunction(dx, t_scale*dt, sigma, S1);
+      else coupling = couplingNorm*couplingFunction(dx, dt, sigma, S1);
       
       arg += fabs(coupling*gpu_phi[gpu_stack[a]]);
     }
-    prob = 1 - exp[-2*fabs(phi_i*arg)];
+    prob = 1 - exp(-2*fabs(phi_j*arg));
     
 #ifdef DEBUG
     printf("(TESTING) block %d, thread %d, idx %d cSpin %d : %f %f %f %f %f\n",
@@ -529,7 +526,7 @@ void PhiFourth2D::GPU_wolffUpdateLR(Param p, int i, int iter, int n) {
       cudaMemcpy(gpu_stack,cpu_stack,stackSize*sizeof(int),cudaMemcpyHostToDevice);
       cudaMemset(gpu_added, 0, vol*sizeof(bool));
       clusterAddLR<<<vol/sze, sze>>>(gpu_rands, gpu_phi, gpu_s,
-				     S1, Lt, cSpin, gpu_added,
+				     S1, Lt, cSpin, gpu_added, gpu_stack, stackSize,
 				     p.sigma, p.usePowLaw, LR_couplings[0]);
       cudaMemcpy(cpu_added, gpu_added, vol*sizeof(bool), cudaMemcpyDeviceToHost);
     }
