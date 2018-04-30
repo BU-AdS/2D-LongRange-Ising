@@ -19,7 +19,7 @@ THEORY='ISING'
 CLUSTER='WOLFF'
 
 #GPU/CPU
-CLUSTER_ARCH='CPU'
+CLUSTER_ARCH='GPU'
 
 #SR = Short range
 #POW = 1/|x-y|^{2+sigma} type
@@ -33,11 +33,11 @@ J=0.43
 #Ising h
 H=0.0
 
-SIGMA=200
+SIGMA=10
 
-CIRCUMFERENCE=32
-TIMESLICES=96
-N_THERM=1000
+CIRCUMFERENCE=128
+TIMESLICES=128
+N_THERM=15000
 N_MEAS=10000
 N_SKIP=50
 
@@ -45,7 +45,7 @@ COMMAND="./adsrun --verbosity ${VERBOSITY} --theory ${THEORY} --latType ${LATTIC
 		  --couplingType ${COUPLING_TYPE} --J ${J} --h ${H}
 		  --Lt ${TIMESLICES} --S1 ${CIRCUMFERENCE}
                   --nTherm ${N_THERM} --nMeas ${N_MEAS} --nSkip ${N_SKIP} 
-   		  --sigma ${SIGMA} --clusterAlg ${CLUSTER} "
+   		  --sigma ${SIGMA} --clusterAlg ${CLUSTER} --clusterArch ${CLUSTER_ARCH} "
 
 echo ""
 echo "Command given:"

@@ -380,8 +380,8 @@ void wolffUpdateILRProto(int *s, Param p, double *isingProb, int iter) {
   free(spinStackLC);
 }
 
-int wolffClusterAddILRProto(int *spinStack, int *spinStackLC, int *s, int &stackSize, int cSpin,
-			    double *isingProb, Param p){
+int wolffClusterAddILRProto(int *spinStack, int *spinStackLC, int *s, int &stackSize,
+			    int cSpin, double *isingProb, Param p){
   
   //Here we construct the cumulative probability function.
   //We have n sites in the spin stack. The probability of a
@@ -408,9 +408,6 @@ int wolffClusterAddILRProto(int *spinStack, int *spinStackLC, int *s, int &stack
   double prob = 0.0;
   double rand = 0.0;
 
-
-  //for(int a=0; a<vol; a++) spinStackLC[a] = -1;
-
   int stackSizeLC = stackSize;
   stackSize = 0;
   
@@ -427,7 +424,7 @@ int wolffClusterAddILRProto(int *spinStack, int *spinStackLC, int *s, int &stack
       x2 = j % S1;            
       
       //Now we may loop over the spinStack to calculate P(add k)        
-      double arg = 1.0;
+      prob = 1.0;
       for(int a=0; a<stackSizeLC; a++) {
 
 	t1 = spinStack[a]/S1;
@@ -435,10 +432,10 @@ int wolffClusterAddILRProto(int *spinStack, int *spinStackLC, int *s, int &stack
 	dt = abs(t2-t1) > Lt/2 ? Lt - abs(t2-t1) : abs(t2-t1);
 	dx = abs(x2-x1) > S1/2 ? S1 - abs(x2-x1) : abs(x2-x1);
 
-	arg *= (1-isingProb[dx + x_len*dt]);
+	prob *= (1-isingProb[dx + x_len*dt]);
       }
       
-      prob = 1 - arg;
+      prob = 1 - prob;
       rand = unif(rng);
       
       if(rand < prob) {

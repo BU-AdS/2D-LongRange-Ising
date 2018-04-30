@@ -352,8 +352,8 @@ void Ising2D::metropolisUpdate(Param p, int iter) {
 
 inline double coupling(double dt, double dth, Param p) {
   
-  dt  *= M_PI/p.S1;
-  dth *= M_PI/p.S1;  
+  dt  *= 2*M_PI/p.S1;
+  dth *= 2*M_PI/p.S1;  
   return pow( (2*cosh(dt) - 2*cos(dth)) , -(1+p.sigma/2));
   
 }
