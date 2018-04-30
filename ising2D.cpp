@@ -324,7 +324,8 @@ void Ising2D::wolffUpdate(Param p, int iter) {
       exit(0);
 #endif
     } else {
-      wolffUpdateILR(s, p, isingProb, iter);
+      wolffUpdateILRProto(s, p, isingProb, iter);
+      //wolffUpdateILR(s, p, isingProb, iter);
     }
   }
 }
@@ -351,9 +352,9 @@ void Ising2D::metropolisUpdate(Param p, int iter) {
 
 inline double coupling(double dt, double dth, Param p) {
   
-  dt  *= 2*M_PI/p.S1;
-  dth *= 2*M_PI/p.S1;  
-  return pow( (cosh(dt) - cos(dth)) , -(1+p.sigma/2));
+  dt  *= M_PI/p.S1;
+  dth *= M_PI/p.S1;  
+  return pow( (2*cosh(dt) - 2*cos(dth)) , -(1+p.sigma/2));
   
 }
 

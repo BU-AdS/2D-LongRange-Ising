@@ -254,9 +254,9 @@ void clusterPossibleILR(int i, int *s, int cSpin,
 void wolffUpdateILR(int *s, Param p, double *isingProb, int iter) {
 
   
-// #ifdef USE_OMP
-//   init_connectivityI(p);
-// #endif
+  // #ifdef USE_OMP
+  //   init_connectivityI(p);
+  // #endif
 
   ising_wc_calls++;
 
@@ -295,99 +295,12 @@ void wolffUpdateILR(int *s, Param p, double *isingProb, int iter) {
 }
 
 void wolffClusterAddILR(int i, int *s, int cSpin, double *isingProb, Param p) {
-
+  
   int S1 = p.S1;
   int Lt = p.Lt;
   int x_len = S1/2 + 1;
   int vol = S1*Lt;
 
-  /*
-#ifdef USE_OMP
-  
-  //This implementation parallelises over the entire surface of the lattice.
-  //It performs a boolean check to see if the candidate site has the
-  //correct spin, then performs the probablisitic test to add the site.
-  
-  int newSites = 0;
-  int omp_nt = omp_get_num_threads();
-  int lc_sze = vol/omp_nt;
-  int t1,x1;
-  t1 = i / S1;
-  x1 = i % S1;
-
-  //We now loop over the possible lattice sites, adding sites
-  //(creating bonds) with the specified LR probablity.
-#pragma omp parallel 
-  {
-    int newSites_local = 0;
-    double prob = 0.0;
-    double rand = 0.0;
-    double added_local[lc_sze];
-    for(int k=0; k<lc_sze; k++) {
-      added_local[k] = -1;
-    }
-    int t2,dt,x2,dx;
-
-#pragma omp for nowait 
-    for(int j=0; j<vol; j+=lc_sze) {
-      for(int k=0; k<lc_sze; k++) {
-	int idx = j+k;
-	if(s[idx] == cSpin) {
-	  
-	  //Index divided by circumference, using the int floor feature/bug,
-	  //gives the timeslice index.
-	  t2 = (idx) / S1;
-	  dt = abs(t2-t1) > Lt/2 ? Lt - abs(t2-t1) : abs(t2-t1);
-	  
-	  //The index modulo the circumference gives the spatial index.
-	  x2 = (idx) % p.S1;            
-	  dx = abs(x2-x1) > S1/2 ? S1 - abs(x2-x1) : abs(x2-x1);      
-	  
-	  prob = isingProb[dx+dt*x_len];
-	  rand = unif(rng);
-	  if(rand < prob) {
-	    ising_wc_size++;
-	    added_local[k] = 1;
-	    ++newSites_local;
-	  }
-	}
-      }
-    }
-#pragma omp critical
-    newSites += newSites_local;
-#pragma omp for
-    for(int j=0; j<vol; j+=lc_sze) {
-      for(int k=0; k<lc_sze; k++) {
-	int idx = j+k;
-	if(added_local[k] > 0) addedI[i][idx] = added_local[k];
-      }
-    }
-  }
-    
-  if(newSites > 0) {
-    //'added' now contains all of the spins on the wave front. Each
-    //of these new sites must be explored, but no new exploration 
-    //need test these sites. First, sort the added array so that all
-    //the hits are at the beginning, order is unimportant.
-    int pos = 0;
-    int l = 0;
-    for(l=0; l<vol; l++) {
-      if(addedI[i][l] > 0) {
-	addedI[i][pos] = l;
-	pos++;
-      }
-    }
-
-    // These sites belongs to the cluster, so flip them.
-    for(int k=0; k<newSites; k++) {
-      s[addedI[i][k]] *= -1;
-    }    
-    for(int k=0; k<newSites; k++)
-      wolffClusterAddILR(addedI[i][k], s, cSpin, isingProb, p);
-  }
-
-#else
-  */  
   int t1,x1,t2,x2,dt,dx;
   t1 = i / p.S1;
   x1 = i % p.S1;
@@ -419,9 +332,126 @@ void wolffClusterAddILR(int i, int *s, int cSpin, double *isingProb, Param p) {
       }
     }
   }
+}
+
+//This routine is a prototype for the GPU parallel routine. Is has not yet been
+//optimised.
+
+void wolffUpdateILRProto(int *s, Param p, double *isingProb, int iter) {
   
-  //#endif
+  ising_wc_calls++;
+
+  if(iter == p.n_therm) {
+    cout<<"Resetting Cluster Stats."<<endl;    
+    ising_wc_calls = 1;
+    ising_wc_ave = 0;
+  }
+
+  int S1 = p.S1;
+  int Lt = p.Lt;
+  int vol = S1*Lt;
   
+  int *spinStack = (int*)malloc(vol*sizeof(int));
+  int *spinStackLC = (int*)malloc(vol*sizeof(int));
+  int stackSize = 0;
+  
+  //Choose a random spin.
+  int i = int(unif(rng) * p.surfaceVol);
+  int cSpin = s[i];
+  
+  // The site belongs to the cluster. Flip it, add to the stack.
+  ising_wc_size = 1;
+  s[i] *= -1;
+  spinStack[0] = i;
+  stackSize++;
+  while(stackSize > 0) {
+    //This function is NOT recursive. It performs a single sweep of the lattice
+    //to ascertain which sites (if any) will be added.
+    wolffClusterAddILRProto(spinStack, spinStackLC, s, stackSize, cSpin, isingProb, p);
+  }
+  
+  ising_wc_ave += ising_wc_size;
+  
+  if(iter%p.n_skip == 0) {
+    setprecision(4);
+    cout<<"Average (CPU) cluster size at iter "<<iter<<" = "<<ising_wc_ave<<"/"<<ising_wc_calls<<" = "<<(1.0*ising_wc_ave)/ising_wc_calls<<" = "<<(100.0*ising_wc_ave)/(ising_wc_calls*p.surfaceVol)<<"%"<<endl;
+  }  
+  free(spinStack);
+  free(spinStackLC);
+}
+
+int wolffClusterAddILRProto(int *spinStack, int *spinStackLC, int *s, int &stackSize, int cSpin,
+			    double *isingProb, Param p){
+  
+  //Here we construct the cumulative probability function.
+  //We have n sites in the spin stack. The probability of a
+  //candidate site k being added from site i=1...n is p(add i). The
+  //probability of k being added is:
+  //
+  //P(add k) = 1 - p(!add 1)p(!add 2)...p(!add n).
+  //
+  //We know that p(!add i) = 1 - ( 1 - exp(-2*J_{ik})) 
+  //                       = exp(-2*J_{ik})
+  //hence
+  //
+  //P(add k) = 1 - exp(-2*\sum_i J_{ik})
+  //
+  //We add site k if a random number is less than
+  //P(add k).
+  
+  int t1,x1,t2,x2,dt,dx;
+  int S1 = p.S1;
+  int Lt = p.Lt;
+  int x_len = S1/2 + 1;
+  int vol = S1*Lt;
+  
+  double prob = 0.0;
+  double rand = 0.0;
+
+
+  //for(int a=0; a<vol; a++) spinStackLC[a] = -1;
+
+  int stackSizeLC = stackSize;
+  stackSize = 0;
+  
+  //We now loop over the possible lattice sites, adding sites
+  //(creating bonds) with the specified LR probablity.
+  for(int j=0; j<vol; j++) {
+    if(s[j] == cSpin) {
+
+      //Index divided by circumference, using the int floor feature/bug,
+      //gives the timeslice index.
+      t2 = j / S1;
+      
+      //The index modulo the circumference gives the spatial index.
+      x2 = j % S1;            
+      
+      //Now we may loop over the spinStack to calculate P(add k)        
+      double arg = 1.0;
+      for(int a=0; a<stackSizeLC; a++) {
+
+	t1 = spinStack[a]/S1;
+	x1 = spinStack[a]%S1;	
+	dt = abs(t2-t1) > Lt/2 ? Lt - abs(t2-t1) : abs(t2-t1);
+	dx = abs(x2-x1) > S1/2 ? S1 - abs(x2-x1) : abs(x2-x1);
+
+	arg *= (1-isingProb[dx + x_len*dt]);
+      }
+      
+      prob = 1 - arg;
+      rand = unif(rng);
+      
+      if(rand < prob) {
+	// The site belongs to the cluster, so flip it, and add to the stack.	
+	ising_wc_size++;
+	s[j] *= -1;
+	spinStackLC[stackSize] = j;
+	stackSize++;
+      }
+    }
+  }
+  for(int a=0; a<stackSize; a++) spinStack[a] = spinStackLC[a];
+  return stackSize;
 }
 
 double energyISR(int *s, Param p, double &KE) {  
@@ -513,17 +543,9 @@ double energyILR(int *s, Param p, double *LR_couplings, double &KE) {
   return -0.5*p.J*KE;
 }
 
-
-
-
-
-
-
-
-
-
-
 #if 0
+
+void wolffClusterAddILRProto(int i, int *s, int cSpin, double *isingProb, Param p) {
 
   //This implementation attempts to parallelises only over those sites which 
   //are candidate sites. This has the advantage that the number of computations 
@@ -632,7 +654,7 @@ double energyILR(int *s, Param p, double *LR_couplings, double &KE) {
   for(int k=0; k<addedI[i][p.surfaceVol]; k++) {
     cout<<" Going to "<<addedI[i][k]<<" k="<<k<<" loop max="<<addedI[i][p.surfaceVol]<<endl;
     sitesToCheckI -= 1;
-    wolffClusterAddLR(addedI[i][k], s, cSpin, LR_couplings, phi, p);
+    wolffClusterAddLRProto(addedI[i][k], s, cSpin, LR_couplings, phi, p);
   }
 
 #ifdef USE_OMP

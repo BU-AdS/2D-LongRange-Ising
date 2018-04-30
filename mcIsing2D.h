@@ -29,7 +29,12 @@ double energyISR(int *s, Param p, double &KE);
 void wolffUpdateILR(int *s, Param p, double *LR_couplings, int iter);
 
 void wolffClusterAddILR(int i, int *s, int cSpin, 
-		       double *LR_couplings, Param p);
+			double *isingProb, Param p);
+
+void wolffUpdateILRProto(int *s, Param p, double *isingProb, int iter);
+
+int wolffClusterAddILRProto(int *spinStack, int *spinStackLC, int *s, int &stackSize, int cSpin,
+			    double *isingProb, Param p);
 
 void swendsenWangUpdateILR(int *s, Param p, double *LR_couplings, int iter);
 
