@@ -277,7 +277,6 @@ void PhiFourth2D::metropolisUpdate(Param p, int iter) {
 void PhiFourth2D::measure(observables &obs, int &idx, Param p) {
   
   double rhoVol  = 1.0/p.surfaceVol;
-  double rhoVol2 = rhoVol*rhoVol;
 
   if(p.coupling_type == SR) {
     obs.tmpE = actionSR(phi, s, p, obs.KE, obs.PE);
