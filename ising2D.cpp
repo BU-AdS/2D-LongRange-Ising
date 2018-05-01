@@ -255,17 +255,16 @@ void Ising2D::runSimulation(Param p) {
 	elapsed1 = std::chrono::high_resolution_clock::now() - start1;
 	time = std::chrono::duration_cast<std::chrono::microseconds>(elapsed1).count();
 	cout<<"Correlation, observables, and FT Jackknife time = "<<time/(1.0e6)<<endl;
-      }
 
-      time = 0.0;
-      start1 = std::chrono::high_resolution_clock::now();
-      //Calculate the autocorrelation of |phi|
-      autocorrelation(obs.PhiAb_arr, obs.avePhiAb*norm, meas, auto_corr);
-      
-      elapsed1 = std::chrono::high_resolution_clock::now() - start1;
-      time = std::chrono::duration_cast<std::chrono::microseconds>(elapsed1).count();
-      cout<<"Autocorrelation calculation time = "<<time/(1.0e6)<<endl;      
-      
+	time = 0.0;
+	start1 = std::chrono::high_resolution_clock::now();
+	//Calculate the autocorrelation of |phi|
+	autocorrelation(obs.PhiAb_arr, obs.avePhiAb*norm, meas, auto_corr);
+	
+	elapsed1 = std::chrono::high_resolution_clock::now() - start1;
+	time = std::chrono::duration_cast<std::chrono::microseconds>(elapsed1).count();
+	cout<<"Autocorrelation calculation time = "<<time/(1.0e6)<<endl;      
+      }
     }
   }
 }

@@ -83,6 +83,7 @@ class Param{
   int n_write = 100;
   int n_skip = 100;
   int n_cluster = 8;
+  int n_jkblock = 10;
   double delta_phi = 1.5;
 
   void usage(char **argv);

@@ -1,3 +1,4 @@
+
 #!/bin/bash
 
 export OMP_NUM_THREADS=8
@@ -19,7 +20,7 @@ THEORY='ISING'
 CLUSTER='WOLFF'
 
 #GPU/CPU
-CLUSTER_ARCH='GPU'
+CLUSTER_ARCH='CPU'
 
 #SR = Short range
 #POW = 1/|x-y|^{2+sigma} type
@@ -29,23 +30,26 @@ COUPLING_TYPE='POW'
 #Ising J
 #J=0.1844
 #J=0.4406867935
-J=0.43
+J=0.1825
 #Ising h
 H=0.0
 
-SIGMA=10
+SIGMA=1.5
 
-CIRCUMFERENCE=128
-TIMESLICES=128
-N_THERM=15000
+CIRCUMFERENCE=16
+TIMESLICES=64
+N_THERM=500
 N_MEAS=10000
 N_SKIP=50
+N_JKBLK=100
+N_WRITE=100
 
 COMMAND="./adsrun --verbosity ${VERBOSITY} --theory ${THEORY} --latType ${LATTICE} 
 		  --couplingType ${COUPLING_TYPE} --J ${J} --h ${H}
 		  --Lt ${TIMESLICES} --S1 ${CIRCUMFERENCE}
-                  --nTherm ${N_THERM} --nMeas ${N_MEAS} --nSkip ${N_SKIP} 
-   		  --sigma ${SIGMA} --clusterAlg ${CLUSTER} --clusterArch ${CLUSTER_ARCH} "
+                  --nTherm ${N_THERM} --nMeas ${N_MEAS} 
+      		  --nWrite ${N_WRITE} --nJkBlock ${N_JKBLK} --nSkip ${N_SKIP} 
+       		  --sigma ${SIGMA} --clusterAlg ${CLUSTER} --clusterArch ${CLUSTER_ARCH} "
 
 echo ""
 echo "Command given:"

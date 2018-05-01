@@ -36,7 +36,7 @@ void writeObservables(double **ind_corr, double *run_corr, int *norm_corr,
 
   for(int dth = 0; dth <S1/2+1; dth++) {
     double *jk_err = (double*)malloc((Lt/2+1)*sizeof(double));
-    jackknife(ind_corr, run_corr, jk_err, 5, idx, Lt/2+1, dth, p);
+    jackknife(ind_corr, run_corr, jk_err, p.n_jkblock, idx, Lt/2+1, dth, p);
     
     sprintf(fname, "correlators_dth%d.dat", dth);
     ofstream filet(fname);    
@@ -50,7 +50,7 @@ void writeObservables(double **ind_corr, double *run_corr, int *norm_corr,
 
   for(int dt = 0; dt <Lt/2+1; dt++) {
     double *jk_err = (double*)malloc((S1/2+1)*sizeof(double));
-    jackknife(ind_corr, run_corr, jk_err, 5, idx, S1/2+1, dt, p);
+    jackknife(ind_corr, run_corr, jk_err, p.n_jkblock, idx, S1/2+1, dt, p);
     
     sprintf(fname, "correlators_dt%d.dat", dt);
     ofstream filet(fname);
@@ -68,8 +68,8 @@ void writeObservables(double **ind_corr, double *run_corr, int *norm_corr,
     ofstream filet(fname);
     
     double *jk_err = (double*)malloc((Lt/2+1)*sizeof(double));
-    jackknifeFT(ind_ft_corr, run_ft_corr, jk_err, 5, idx, l, p);
-
+    jackknifeFT(ind_ft_corr, run_ft_corr, jk_err, p.n_jkblock, idx, l, p);
+    
     for(int dt=0; dt<Lt/2+1; dt++) {
       filet<<dt<<" "<<run_ft_corr[3*dt + l]*norm<<" "<<jk_err[dt]<<endl;
     }
@@ -84,16 +84,16 @@ void writeObservables(double **ind_corr, double *run_corr, int *norm_corr,
   //Jacknife the second moments of means.
   double jkErrSuscep;
   jkErrSuscep = (vol*J)*jackknifeVar(obs.PhiAb_arr, obs.Phi2_arr,
-				     obs.Suscep[idx-1]/(vol*J), 5, idx, J);
+				     obs.Suscep[idx-1]/(vol*J), p.n_jkblock, idx, J);
   
   double jkErrSpecHeat;
   jkErrSpecHeat = J*J*jackknifeVar(obs.E_arr, obs.E2_arr,
-				   obs.SpecHeat[idx-1]/(J*J), 5, idx, J*J);
+				   obs.SpecHeat[idx-1]/(J*J), p.n_jkblock, idx, J*J);
   
   //Jacknife the Binder cumumlant
   double jkErrBinder;
   jkErrBinder = jackknifeBin(obs.Phi2_arr, obs.Phi4_arr,
-			     obs.Binder[idx-1], 5, idx);
+			     obs.Binder[idx-1], p.n_jkblock, idx);
 
   //Dump jackknifed observables
   ofstream file_obsJK;
