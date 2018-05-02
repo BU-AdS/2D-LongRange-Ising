@@ -230,8 +230,7 @@ void Ising2D::runSimulation(Param p) {
   
       long long time = 0.0;
       auto start1 = std::chrono::high_resolution_clock::now();
-      correlatorsImpWolffI(ind_corr, run_corr,
-			   meas-1, obs.avePhi*norm, p);
+      correlatorsImpWolffI(meas-1, obs.avePhi*norm, p);
 	
       auto elapsed1 = std::chrono::high_resolution_clock::now() - start1;
       time = std::chrono::duration_cast<std::chrono::microseconds>(elapsed1).count();

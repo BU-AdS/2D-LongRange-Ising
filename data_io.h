@@ -13,6 +13,9 @@
 void writeObservables(double **ind_corr, double *run_corr, int *norm_corr,
 		      double **ind_ft_corr, double *run_ft_corr,
 		      int idx, observables obs, Param p);
+void writePhi3(double **ind_corr_phi_phi3, double *run_corr_phi_phi3,
+	       double **ind_corr_phi3_phi3, double *run_corr_phi3_phi3,
+	       int *norm_corr, int idx, observables obs, Param p);
 
 void PrintNodeTables(const std::vector<Vertex> NodeList, Param P);
 void PrintComplexPositions(const std::vector<Vertex> NodeList, Param P);

@@ -19,8 +19,8 @@ THEORY='phi4'
 CLUSTER='WOLFF'
 
 #GPU/CPU
-CLUSTER_ARCH='GPU'
-METRO_ARCH='GPU'
+CLUSTER_ARCH='CPU'
+METRO_ARCH='CPU'
 
 #Perform the Metropolis step on the CPU with the same random numbers used on the GPU.
 METRO_CHECK='false'
@@ -30,24 +30,27 @@ METRO_CHECK='false'
 #RAD = 1/(cosh(dt) - cos(dtheta))^{1+sigma/2}
 COUPLING_TYPE='POW'
 
-CIRCUMFERENCE=64
-TIMESLICES=256
+CIRCUMFERENCE=8
+TIMESLICES=32
 
 N_METRO_COOL=100
 N_THERM=1000
 N_MEAS=1000
-N_SKIP=10
+N_SKIP=20
+N_JKBLK=20
+N_WRITE=100
 N_CLUSTER=4
 DELTA_PHI=1.5
 
 MUSQR=-1.275
 LAMBDA=1.0
-SIGMA=100.0
+SIGMA=10.0
 
 COMMAND="./adsrun --verbosity ${VERBOSITY} --theory ${THEORY} --latType ${LATTICE} 
 		  --couplingType ${COUPLING_TYPE} --Lt ${TIMESLICES} 
 		  --S1 ${CIRCUMFERENCE} --nTherm ${N_THERM} --nMeas ${N_MEAS} 
-		  --nSkip ${N_SKIP} --nCluster ${N_CLUSTER} 
+		  --nSkip ${N_SKIP} --nCluster ${N_CLUSTER}
+      		  --nWrite ${N_WRITE} --nJkBlock ${N_JKBLK}
 		  --nMetroCool ${N_METRO_COOL} --deltaPhi ${DELTA_PHI} --muSqr ${MUSQR}
 		  --lambda ${LAMBDA} --sigma ${SIGMA} --clusterAlg ${CLUSTER} 
                   --clusterArch ${CLUSTER_ARCH} --metroArch ${METRO_ARCH} 

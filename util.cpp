@@ -794,6 +794,7 @@ observables::observables(int meas) {
   PhiAb_arr = new double[n_meas];
   Phi_arr = new double[n_meas];
   Phi2_arr = new double[n_meas];
+  Phi3_arr = new double[n_meas];
   Phi4_arr = new double[n_meas];
   Suscep = new double[n_meas];
   SpecHeat = new double[n_meas];
@@ -804,6 +805,7 @@ observables::observables(int meas) {
     PhiAb_arr[i] = 0.0;
     Phi_arr[i]   = 0.0;
     Phi2_arr[i]  = 0.0;
+    Phi3_arr[i]  = 0.0;
     Phi4_arr[i]  = 0.0;
     Suscep[i]    = 0.0;
     SpecHeat[i]  = 0.0;
@@ -818,6 +820,7 @@ observables::observables(int meas) {
   avePhiAb = 0.0;
   avePhi   = 0.0;
   avePhi2  = 0.0;
+  phi3Ave  = 0.0;
   avePhi4  = 0.0;
   MagPhi   = 0.0;
    

@@ -115,8 +115,7 @@ class Ising2D {
   void metropolisUpdate(Param p, int iter);
   void metropolisUpdateILR(Param p, int iter);
   
-  void correlatorsImpWolffI(double **ind_corr, double *run_corr,
-			    int meas, double aveS, Param p);
+  void correlatorsImpWolffI(int meas, double aveS, Param p);
   
 };
 

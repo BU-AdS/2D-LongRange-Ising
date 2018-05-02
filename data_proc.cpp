@@ -68,8 +68,7 @@ void correlators(double **ind_corr, int meas, double *run_corr, bool dir,
 }
 */
 
-void PhiFourth2D::correlators(double **ind_corr, double *run_corr,
-			      int meas, double avePhi, Param p) {
+void PhiFourth2D::correlators(int meas, double avePhi, Param p) {
   
   int S1 = p.S1;
   int vol = p.surfaceVol;
@@ -109,6 +108,53 @@ void PhiFourth2D::correlators(double **ind_corr, double *run_corr,
   }
 }
 
+void PhiFourth2D::correlatorsPhi3(int meas, double avePhi, double phi3Ave, Param p) {
+  
+  int S1 = p.S1;
+  int vol = p.surfaceVol;
+  int x_len = S1/2 + 1;
+  int idx = 0;
+  double val1 = 0.0;
+  double val2 = 0.0;
+  double phi3_lc = 0.0;
+  double phi_lc = 0.0;
+  int t1,x1,t2,x2,dt,dx;
+  
+  //loop over all sources, cube the source and use symmetry.
+  for(int i=0; i<vol; i++) {
+
+    t1 = i / S1;
+    x1 = i % S1;
+    phi_lc  = phi[i]; 
+    phi3_lc = pow(phi_lc,3);
+    
+    //loop over all sinks. 
+    for(int j=0; j<vol; j++) {
+      
+      //Index divided by circumference, using the int floor feature/bug,
+      //gives the timeslice index.
+      t2 = j / S1;
+      dt = abs(t2-t1) > p.Lt/2 ? p.Lt - abs(t2-t1) : abs(t2-t1);
+      
+      //The index modulo the circumference gives the spatial index.
+      x2 = j % S1;            
+      dx = abs(x2-x1) > p.S1/2 ? p.S1 - abs(x2-x1) : abs(x2-x1);      
+
+      idx = dx + x_len*dt;
+      
+      val1 = (phi3_lc*phi[j] - phi3Ave*avePhi);
+      val2 = (phi3_lc*phi[j]*phi[j]*phi[j] - phi3Ave);
+      
+      ind_corr_phi_phi3[meas][idx] += val1;
+      run_corr_phi_phi3[idx] += val1;
+      
+      ind_corr_phi3_phi3[meas][idx] += val2;
+      run_corr_phi3_phi3[idx] += val2;
+      
+    }
+  }
+}
+
 
 
 // Improved Correlation Functions.
@@ -131,17 +177,16 @@ void correlatorsImp(double **ind_corr, int meas, double *run_corr,
 }
 */
 
-void PhiFourth2D::correlatorsImpSW(double **ind_corr, double *run_corr,
-				   int meas, double avePhi, Param p){
-  
+void PhiFourth2D::correlatorsImpSW(int meas, double avePhi, Param p){
+  cout<<"Error: PhiFourth2D::correlatorsImpSW not implemented."<<endl;
+  exit(0);
 }
 
 int corr_wc_size = 0;
 int corr_wc_ave = 0;
 int corr_wc_calls = 0;
 
-void PhiFourth2D::correlatorsImpWolff(double **ind_corr, double *run_corr,
-				      int meas, double avePhi, Param p){
+void PhiFourth2D::correlatorsImpWolff(int meas, double avePhi, Param p){
   
   corr_wc_calls++;
   
@@ -169,7 +214,7 @@ void PhiFourth2D::correlatorsImpWolff(double **ind_corr, double *run_corr,
   corr_wc_ave += corr_wc_size;
   
   setprecision(4);
-  cout<<"Average (CPU) corr. cluster size at measurement "<<meas+1<<" = "<<corr_wc_ave<<"/"<<corr_wc_calls<<" = "<<(1.0*corr_wc_ave)/corr_wc_calls<<" = "<<(100.0*corr_wc_ave)/(corr_wc_calls*p.surfaceVol)<<"%"<<endl;
+  cout<<"Average (CPU) Phi4 Wolff correlation cluster size at measurement "<<meas+1<<" = "<<corr_wc_ave<<"/"<<corr_wc_calls<<" = "<<(1.0*corr_wc_ave)/corr_wc_calls<<" = "<<(100.0*corr_wc_ave)/(corr_wc_calls*p.surfaceVol)<<"%"<<endl;
 
   int S1 = p.S1;
   int Lt = p.Lt;
@@ -215,8 +260,7 @@ void PhiFourth2D::correlatorsImpWolff(double **ind_corr, double *run_corr,
   }
 }
 
-void Ising2D::correlatorsImpWolffI(double **ind_corr, double *run_corr,
-				   int meas, double aveS, Param p){
+void Ising2D::correlatorsImpWolffI(int meas, double aveS, Param p){
   
   corr_wc_calls++;
   
@@ -247,7 +291,7 @@ void Ising2D::correlatorsImpWolffI(double **ind_corr, double *run_corr,
   corr_wc_ave += corr_wc_size;
   
   setprecision(4);
-  cout<<"Average (CPU) corr. cluster size at measurement "<<meas+1<<" = "<<corr_wc_ave<<"/"<<corr_wc_calls<<" = "<<(1.0*corr_wc_ave)/(corr_wc_calls)<<" = "<<(100.0*corr_wc_ave)/(corr_wc_calls*p.surfaceVol)<<"%"<<endl;
+  cout<<"Average (CPU) Ising Wolff correlation cluster size at measurement "<<meas+1<<" = "<<corr_wc_ave<<"/"<<corr_wc_calls<<" = "<<(1.0*corr_wc_ave)/(corr_wc_calls)<<" = "<<(100.0*corr_wc_ave)/(corr_wc_calls*p.surfaceVol)<<"%"<<endl;
 
   //visualiserIsingCluster(s, cpu_added, p);
   
@@ -448,8 +492,6 @@ void FTcorrelation(double **ind_ft_corr, double *run_ft_corr,
     }
   }
 }
-		     
-
 
 
 //Calculate the autocorrelation of |phi|

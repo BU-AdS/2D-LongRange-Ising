@@ -49,11 +49,26 @@ PhiFourth2D::PhiFourth2D(Param p) : Ising2D(p) {
   }
   cpu_added = (bool*)malloc(vol*sizeof(bool));
 
-  //Running phi^3 correlation function arrays.
-  run_corr_phi3 = (double*)malloc(arr_len*sizeof(double));
-  //Individual phi^3 correlation functions.
-  ind_corr_phi3 = (double**)malloc(p.n_meas*sizeof(double*));
+  //Running phiphi^3 and phi3phi3 correlation function arrays.
+  run_corr_phi_phi3 = (double*)malloc(arr_len*sizeof(double));
+  run_corr_phi3_phi3 = (double*)malloc(arr_len*sizeof(double));
+  for(int i=0; i<arr_len; i++) {
+    run_corr_phi_phi3[i] = 0.0;
+    run_corr_phi3_phi3[i] = 0.0;
+  }
   
+  //Individual phiphi^3 and phi3phi3 correlation functions.
+  ind_corr_phi_phi3 = (double**)malloc(p.n_meas*sizeof(double*));
+  ind_corr_phi3_phi3 = (double**)malloc(p.n_meas*sizeof(double*));
+  for(int i=0; i<p.n_meas; i++) {
+    ind_corr_phi_phi3[i] = (double*)malloc(arr_len*sizeof(double));
+    ind_corr_phi3_phi3[i] = (double*)malloc(arr_len*sizeof(double));
+    for(int j=0; j<arr_len; j++) {
+      ind_corr_phi_phi3[i][j] = 0.0;
+      ind_corr_phi3_phi3[i][j] = 0.0;
+    }
+  }
+    
   auto elapsed1 = std::chrono::high_resolution_clock::now() - start1;
   time = std::chrono::duration_cast<std::chrono::microseconds>(elapsed1).count();
   cout<<"CPU malloc and init time = "<<time/(1.0e6)<<endl;
@@ -122,7 +137,7 @@ void PhiFourth2D::runSimulation(Param p) {
       norm = 1.0/(meas);
 
       //Visualisation tool
-      visualiserSqr(phi, obs.avePhiAb*norm, p);
+      //visualiserSqr(phi, obs.avePhiAb*norm, p);
       
       //Calculate correlaton functions and update the average.
       //int rand_site = int(unif(rng) * p.surfaceVol);
@@ -132,32 +147,52 @@ void PhiFourth2D::runSimulation(Param p) {
      
       long long time = 0.0;
       auto start1 = std::chrono::high_resolution_clock::now();
-      correlatorsImpWolff(ind_corr, run_corr,
-			  meas-1, obs.avePhi*norm, p);
+      correlatorsImpWolff(meas-1, obs.avePhi*norm, p);
       
       auto elapsed1 = std::chrono::high_resolution_clock::now() - start1;
       time = std::chrono::duration_cast<std::chrono::microseconds>(elapsed1).count();
-      cout<<"Correlation Function Calculation time = "<<time/(1.0e6)<<endl;
+      cout<<" PhiPhi (Improved) Correlation Function Calculation time = "<<time/(1.0e6)<<endl;
       
+      start1 = std::chrono::high_resolution_clock::now();
+      correlatorsPhi3(meas-1, obs.avePhi*norm, obs.phi3Ave*norm, p);
       
-      /*
-	bool isTemporal;
-	isTemporal = true;
-	correlators(ind_corr_t, run_corr_t, isTemporal, meas-1, 
-	obs.avePhi*norm, p);
-	isTemporal = false;
-	correlators(ind_corr_s, run_corr_s, isTemporal, meas-1,
-	obs.avePhi*norm, p);
-      */
+      elapsed1 = std::chrono::high_resolution_clock::now() - start1;
+      time = std::chrono::duration_cast<std::chrono::microseconds>(elapsed1).count();
+      cout<<"PhiPhi3 and Phi3Phi3 Correlation Function Calculation time = "<<time/(1.0e6)<<endl;
       
-      //Jacknife and dump the data
+      time = 0.0;
+      start1 = std::chrono::high_resolution_clock::now();
+      //FT the correlation function values.
+      FTcorrelation(ind_ft_corr, run_ft_corr, ind_corr, norm_corr, meas-1, p);
+      
+      elapsed1 = std::chrono::high_resolution_clock::now() - start1;
+      time = std::chrono::duration_cast<std::chrono::microseconds>(elapsed1).count();
+      cout<<"Correlation Function FT time = "<<time/(1.0e6)<<endl;
+      
       if(meas%p.n_write == 0) {	
-	writeObservables(ind_corr, run_corr, norm_corr, ind_ft_corr, run_ft_corr,
-			 meas, obs, p);
+	time = 0.0;
+	start1 = std::chrono::high_resolution_clock::now();
+	//Jacknife and dump the data
+	writeObservables(ind_corr, run_corr, norm_corr,
+			 ind_ft_corr, run_ft_corr, meas, obs, p);
+	
+	writePhi3(ind_corr_phi_phi3, run_corr_phi_phi3,
+		  ind_corr_phi3_phi3, run_corr_phi3_phi3,
+		  norm_corr, meas, obs, p);
+	
+	elapsed1 = std::chrono::high_resolution_clock::now() - start1;
+	time = std::chrono::duration_cast<std::chrono::microseconds>(elapsed1).count();
+	cout<<"Correlation, observables, and FT Jackknife time = "<<time/(1.0e6)<<endl;
+	
+	time = 0.0;
+	start1 = std::chrono::high_resolution_clock::now();
+	//Calculate the autocorrelation of |phi|
+	autocorrelation(obs.PhiAb_arr, obs.avePhiAb*norm, meas, auto_corr);
+	
+	elapsed1 = std::chrono::high_resolution_clock::now() - start1;
+	time = std::chrono::duration_cast<std::chrono::microseconds>(elapsed1).count();
+	cout<<"Autocorrelation calculation time = "<<time/(1.0e6)<<endl;      
       }
-      
-      //Calculate the autocorrelation of |phi|
-      autocorrelation(obs.PhiAb_arr, obs.avePhiAb*norm, meas, auto_corr);
     }
   }
 }
@@ -277,7 +312,8 @@ void PhiFourth2D::metropolisUpdate(Param p, int iter) {
 void PhiFourth2D::measure(observables &obs, int &idx, Param p) {
   
   double rhoVol  = 1.0/p.surfaceVol;
-
+  double tmpPhi3 = 0.0;
+  
   if(p.coupling_type == SR) {
     obs.tmpE = actionSR(phi, s, p, obs.KE, obs.PE);
   } else {
@@ -292,12 +328,15 @@ void PhiFourth2D::measure(observables &obs, int &idx, Param p) {
   obs.MagPhi = 0.0;
   for(int i = 0;i < p.surfaceVol; i++) {
     obs.MagPhi += phi[i];
+    tmpPhi3 += phi[i]*phi[i]*phi[i];
   }
-  obs.MagPhi *= rhoVol;
+  obs.MagPhi  *= rhoVol;
+  tmpPhi3     *= rhoVol;
   
   obs.avePhiAb += abs(obs.MagPhi);
   obs.avePhi   += obs.MagPhi;
   obs.avePhi2  += obs.MagPhi*obs.MagPhi;
+  obs.phi3Ave  += tmpPhi3;  
   obs.avePhi4  += obs.MagPhi*obs.MagPhi*obs.MagPhi*obs.MagPhi;
   
   obs.E_arr[idx]     = obs.tmpE;
@@ -305,6 +344,7 @@ void PhiFourth2D::measure(observables &obs, int &idx, Param p) {
   obs.PhiAb_arr[idx] = abs(obs.MagPhi);
   obs.Phi_arr[idx]   = obs.MagPhi;
   obs.Phi2_arr[idx]  = obs.MagPhi*obs.MagPhi;
+  obs.Phi3_arr[idx]  = obs.MagPhi*obs.MagPhi;
   obs.Phi4_arr[idx]  = obs.MagPhi*obs.MagPhi*obs.MagPhi*obs.MagPhi;
   
   idx++;
@@ -324,6 +364,7 @@ void PhiFourth2D::measure(observables &obs, int &idx, Param p) {
   cout<<"Ave |phi| = "<<obs.avePhiAb*norm<<endl;
   cout<<"Ave phi   = "<<obs.avePhi*norm<<endl;
   cout<<"Ave phi^2 = "<<obs.avePhi2*norm<<endl;
+  cout<<"Ave phi^3 = "<<obs.phi3Ave*norm<<endl;
   cout<<"Ave phi^4 = "<<obs.avePhi4*norm<<endl;
   cout<<"Suscep    = "<<obs.Suscep[idx-1]<<endl;
   cout<<"Spec Heat = "<<obs.SpecHeat[idx-1]<<endl;

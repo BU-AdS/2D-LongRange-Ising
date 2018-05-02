@@ -131,6 +131,7 @@ class observables {
   double *PhiAb_arr;
   double *Phi_arr;
   double *Phi2_arr;
+  double *Phi3_arr;
   double *Phi4_arr;
   double *Suscep;
   double *SpecHeat;
@@ -145,6 +146,7 @@ class observables {
   double avePhiAb = 0.0;
   double avePhi   = 0.0;
   double avePhi2  = 0.0;
+  double phi3Ave  = 0.0;
   double avePhi4  = 0.0;
   double MagPhi   = 0.0;
 

@@ -31,20 +31,17 @@ void writeObservables(double **ind_corr, double *run_corr, int *norm_corr,
   //on \sigma, hence MUST have proper error estimates of the
   //correlation function values.
 
-  // FIXME: Jackkinfe is hardcoded to dump
-  //        results every 10th measurement, with a jk block of 5.
-
   for(int dth = 0; dth <S1/2+1; dth++) {
     double *jk_err = (double*)malloc((Lt/2+1)*sizeof(double));
     jackknife(ind_corr, run_corr, jk_err, p.n_jkblock, idx, Lt/2+1, dth, p);
     
     sprintf(fname, "correlators_dth%d.dat", dth);
-    ofstream filet(fname);    
+    ofstream file(fname);    
     for(int i=0; i<Lt/2+1; i++) {
-      filet<<i<<" "<<run_corr[dth + i*x_len]*norm/(norm_corr[dth + i*x_len]);
-      filet<<" "<<jk_err[i]*norm/(norm_corr[dth + i*x_len])<<endl;      
+      file<<i<<" "<<run_corr[dth + i*x_len]*norm/(norm_corr[dth + i*x_len]);
+      file<<" "<<jk_err[i]*norm/(norm_corr[dth + i*x_len])<<endl;      
     }
-    filet.close();
+    file.close();
     free(jk_err);
   }
 
@@ -53,27 +50,27 @@ void writeObservables(double **ind_corr, double *run_corr, int *norm_corr,
     jackknife(ind_corr, run_corr, jk_err, p.n_jkblock, idx, S1/2+1, dt, p);
     
     sprintf(fname, "correlators_dt%d.dat", dt);
-    ofstream filet(fname);
+    ofstream file(fname);
     for(int i=0; i<S1/2+1; i++) {
-      filet<<i<<" "<<run_corr[i + dt*x_len]*norm/(norm_corr[i + dt*x_len]);
-      filet<<" "<<jk_err[i]*norm/(norm_corr[i + dt*x_len])<<endl;
+      file<<i<<" "<<run_corr[i + dt*x_len]*norm/(norm_corr[i + dt*x_len]);
+      file<<" "<<jk_err[i]*norm/(norm_corr[i + dt*x_len])<<endl;
     }
-    filet.close();
+    file.close();
     free(jk_err);
   }
 
   //Go to l=2
-  for(int l=0; l<3; l++) {    
-    sprintf(fname, "correlators_FTl%d.dat", l);
-    ofstream filet(fname);
+  for(int l=0; l<3; l++) {
     
+    sprintf(fname, "correlators_FTl%d.dat", l);
+    ofstream file(fname);    
     double *jk_err = (double*)malloc((Lt/2+1)*sizeof(double));
     jackknifeFT(ind_ft_corr, run_ft_corr, jk_err, p.n_jkblock, idx, l, p);
     
     for(int dt=0; dt<Lt/2+1; dt++) {
-      filet<<dt<<" "<<run_ft_corr[3*dt + l]*norm<<" "<<jk_err[dt]<<endl;
+      file<<dt<<" "<<run_ft_corr[3*dt + l]*norm<<" "<<jk_err[dt]<<endl;
     }
-    filet.close();
+    file.close();
     free(jk_err);
   }
   
@@ -99,8 +96,8 @@ void writeObservables(double **ind_corr, double *run_corr, int *norm_corr,
   ofstream file_obsJK;
   file_obsJK.open("JKobservables.dat", ios_base::app);
   file_obsJK<<idx<<" "<<p.sigma<<" ";
-  if(p.theory_type == ISING) cout<<p.J<<" ";
-  else cout<<p.musqr<<" "<<p.lambda<<" ";
+  if(p.theory_type == ISING) file_obsJK<<p.J<<" ";
+  if(p.theory_type == PHI4) file_obsJK<<p.musqr<<" "<<p.lambda<<" ";
   file_obsJK<<obs.SpecHeat[idx-1]<<" "<<jkErrSpecHeat<<" ";
   file_obsJK<<obs.Suscep[idx-1]<<" "<<jkErrSuscep<<" ";
   file_obsJK<<obs.Binder[idx-1]<<" "<<jkErrBinder<<endl;  
@@ -110,21 +107,84 @@ void writeObservables(double **ind_corr, double *run_corr, int *norm_corr,
   ofstream file_obs;
   file_obs.open("observables.dat", ios_base::app);
   int meas = 0;
-    for(int i=0; i<10; i++) {
-      meas = idx - 10 + i;
-      file_obs<<meas<<" "<<p.sigma<<" "<<p.J<<" "<<obs.E_arr[meas]<<" ";
-      file_obs<<obs.E2_arr[meas]<<" "<<obs.PhiAb_arr[meas]<<" "<<obs.Phi_arr[meas]<<" ";
-      file_obs<<obs.Phi2_arr[meas]<<" "<<obs.Phi4_arr[meas]<<" "<<obs.Suscep[meas]<<" ";
-      file_obs<<obs.SpecHeat[meas]<<" "<<obs.Binder[meas]<<endl;
-    }
+  for(int i=0; i<10; i++) {
+    meas = idx - 10 + i;
+    file_obs<<meas<<" "<<p.sigma<<" "<<p.J<<" "<<obs.E_arr[meas]<<" ";
+    file_obs<<obs.E2_arr[meas]<<" "<<obs.PhiAb_arr[meas]<<" "<<obs.Phi_arr[meas]<<" ";
+    file_obs<<obs.Phi2_arr[meas]<<" "<<obs.Phi4_arr[meas]<<" "<<obs.Suscep[meas]<<" ";
+    file_obs<<obs.SpecHeat[meas]<<" "<<obs.Binder[meas]<<endl;
+  }
   file_obs.close();
   
   
 }
 
+void writePhi3(double **ind_corr_phi_phi3, double *run_corr_phi_phi3,
+	       double **ind_corr_phi3_phi3, double *run_corr_phi3_phi3,
+	       int *norm_corr, int idx, observables obs, Param p){
+  
+  double norm = 1.0/idx;
+  int S1 = p.S1;
+  int Lt = p.Lt;
+  int x_len = S1/2 + 1;
+  char fname[256];
+
+  for(int dth = 0; dth <S1/2+1; dth++) {
+
+    double *jk_err = (double*)malloc((Lt/2+1)*sizeof(double));
+    ofstream file;
+    
+    //Phi Phi3
+    jackknife(ind_corr_phi_phi3, run_corr_phi_phi3, jk_err, p.n_jkblock, idx, Lt/2+1, dth, p);
+    sprintf(fname, "correlatorsPhiPhi3_dth%d.dat", dth);    
+    file.open(fname);
+    for(int i=0; i<Lt/2+1; i++) {
+      file<<i<<" "<<run_corr_phi_phi3[dth + i*x_len]*norm/(norm_corr[dth + i*x_len]);
+      file<<" "<<jk_err[i]*norm/(norm_corr[dth + i*x_len])<<endl;      
+    }
+    file.close();
+    
+    jackknife(ind_corr_phi3_phi3, run_corr_phi3_phi3, jk_err, p.n_jkblock, idx, Lt/2+1, dth, p);    
+    sprintf(fname, "correlatorsPhi3Phi3_dth%d.dat", dth);
+    file.open(fname);
+    for(int i=0; i<Lt/2+1; i++) {
+      file<<i<<" "<<run_corr_phi3_phi3[dth + i*x_len]*norm/(norm_corr[dth + i*x_len]);
+      file<<" "<<jk_err[i]*norm/(norm_corr[dth + i*x_len])<<endl;      
+    }
+    file.close();
+    free(jk_err);
+  }
+
+  for(int dt = 0; dt <Lt/2+1; dt++) {
+
+    double *jk_err = (double*)malloc((S1/2+1)*sizeof(double));
+    ofstream file;
+    
+    jackknife(ind_corr_phi_phi3, run_corr_phi_phi3, jk_err, p.n_jkblock, idx, S1/2+1, dt, p);    
+    sprintf(fname, "correlatorsPhiPhi3_dt%d.dat", dt);
+    file.open(fname);
+    for(int i=0; i<S1/2+1; i++) {
+      file<<i<<" "<<run_corr_phi_phi3[i + dt*x_len]*norm/(norm_corr[i + dt*x_len]);
+      file<<" "<<jk_err[i]*norm/(norm_corr[i + dt*x_len])<<endl;
+    }
+    file.close();
+
+    jackknife(ind_corr_phi3_phi3, run_corr_phi3_phi3, jk_err, p.n_jkblock, idx, S1/2+1, dt, p);    
+    sprintf(fname, "correlatorsPhi3Phi3_dt%d.dat", dt);
+    file.open(fname);
+    for(int i=0; i<S1/2+1; i++) {
+      file<<i<<" "<<run_corr_phi3_phi3[i + dt*x_len]*norm/(norm_corr[i + dt*x_len]);
+      file<<" "<<jk_err[i]*norm/(norm_corr[i + dt*x_len])<<endl;
+    }
+    file.close();
+    free(jk_err);    
+  }
+}
+
 
 //Data file for lattice/analytical propagator data,
-void dataDump(vector<Vertex> NodeList, double *phi, Param p, int level, int t_range, int shift) {
+void dataDump(vector<Vertex> NodeList, double *phi, Param p, int level,
+	      int t_range, int shift) {
 
   long unsigned int TotNumber = (endNode(p.Levels,p) + 1) * p.Lt;
   double norm = 0.0;
