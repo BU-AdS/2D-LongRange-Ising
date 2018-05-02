@@ -98,7 +98,9 @@ void writeObservables(double **ind_corr, double *run_corr, int *norm_corr,
   //Dump jackknifed observables
   ofstream file_obsJK;
   file_obsJK.open("JKobservables.dat", ios_base::app);
-  file_obsJK<<idx<<" "<<p.sigma<<" "<<p.J<<" ";
+  file_obsJK<<idx<<" "<<p.sigma<<" ";
+  if(p.theory_type == ISING) cout<<p.J<<" ";
+  else cout<<p.musqr<<" "<<p.lambda<<" ";
   file_obsJK<<obs.SpecHeat[idx-1]<<" "<<jkErrSpecHeat<<" ";
   file_obsJK<<obs.Suscep[idx-1]<<" "<<jkErrSuscep<<" ";
   file_obsJK<<obs.Binder[idx-1]<<" "<<jkErrBinder<<endl;  
