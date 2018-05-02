@@ -356,7 +356,7 @@ inline double coupling(double dt, double dth, Param p) {
   
   dt  *= 2*M_PI/p.S1;
   dth *= 2*M_PI/p.S1;  
-  return pow( (2*cosh(dt) - 2*cos(dth)) , -(1+p.sigma/2));
+  return pow( (cosh(dt) - cos(dth)) , -(1+p.sigma/2));
   
 }
 
