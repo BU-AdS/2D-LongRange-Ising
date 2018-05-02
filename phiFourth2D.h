@@ -22,8 +22,11 @@ class PhiFourth2D: public Ising2D {
   double *phi;
   double *phi_cpy;
 
-  double **ind_corr_phi3;
-  double *run_corr_phi3;
+  double **ind_corr_phi_phi3;
+  double *run_corr_phi_phi3;
+  
+  double **ind_corr_phi3_phi3;
+  double *run_corr_phi3_phi3;
   
   //Constructor
   PhiFourth2D(Param p);
@@ -62,15 +65,13 @@ class PhiFourth2D: public Ising2D {
 #endif
   
   //Correlation function calculator
-  void correlators(double **ind_corr, double *run_corr,
-		   int meas, double avePhi, Param p);
-  void correlatorsImpSW(double **ind_corr, double *run_corr,
-			int meas, double avePhi, Param p);
+  void correlators(int meas, double avePhi, Param p);
+  void correlatorsImpSW(int meas, double avePhi, Param p); //FIXME
+  void correlatorsImpWolff(int meas, double avePhi, Param p);  
+  void correlatorsPhi3(int meas, double avePhi, double avePhi3, Param p);
   
-  void correlatorsImpWolff(double **ind_corr, double *run_corr,
-			   int meas, double avePhi, Param p);
   
 };
-  
+
 
 #endif
