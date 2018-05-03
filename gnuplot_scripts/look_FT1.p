@@ -15,15 +15,14 @@ L=48
 
 A=1.0
 D=0.125
-B=0.0
+B=1.0
 scale=1
 
 FIT_LIMIT = 1e-4
 
-term2s(x) = A*(2**(-D))**(D*exp(-(D+1)*x*scale) + D*D*(D+1)*exp(-x*scale*(D+3)))
-term2c(x) = B*(2**(D-2))*((2-D)*exp(-((2-D)+1)*x*scale) + (2-D)*(2-D)*((2-D)+1)*exp(-x*scale*((2-D)+3)))
+term2s(x) = A*(2**(-D)) * ( D*exp(-(D+1)*L*scale)*cosh((D+1)*(x-L)*scale) + D*D*(D+1)*exp(-(D+3)*L*scale)*cosh((D+3)*(x-L)*scale) )
+term2c(x) = B*(2**((D-2)))*((2-D)*exp(-((2-D)+1)*L*scale)*cosh(scale*((2-D)+1)*(x-L)) + (2-D)*(2-D)*((2-D)+1)*exp(-((2-D)+3)*L*scale)*cosh(((2-D)+3)*(x-L)*scale))
 
-
-fit [10:48] term2s(x) + term2c(x) 'correlators_FTl1.dat' using 1:2:3 via A,D,B,scale
+fit [1:35] term2s(x) + term2c(x) 'correlators_FTl1.dat' using 1:2:3 via A,D,B,scale
 
 plot [0:48] "correlators_FTl1.dat" using 1:2:3 with yerrorbars  t "", term2s(x) + term2c(x) t ""

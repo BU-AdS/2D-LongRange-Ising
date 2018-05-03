@@ -49,6 +49,25 @@ PhiFourth2D::PhiFourth2D(Param p) : Ising2D(p) {
   }
   cpu_added = (bool*)malloc(vol*sizeof(bool));
 
+  //FT arrays.
+  ind_ft_corr_phi_phi3 = (double**)malloc(((p.Lt/2+1)*3)*sizeof(double*));
+  run_ft_corr_phi_phi3 = (double*)malloc(3*(p.Lt/2+1)*sizeof(double));
+
+  ind_ft_corr_phi3_phi3 = (double**)malloc(((p.Lt/2+1)*3)*sizeof(double*));
+  run_ft_corr_phi3_phi3 = (double*)malloc(3*(p.Lt/2+1)*sizeof(double));
+
+  //ft correlation function
+  for(int i=0; i<(p.Lt/2 +1)*3; i++) {
+    ind_ft_corr_phi_phi3[i] = (double*)malloc(p.n_meas*sizeof(double));
+    ind_ft_corr_phi3_phi3[i] = (double*)malloc(p.n_meas*sizeof(double));
+    run_ft_corr_phi_phi3[i] = 0.0;
+    run_ft_corr_phi3_phi3[i] = 0.0;
+    for(int j=0; j<p.n_meas; j++) {
+      ind_ft_corr_phi_phi3[i][j] = 0.0;
+      ind_ft_corr_phi3_phi3[i][j] = 0.0;     
+    }
+  }
+  
   //Running phiphi^3 and phi3phi3 correlation function arrays.
   run_corr_phi_phi3 = (double*)malloc(arr_len*sizeof(double));
   run_corr_phi3_phi3 = (double*)malloc(arr_len*sizeof(double));
@@ -162,8 +181,11 @@ void PhiFourth2D::runSimulation(Param p) {
       
       time = 0.0;
       start1 = std::chrono::high_resolution_clock::now();
+
       //FT the correlation function values.
       FTcorrelation(ind_ft_corr, run_ft_corr, ind_corr, norm_corr, meas-1, p);
+      FTcorrelation(ind_ft_corr_phi_phi3, run_ft_corr_phi_phi3, ind_corr_phi_phi3, norm_corr, meas-1, p);
+      FTcorrelation(ind_ft_corr_phi3_phi3, run_ft_corr_phi3_phi3, ind_corr_phi3_phi3, norm_corr, meas-1, p);
       
       elapsed1 = std::chrono::high_resolution_clock::now() - start1;
       time = std::chrono::duration_cast<std::chrono::microseconds>(elapsed1).count();
@@ -178,6 +200,8 @@ void PhiFourth2D::runSimulation(Param p) {
 	
 	writePhi3(ind_corr_phi_phi3, run_corr_phi_phi3,
 		  ind_corr_phi3_phi3, run_corr_phi3_phi3,
+		  ind_ft_corr_phi_phi3, run_ft_corr_phi_phi3,
+		  ind_ft_corr_phi3_phi3, run_ft_corr_phi3_phi3,
 		  norm_corr, meas, obs, p);
 	
 	elapsed1 = std::chrono::high_resolution_clock::now() - start1;
