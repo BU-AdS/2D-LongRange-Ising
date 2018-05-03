@@ -41,9 +41,9 @@ class Ising2D {
   //Correlation function normalisation [x_idx + (S1/2+1)*t_idx]
   int *norm_corr;
 
-  //Holds individual ft correlation function data
+  //Holds individual phi phi ft correlation function data
   double **ind_ft_corr;
-  //Holds the running average ft correlation function data
+  //Holds the running average phi phi ft correlation function data
   double *run_ft_corr;
   
   //Holds Autocorrelation data

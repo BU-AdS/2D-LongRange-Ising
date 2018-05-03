@@ -114,13 +114,13 @@ void writeObservables(double **ind_corr, double *run_corr, int *norm_corr,
     file_obs<<obs.Phi2_arr[meas]<<" "<<obs.Phi4_arr[meas]<<" "<<obs.Suscep[meas]<<" ";
     file_obs<<obs.SpecHeat[meas]<<" "<<obs.Binder[meas]<<endl;
   }
-  file_obs.close();
-  
-  
+  file_obs.close();  
 }
 
 void writePhi3(double **ind_corr_phi_phi3, double *run_corr_phi_phi3,
 	       double **ind_corr_phi3_phi3, double *run_corr_phi3_phi3,
+	       double **ind_ft_corr_phi_phi3, double *run_ft_corr_phi_phi3,
+	       double **ind_ft_corr_phi3_phi3, double *run_ft_corr_phi3_phi3,
 	       int *norm_corr, int idx, observables obs, Param p){
   
   double norm = 1.0/idx;
@@ -179,6 +179,30 @@ void writePhi3(double **ind_corr_phi_phi3, double *run_corr_phi_phi3,
     file.close();
     free(jk_err);    
   }
+
+  //Go to l=2
+  for(int l=0; l<3; l++) {
+
+    double *jk_err = (double*)malloc((Lt/2+1)*sizeof(double));
+    ofstream file;
+    
+    jackknifeFT(ind_ft_corr_phi_phi3, run_ft_corr_phi_phi3, jk_err, p.n_jkblock, idx, l, p);
+    sprintf(fname, "correlatorsPhiPhi3_FTl%d.dat", l);
+    file.open(fname);
+    for(int dt=0; dt<Lt/2+1; dt++) {
+      file<<dt<<" "<<run_ft_corr_phi_phi3[3*dt + l]*norm<<" "<<jk_err[dt]<<endl;
+    }
+    file.close();
+    
+    jackknifeFT(ind_ft_corr_phi3_phi3, run_ft_corr_phi3_phi3, jk_err, p.n_jkblock, idx, l, p);
+    sprintf(fname, "correlatorsPhi3Phi3_FTl%d.dat", l);
+    file.open(fname);
+    for(int dt=0; dt<Lt/2+1; dt++) {
+      file<<dt<<" "<<run_ft_corr_phi3_phi3[3*dt + l]*norm<<" "<<jk_err[dt]<<endl;
+    }
+    file.close();
+    free(jk_err);
+  }  
 }
 
 

@@ -18,8 +18,11 @@
 
 class PhiFourth2D: public Ising2D {
   
- public: 
+ public:
+
+  //Holds the phi array...
   double *phi;
+  //...and a copy.
   double *phi_cpy;
 
   double **ind_corr_phi_phi3;
@@ -27,6 +30,12 @@ class PhiFourth2D: public Ising2D {
   
   double **ind_corr_phi3_phi3;
   double *run_corr_phi3_phi3;
+
+  double **ind_ft_corr_phi_phi3;
+  double *run_ft_corr_phi_phi3;
+
+  double **ind_ft_corr_phi3_phi3;
+  double *run_ft_corr_phi3_phi3;
   
   //Constructor
   PhiFourth2D(Param p);
