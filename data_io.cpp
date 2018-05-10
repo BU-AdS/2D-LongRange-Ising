@@ -17,7 +17,7 @@ using namespace std;
 void writeObservables(double **ind_corr, double *run_corr, int *norm_corr,
 		      double **ind_ft_corr, double *run_ft_corr,
 		      int idx, observables obs, Param p){
-
+ 
   double norm = 1.0/idx;
   int S1 = p.S1;
   int Lt = p.Lt;
@@ -32,30 +32,37 @@ void writeObservables(double **ind_corr, double *run_corr, int *norm_corr,
   //correlation function values.
 
   for(int dth = 0; dth <S1/2+1; dth++) {
+
     double *jk_err = (double*)malloc((Lt/2+1)*sizeof(double));
     jackknife(ind_corr, run_corr, jk_err, p.n_jkblock, idx, Lt/2+1, dth, p);
     
-    sprintf(fname, "correlators_dth%d.dat", dth);
-    ofstream file(fname);    
+    sprintf(fname, "correlators_dth%d.dat", dth);    
+    FILE *fp = fopen(fname, "w"); 
     for(int i=0; i<Lt/2+1; i++) {
-      file<<i<<" "<<run_corr[dth + i*x_len]*norm/(norm_corr[dth + i*x_len]);
-      file<<" "<<jk_err[i]*norm/(norm_corr[dth + i*x_len])<<endl;      
+      
+      fprintf(fp, "%d %.15e %.15e\n", i, run_corr[dth + i*x_len]*norm/(norm_corr[dth + i*x_len]),
+	      jk_err[i]*norm/(norm_corr[dth + i*x_len]));
+      
     }
-    file.close();
+    fclose(fp);
     free(jk_err);
   }
 
   for(int dt = 0; dt <Lt/2+1; dt++) {
+
     double *jk_err = (double*)malloc((S1/2+1)*sizeof(double));
     jackknife(ind_corr, run_corr, jk_err, p.n_jkblock, idx, S1/2+1, dt, p);
     
     sprintf(fname, "correlators_dt%d.dat", dt);
+    FILE *fp = fopen(fname, "w"); 
     ofstream file(fname);
     for(int i=0; i<S1/2+1; i++) {
-      file<<i<<" "<<run_corr[i + dt*x_len]*norm/(norm_corr[i + dt*x_len]);
-      file<<" "<<jk_err[i]*norm/(norm_corr[i + dt*x_len])<<endl;
+
+      fprintf(fp, "%d %.15e %.15e\n", i, run_corr[i + dt*x_len]*norm/(norm_corr[i + dt*x_len]),
+	      jk_err[i]*norm/(norm_corr[i + dt*x_len]));
+      
     }
-    file.close();
+    fclose(fp);
     free(jk_err);
   }
 
@@ -63,14 +70,16 @@ void writeObservables(double **ind_corr, double *run_corr, int *norm_corr,
   for(int l=0; l<3; l++) {
     
     sprintf(fname, "correlators_FTl%d.dat", l);
-    ofstream file(fname);    
+    FILE *fp = fopen(fname, "w"); 
     double *jk_err = (double*)malloc((Lt/2+1)*sizeof(double));
     jackknifeFT(ind_ft_corr, run_ft_corr, jk_err, p.n_jkblock, idx, l, p);
     
     for(int dt=0; dt<Lt/2+1; dt++) {
-      file<<dt<<" "<<run_ft_corr[3*dt + l]*norm<<" "<<jk_err[dt]<<endl;
+
+      fprintf(fp, "%d %.15e %.15e\n", dt, run_ft_corr[3*dt + l]*norm, jk_err[dt]);
+      
     }
-    file.close();
+    fclose(fp);
     free(jk_err);
   }
   
@@ -93,21 +102,28 @@ void writeObservables(double **ind_corr, double *run_corr, int *norm_corr,
 			     obs.Binder[idx-1], p.n_jkblock, idx);
 
   //Dump jackknifed observables
-  ofstream file_obsJK;
-  file_obsJK.open("JKobservables.dat", ios_base::app);
-  file_obsJK<<idx<<" "<<p.sigma<<" ";
-  if(p.theory_type == ISING) file_obsJK<<p.J<<" ";
-  if(p.theory_type == PHI4) file_obsJK<<p.musqr<<" "<<p.lambda<<" ";
-  file_obsJK<<obs.SpecHeat[idx-1]<<" "<<jkErrSpecHeat<<" ";
-  file_obsJK<<obs.Suscep[idx-1]<<" "<<jkErrSuscep<<" ";
-  file_obsJK<<obs.Binder[idx-1]<<" "<<jkErrBinder<<endl;  
-  file_obsJK.close();
-  
+  sprintf(fname, "JKobservables.dat");
+  FILE *fp = fopen(fname, "a"); 
+
+  fprintf(fp, "%d %.15e ", idx, p.sigma);
+  if(p.theory_type == ISING) fprintf(fp, "%.15e ", p.J);
+  if(p.theory_type == PHI4) fprintf(fp, "%.15e %.15e ", p.musqr, p.lambda);
+  fprintf(fp, "%.15e %.15e %.15e %.15e %.15e %.15e\n",
+	  obs.SpecHeat[idx-1], jkErrSpecHeat,
+	  obs.Suscep[idx-1], jkErrSuscep, 
+	  obs.Binder[idx-1], jkErrBinder);
+  fclose(fp);
+
+  /*
   //Dump raw observable data for any further offline analysis
   ofstream file_obs;
   file_obs.open("observables.dat", ios_base::app);
   int meas = 0;
   for(int i=0; i<10; i++) {
+
+    std::cout.precision(15);
+    std::cout<<std::scientific;
+    
     meas = idx - 10 + i;
     file_obs<<meas<<" "<<p.sigma<<" "<<p.J<<" "<<obs.E_arr[meas]<<" ";
     file_obs<<obs.E2_arr[meas]<<" "<<obs.PhiAb_arr[meas]<<" "<<obs.Phi_arr[meas]<<" ";
@@ -115,6 +131,7 @@ void writeObservables(double **ind_corr, double *run_corr, int *norm_corr,
     file_obs<<obs.SpecHeat[meas]<<" "<<obs.Binder[meas]<<endl;
   }
   file_obs.close();  
+  */
 }
 
 void writePhi3(double **ind_corr_phi_phi3, double *run_corr_phi_phi3,
@@ -132,51 +149,50 @@ void writePhi3(double **ind_corr_phi_phi3, double *run_corr_phi_phi3,
   for(int dth = 0; dth <S1/2+1; dth++) {
 
     double *jk_err = (double*)malloc((Lt/2+1)*sizeof(double));
-    ofstream file;
     
     //Phi Phi3
     jackknife(ind_corr_phi_phi3, run_corr_phi_phi3, jk_err, p.n_jkblock, idx, Lt/2+1, dth, p);
-    sprintf(fname, "correlatorsPhiPhi3_dth%d.dat", dth);    
-    file.open(fname);
+    sprintf(fname, "correlatorsPhiPhi3_dth%d.dat", dth);
+    FILE *fp = fopen(fname, "a");
     for(int i=0; i<Lt/2+1; i++) {
-      file<<i<<" "<<run_corr_phi_phi3[dth + i*x_len]*norm/(norm_corr[dth + i*x_len]);
-      file<<" "<<jk_err[i]*norm/(norm_corr[dth + i*x_len])<<endl;      
+      fprintf(fp, "%d %.15e %.15e\n", i, run_corr_phi_phi3[dth + i*x_len]*norm/(norm_corr[dth + i*x_len]),
+	      jk_err[i]*norm/(norm_corr[dth + i*x_len]) );
     }
-    file.close();
+    fclose(fp);
     
     jackknife(ind_corr_phi3_phi3, run_corr_phi3_phi3, jk_err, p.n_jkblock, idx, Lt/2+1, dth, p);    
     sprintf(fname, "correlatorsPhi3Phi3_dth%d.dat", dth);
-    file.open(fname);
+    fp = fopen(fname, "a");    
     for(int i=0; i<Lt/2+1; i++) {
-      file<<i<<" "<<run_corr_phi3_phi3[dth + i*x_len]*norm/(norm_corr[dth + i*x_len]);
-      file<<" "<<jk_err[i]*norm/(norm_corr[dth + i*x_len])<<endl;      
+      fprintf(fp, "%d %.15e %.15e\n", i, run_corr_phi3_phi3[dth + i*x_len]*norm/(norm_corr[dth + i*x_len]),
+	      jk_err[i]*norm/(norm_corr[dth + i*x_len]) );      
     }
-    file.close();
+    fclose(fp);
     free(jk_err);
   }
 
   for(int dt = 0; dt <Lt/2+1; dt++) {
 
     double *jk_err = (double*)malloc((S1/2+1)*sizeof(double));
-    ofstream file;
+
     
     jackknife(ind_corr_phi_phi3, run_corr_phi_phi3, jk_err, p.n_jkblock, idx, S1/2+1, dt, p);    
     sprintf(fname, "correlatorsPhiPhi3_dt%d.dat", dt);
-    file.open(fname);
+    FILE *fp = fopen(fname, "a");
     for(int i=0; i<S1/2+1; i++) {
-      file<<i<<" "<<run_corr_phi_phi3[i + dt*x_len]*norm/(norm_corr[i + dt*x_len]);
-      file<<" "<<jk_err[i]*norm/(norm_corr[i + dt*x_len])<<endl;
+      fprintf(fp, "%d %.15e %.15e\n", i, run_corr_phi_phi3[i + dt*x_len]*norm/(norm_corr[i + dt*x_len]),
+	      jk_err[i]*norm/(norm_corr[i + dt*x_len]) );      
     }
-    file.close();
+    fclose(fp);
 
-    jackknife(ind_corr_phi3_phi3, run_corr_phi3_phi3, jk_err, p.n_jkblock, idx, S1/2+1, dt, p);    
+    jackknife(ind_corr_phi3_phi3, run_corr_phi3_phi3, jk_err, p.n_jkblock, idx, S1/2+1, dt, p);
     sprintf(fname, "correlatorsPhi3Phi3_dt%d.dat", dt);
-    file.open(fname);
+    fp = fopen(fname, "a");
     for(int i=0; i<S1/2+1; i++) {
-      file<<i<<" "<<run_corr_phi3_phi3[i + dt*x_len]*norm/(norm_corr[i + dt*x_len]);
-      file<<" "<<jk_err[i]*norm/(norm_corr[i + dt*x_len])<<endl;
+      fprintf(fp, "%d %.15e %.15e\n", i, run_corr_phi3_phi3[i + dt*x_len]*norm/(norm_corr[i + dt*x_len]),
+	      jk_err[i]*norm/(norm_corr[i + dt*x_len]) );      
     }
-    file.close();
+    fclose(fp);
     free(jk_err);    
   }
 
@@ -188,21 +204,21 @@ void writePhi3(double **ind_corr_phi_phi3, double *run_corr_phi_phi3,
     
     jackknifeFT(ind_ft_corr_phi_phi3, run_ft_corr_phi_phi3, jk_err, p.n_jkblock, idx, l, p);
     sprintf(fname, "correlatorsPhiPhi3_FTl%d.dat", l);
-    file.open(fname);
+    FILE *fp = fopen(fname, "a");
     for(int dt=0; dt<Lt/2+1; dt++) {
-      file<<dt<<" "<<run_ft_corr_phi_phi3[3*dt + l]*norm<<" "<<jk_err[dt]<<endl;
+      fprintf(fp, "%d %.15e %.15e\n", dt, run_ft_corr_phi_phi3[3*dt + l]*norm, jk_err[dt]);
     }
-    file.close();
+    fclose(fp);
     
     jackknifeFT(ind_ft_corr_phi3_phi3, run_ft_corr_phi3_phi3, jk_err, p.n_jkblock, idx, l, p);
     sprintf(fname, "correlatorsPhi3Phi3_FTl%d.dat", l);
-    file.open(fname);
+    fp = fopen(fname, "a");
     for(int dt=0; dt<Lt/2+1; dt++) {
-      file<<dt<<" "<<run_ft_corr_phi3_phi3[3*dt + l]*norm<<" "<<jk_err[dt]<<endl;
+      fprintf(fp, "%d %.15e %.15e\n", dt, run_ft_corr_phi3_phi3[3*dt + l]*norm, jk_err[dt]);
     }
-    file.close();
+    fclose(fp);
     free(jk_err);
-  }  
+  }
 }
 
 

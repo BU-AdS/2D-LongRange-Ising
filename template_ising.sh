@@ -1,4 +1,3 @@
-
 #!/bin/bash
 
 export OMP_NUM_THREADS=8
@@ -25,12 +24,11 @@ CLUSTER_ARCH='CPU'
 #SR = Short range
 #POW = 1/|x-y|^{2+sigma} type
 #RAD = 1/(cosh(dt) - cos(dtheta))^{1+sigma/2}
-COUPLING_TYPE='POW'
+COUPLING_TYPE='RAD'
 
 #Ising J
-#J=0.1844
-#J=0.4406867935
-J=0.1825
+J=0.4406867935
+
 #Ising h
 H=0.0
 
