@@ -29,12 +29,12 @@ d=1.875
 
 FIT_LIMIT = 1e-12
 
-term1s(x) = A*(2**(-D))*exp(-D*L*scale)*cosh(D*(x-L)*scale) 
-term1c(x) = B*(2**(-(2-D)))*exp(-(2-D)*L*scale)*cosh((2-D)*(x-L)*scale)
-term2s(x) = A*(2**(-D))*D*COS_T*exp(-(D+a)*L*scale)*cosh((D+a)*(x-L)*scale)
-term2c(x) = B*(2**(-(2-D)))*(2-D)*COS_T*exp(-((2-D)+a)*L*scale)*cosh(((2-D)+a)*(x-L)*scale)
-term3s(x) = A*(2**(-D))*D*(COS_T*COS_T*(D+1)-1)*exp(-(D+b)*L*scale)*cosh((D+b)*(x-L)*scale)
-term3c(x) = B*(2**(-(2-D)))*(2-D)*(COS_T*COS_T*((2-D)+1)-1)*exp(-((2-D)+b)*L*scale)*cosh(((2-D)+b)*(x-L)*scale)
+term1s(x) = A*exp(-D*L*scale)*cosh(D*(x-L)*scale) 
+term1c(x) = B*exp(-(2-D)*L*scale)*cosh((2-D)*(x-L)*scale)
+term2s(x) = A*D*COS_T*exp(-(D+a)*L*scale)*cosh((D+a)*(x-L)*scale)
+term2c(x) = B*(2-D)*COS_T*exp(-((2-D)+a)*L*scale)*cosh(((2-D)+a)*(x-L)*scale)
+term3s(x) = A*D*(COS_T*COS_T*(D+1)-1)*exp(-(D+b)*L*scale)*cosh((D+b)*(x-L)*scale)
+term3c(x) = B*(2-D)*(COS_T*COS_T*((2-D)+1)-1)*exp(-((2-D)+b)*L*scale)*cosh(((2-D)+b)*(x-L)*scale)
 term4s(x) = 0#A*(2.0/3.0)*COS_T*D*(D+1)*(2*COS_T*COS_T*(D+2)-3)*exp(-(D+c)*L*scale)*cosh((D+c)*(x-L)*scale)
 term4c(x) = 0#B*(2.0/3.0)*COS_T*(2-D)*((2-D)+1)*(2*COS_T*COS_T*((2-D)+2)-3)*exp(-((2-D)+c)*L*scale)*cosh(((2-D)+c)*(x-L)*scale)
 term5(x) = 0#A*(1.0/6.0)*D*(D+1)*(4*COS_T*COS_T*COS_T*COS_T*(D*D+5*D+6)-12*COS_T*COS_T*(D+2)+3)*exp(-(D+f)*L*scale)*cosh((D+f)*(x-L)*scale)
@@ -46,4 +46,4 @@ set label sprintf("Coefficients\nC_{0} = %e\nC_{1} = %e\nC_{2} = %e\nC_{3} = %e\
 
 
    
-plot [0:5] "correlators.dat" using 1:2:3 with yerrorbars t "Correlation function value", term1s(x) + term1c(x) + term2s(x) + term2c(x) + term3s(x) + term3c(x) + term4s(x) + term4c(x) + term5(x) t "sum", term1s(x) t "exp(-Dst)", term2s(x) t "exp(-t(Ds+1))",  term3s(x) t "exp(-t(Ds+2))", term4s(x) t "exp(-t(Ds+3))", term1c(x) t "exp(-Dct)", term2c(x) t "exp(-t(Dc+1))", term3c(x) t "exp(-t(Dc+2))", term4c(x) t "exp(-t(Dc+3))"#, term5(x) t "exp(-t(D+4))", term6(x) t "exp(-t(D+5))"
+plot [0:5] "correlators.dat" using 1:2:3 with yerrorbars t "Correlation function value", term1s(x) + term1c(x) + term2s(x) + term2c(x) + term3s(x) + term3c(x) + term4s(x) + term4c(x) + term5(x) t "sum", term1s(x) t "exp(-Dst)", term2s(x) t "exp(-t(Ds+1))",  term3s(x) t "exp(-t(Ds+2))", term4s(x) t "exp(-t(Ds+3))", term1c(x) t "exp(-Dct)", term2c(x) t "exp(-t(Dc+1))", term3c(x) t "exp(-t(Dc+2))", term4c(x) t "exp(-t(Dc+3))", term5(x) t "exp(-t(D+4))", term6(x) t "exp(-t(D+5))"

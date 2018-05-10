@@ -28,7 +28,7 @@ METRO_CHECK='false'
 #SR = Short range
 #POW = 1/|x-y|^{2+sigma} type
 #RAD = 1/(cosh(dt) - cos(dtheta))^{1+sigma/2}
-COUPLING_TYPE='POW'
+COUPLING_TYPE='RAD'
 
 CIRCUMFERENCE=8
 TIMESLICES=32
