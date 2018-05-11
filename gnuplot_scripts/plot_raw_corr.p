@@ -42,8 +42,6 @@ term6(x) = 0#A*(1.0/15.0)*COS_T*D*(D+1)*(D+2)*(4*COS_T*COS_T*COS_T*COS_T*(D*D+7*
 
 fit [2:L] term1s(x) + term1c(x) + term2s(x) + term2c(x) + term3s(x) + term3c(x) + term4s(x) + term4c(x) + term5(x) + term6(x) 'correlators.dat' using 1:2:3 via A,B,D
 
-set label sprintf("Coefficients\nC_{0} = %e\nC_{1} = %e\nC_{2} = %e\nC_{3} = %e\n\nC_{/Symbol c}/C_{/Symbol s} = %f\n\n{/Symbol D} = %f\n\na = %f", 0.5*exp(-D*L*scale), D*COS_T*exp(-(D+a)*L*scale), D*(2*D+1)*COS_T*COS_T*exp(-(D+b)*L*scale), (2.0/3.0)*COS_T*D*(D+1)*(2*COS_T*COS_T*(D+2)-3)*exp(-(D+c)*L*scale), B/A, D, scale) at 2.0,0.9
-
-
+set label sprintf("C_{/Symbol s} = %f\nC_{/Symbol s} = %f\n{/Symbol D} = %f\nscale = %f", A,B,D,scale) at 2.0,0.9
    
 plot [0:5] "correlators.dat" using 1:2:3 with yerrorbars t "Correlation function value", term1s(x) + term1c(x) + term2s(x) + term2c(x) + term3s(x) + term3c(x) + term4s(x) + term4c(x) + term5(x) t "sum", term1s(x) t "exp(-Dst)", term2s(x) t "exp(-t(Ds+1))",  term3s(x) t "exp(-t(Ds+2))", term4s(x) t "exp(-t(Ds+3))", term1c(x) t "exp(-Dct)", term2c(x) t "exp(-t(Dc+1))", term3c(x) t "exp(-t(Dc+2))", term4c(x) t "exp(-t(Dc+3))", term5(x) t "exp(-t(D+4))", term6(x) t "exp(-t(D+5))"
