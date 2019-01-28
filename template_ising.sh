@@ -24,7 +24,8 @@ CLUSTER_ARCH='CPU'
 #SR = Short range
 #POW = 1/|x-y|^{2+sigma} type
 #RAD = 1/(cosh(dt) - cos(dtheta))^{1+sigma/2}
-COUPLING_TYPE='RAD'
+#COUPLING_TYPE='RAD'
+COUPLING_TYPE='SR'
 
 #Ising J
 J=0.4406867935

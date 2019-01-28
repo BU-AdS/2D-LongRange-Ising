@@ -11,7 +11,7 @@
 #include "cg.h" 
 #include "util.h"
 #include "hyp_util.h"
-#include "gsl_fit.h"
+//#include "gsl_fit.h"
 
 using namespace std;
 
@@ -431,9 +431,9 @@ void latticeScaling(vector<Vertex> &NodeList, Param& p){
 
   double* c = new double[2];
   double* cov_ssq = new double[4];
-  gsl_fit_linear(xi_invariant, 1, analytic_prop, 1, p.S1*p.Lt/2, &c[0], &c[1],
+/*  gsl_fit_linear(xi_invariant, 1, analytic_prop, 1, p.S1*p.Lt/2, &c[0], &c[1],
 		 &cov_ssq[0], &cov_ssq[1], &cov_ssq[2], &cov_ssq[3]);
-
+*/
   cout<<"Target data"<<endl;
   cout<<"GSL data: C="<<c[0]<<" M="<<c[1]<<endl;
   cout<<"          covar00 = "<<cov_ssq[0]<<endl;
@@ -529,8 +529,8 @@ void latticeScaling(vector<Vertex> &NodeList, Param& p){
     }
   
     //Extract linear fit data from log-log plot.
-    gsl_fit_linear(xi_invariant, 1, latt_prop, 1, p.S1*p.Lt/2, &c[0], &c[1],
-		   &cov_ssq[0], &cov_ssq[1], &cov_ssq[2], &cov_ssq[3]);
+ //   gsl_fit_linear(xi_invariant, 1, latt_prop, 1, p.S1*p.Lt/2, &c[0], &c[1],
+//		   &cov_ssq[0], &cov_ssq[1], &cov_ssq[2], &cov_ssq[3]);
     
     cout<<"At iteration "<<iter<<endl;
     cout<<"GSL data: C="<<c[0]<<" M="<<c[1]<<endl;

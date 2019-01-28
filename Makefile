@@ -2,28 +2,28 @@
 EIGEN=/usr/include/eigen3
 
 #Your path to GSL
-GSL=/scratch/CPviolator/gsl-2.4
+GSL=/share/pkg/gsl/2.3/install
 GSL_LIBS= -lgsl -lgslcblas -lm
 
 #Your path to CUDA
-CUDA=/usr/local/cuda-9.0
+CUDA=/share/pkg/cuda/8.0/install
 CUDA_LIBS= -lcuda -lcurand -lcudart 
 
 
 TARGET	 = adsrun
 
-SOURCES  = main.cpp util.cpp cg.cpp hyp_util.cpp graph.cpp data_io.cpp data_proc.cpp mcPhiFourth2D.cpp phiFourth2D.cpp mcIsing2D.cpp gpuMC.cu
-OBJS     = main.o util.o cg.o hyp_util.o graph.o data_io.o data_proc.o mcPhiFourth2D.o phiFourth2D.o mcIsing2D.o ising2D.o gpuMC.o
-INCLUDES = util.h graph.h cg.h eigen.h mcPhiFourth2D.h phiFourth2D.h mcIsing2D.h ising2D.h monte_carlo_ads_local.h gpuMC.cuh
+SOURCES  = main.cpp util.cpp cg.cpp hyp_util.cpp graph.cpp data_io.cpp data_proc.cpp mcPhiFourth2D.cpp phiFourth2D.cpp mcIsing2D.cpp #gpuMC.cu
+OBJS     = main.o util.o cg.o hyp_util.o graph.o data_io.o data_proc.o mcPhiFourth2D.o phiFourth2D.o mcIsing2D.o ising2D.o #gpuMC.o
+INCLUDES = util.h graph.h cg.h eigen.h mcPhiFourth2D.h phiFourth2D.h mcIsing2D.h ising2D.h monte_carlo_ads_local.h #gpuMC.cuh
 
-LIBS= -L${GSL} ${GSL_LIBS} -L${CUDA}/lib64 ${CUDA_LIBS}
+LIBS= -L${GSL} ${GSL_LIBS} #-L${CUDA}/lib64 ${CUDA_LIBS}
 
 ERRS=-Wall -Wno-sign-compare -Wno-int-in-bool-context -Wno-unused-but-set-variable -Wno-unknown-warning-option
 
 CXX = g++
 OMP_FLAG= -DUSE_OMP -fopenmp
-GPU_FLAG= -DUSE_GPU
-CUDA_9= -DCUDA_9
+#GPU_FLAG= -DUSE_GPU
+#CUDA_9= -DCUDA_9
 CXXFLAGS = -O3 -g -Wall -std=c++11  -I. -I${EIGEN} -I${GSL} -I${CUDA}/include ${ERRS} ${OMP_FLAG} ${GPU_FLAG} 
 
 #-maxrregcount=38
