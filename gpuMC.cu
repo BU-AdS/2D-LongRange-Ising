@@ -219,9 +219,9 @@ __global__ void init(unsigned int seed, curandState_t *states) {
 
   int tid = blockDim.x*blockIdx.x + threadIdx.x;
   // initialize the state 
-  curand_init(seed,       // the seed 
-	      tid,
-	      20,          // How much extra in the sequence per call
+  curand_init(seed,       // The seed 
+	      tid,        // Sequence
+	      0,          // How much extra in the sequence per call
 	      &states[tid]);
 }
 
@@ -375,6 +375,7 @@ void Ising2D::GPU_wolffUpdateILR(Param p, int i, int iter) {
     }
     //printf("%d \n", stackSize);
     if(internalCheck) {
+
       //Get some random numbers 
       randoms<<<vol/sze, sze>>>(states, gpu_rands);
       

@@ -19,11 +19,11 @@ THEORY='phi4'
 CLUSTER='WOLFF'
 
 #GPU/CPU
-CLUSTER_ARCH='CPU'
-METRO_ARCH='CPU'
+CLUSTER_ARCH='GPU'
+METRO_ARCH='GPU'
 
 #Perform the Metropolis step on the CPU with the same random numbers used on the GPU.
-METRO_CHECK='false'
+METRO_CHECK='true'
 
 #SR = Short range
 #POW = 1/|x-y|^{2+sigma} type
