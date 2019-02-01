@@ -7,10 +7,6 @@ export OMP_NUM_THREADS=8
 #v=verbose,q=quiet
 VERBOSITY='q'
 
-#2D  = rectangular
-#ADS = AdS_{2+1}
-LATTICE='2D'
-
 #phi4 or Ising
 THEORY='phi4'
 
@@ -19,8 +15,8 @@ THEORY='phi4'
 CLUSTER='WOLFF'
 
 #GPU/CPU
-CLUSTER_ARCH='GPU'
-METRO_ARCH='GPU'
+CLUSTER_ARCH='CPU'
+METRO_ARCH='CPU'
 
 #Perform the Metropolis step on the CPU with the same random numbers used on the GPU.
 METRO_CHECK='true'
@@ -46,7 +42,7 @@ MUSQR=-1.275
 LAMBDA=1.0
 SIGMA=10.0
 
-COMMAND="./adsrun --verbosity ${VERBOSITY} --theory ${THEORY} --latType ${LATTICE} 
+COMMAND="./long_range --verbosity ${VERBOSITY} --theory ${THEORY}
 		  --couplingType ${COUPLING_TYPE} --Lt ${TIMESLICES} 
 		  --S1 ${CIRCUMFERENCE} --nTherm ${N_THERM} --nMeas ${N_MEAS} 
 		  --nSkip ${N_SKIP} --nCluster ${N_CLUSTER}

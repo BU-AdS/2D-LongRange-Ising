@@ -7,10 +7,6 @@ export OMP_NUM_THREADS=8
 #v=verbose,q=quiet
 VERBOSITY='q'
 
-#2D  = rectangular
-#ADS = AdS_{2+1}
-LATTICE='2D'
-
 #phi4 or Ising
 THEORY='ISING'
 
@@ -42,12 +38,12 @@ N_SKIP=50
 N_JKBLK=100
 N_WRITE=100
 
-COMMAND="./adsrun --verbosity ${VERBOSITY} --theory ${THEORY} --latType ${LATTICE} 
-		  --couplingType ${COUPLING_TYPE} --J ${J} --h ${H}
-		  --Lt ${TIMESLICES} --S1 ${CIRCUMFERENCE}
-                  --nTherm ${N_THERM} --nMeas ${N_MEAS} 
-      		  --nWrite ${N_WRITE} --nJkBlock ${N_JKBLK} --nSkip ${N_SKIP} 
-       		  --sigma ${SIGMA} --clusterAlg ${CLUSTER} --clusterArch ${CLUSTER_ARCH} "
+COMMAND="./long_range --verbosity ${VERBOSITY} --theory ${THEORY} 
+		      --couplingType ${COUPLING_TYPE} --J ${J} --h ${H}
+		      --Lt ${TIMESLICES} --S1 ${CIRCUMFERENCE}
+                      --nTherm ${N_THERM} --nMeas ${N_MEAS} 
+      		      --nWrite ${N_WRITE} --nJkBlock ${N_JKBLK} --nSkip ${N_SKIP} 
+       		      --sigma ${SIGMA} --clusterAlg ${CLUSTER} --clusterArch ${CLUSTER_ARCH} "
 
 echo ""
 echo "Command given:"

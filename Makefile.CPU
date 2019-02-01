@@ -1,0 +1,50 @@
+TARGET	 = long_range
+
+SOURCES  = main.cpp util.cpp data_io.cpp data_proc.cpp mcPhiFourth2D.cpp phiFourth2D.cpp mcIsing2D.cpp 
+OBJS     = main.o util.o data_io.o data_proc.o mcPhiFourth2D.o phiFourth2D.o mcIsing2D.o ising2D.o 
+INCLUDES = util.h eigen.h mcPhiFourth2D.h phiFourth2D.h mcIsing2D.h ising2D.h 
+
+ERRS=-Wall -Wno-sign-compare -Wno-int-in-bool-context -Wno-unused-but-set-variable -Wno-unknown-warning-option
+
+CXX = g++
+OMP_FLAG= -DUSE_OMP -fopenmp
+CXXFLAGS = -O3 -g -Wall -std=c++11  -I. ${ERRS} ${OMP_FLAG} 
+
+#============================================================
+
+all: $(TARGET)
+
+${TARGET}: ${OBJS}
+	$(CXX) $(CXXFLAGS) -o $(TARGET) $(OBJS) $(LIBS)
+
+main.o: main.cpp $(INCLUDES) 
+	${CXX} ${CXXFLAGS} -c main.cpp
+
+util.o: util.cpp $(INCLUDES) 
+	${CXX} ${CXXFLAGS} -c util.cpp
+
+data_io.o: data_io.cpp $(INCLUDES) 
+	${CXX} ${CXXFLAGS} -c data_io.cpp
+
+data_proc.o: data_proc.cpp $(INCLUDES) 
+	${CXX} ${CXXFLAGS} -c data_proc.cpp
+
+ising2D.o: ising2D.cpp $(INCLUDES) 
+	${CXX} ${CXXFLAGS} -c ising2D.cpp
+
+mcIsing2D.o: mcIsing2D.cpp $(INCLUDES) 
+	${CXX} ${CXXFLAGS} -c mcIsing2D.cpp
+
+mcPhiFourth2D.o: mcPhiFourth2D.cpp $(INCLUDES) 
+	${CXX} ${CXXFLAGS} -c mcPhiFourth2D.cpp
+
+phiFourth2D.o: phiFourth2D.cpp $(INCLUDES) 
+	${CXX} ${CXXFLAGS} -c phiFourth2D.cpp
+
+ALL_SOURCES = Makefile $(SOURCES) $(INCLUDES) 
+
+clean:
+	rm -f $(TARGET) $(OBJS) core *.~*~
+
+tar: $(ALL_SOURCES) $(NOTES)
+	tar cvf $(TARGET).tar $(ALL_SOURCES) $(NOTES)

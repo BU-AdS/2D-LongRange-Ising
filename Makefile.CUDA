@@ -1,26 +1,17 @@
-#Your path to Eigen
-EIGEN=/share/pkg/eigen/3.3.4/install/include/eigen3
-
-#Your path to GSL
-GSL=/share/pkg/gsl/2.3/install
-GSL_LIBS= -lgsl -lgslcblas -lm
-
 #Your path to CUDA
 CUDA=${CUDA_ROOT}
 CUDA_LIBS= -lcurand -lcudart 
 
-TARGET	 = adsrun
+TARGET	 = long_range
 
-SOURCES  = main.cpp util.cpp cg.cpp hyp_util.cpp graph.cpp data_io.cpp data_proc.cpp mcPhiFourth2D.cpp phiFourth2D.cpp mcIsing2D.cpp 
-OBJS     = main.o util.o cg.o hyp_util.o graph.o data_io.o data_proc.o mcPhiFourth2D.o phiFourth2D.o mcIsing2D.o ising2D.o 
-INCLUDES = util.h graph.h cg.h eigen.h mcPhiFourth2D.h phiFourth2D.h mcIsing2D.h ising2D.h monte_carlo_ads_local.h 
-
-LIBS= -L${GSL} ${GSL_LIBS}
+SOURCES  = main.cpp util.cpp data_io.cpp data_proc.cpp mcPhiFourth2D.cpp phiFourth2D.cpp mcIsing2D.cpp 
+OBJS     = main.o util.o data_io.o data_proc.o mcPhiFourth2D.o phiFourth2D.o mcIsing2D.o ising2D.o 
+INCLUDES = util.h eigen.h mcPhiFourth2D.h phiFourth2D.h mcIsing2D.h ising2D.h 
 
 SOURCES+=gpuMC.cu
 OBJS+=gpuMC.o
 INCLUDES+=gpuMC.cuh
-LIBS+=-L${CUDA}/lib64 ${CUDA_LIBS} -L${CUDA}/lib64/stubs -lcuda
+LIBS=-L${CUDA}/lib64 ${CUDA_LIBS} -L${CUDA}/lib64/stubs -lcuda
 
 ERRS=-Wall -Wno-sign-compare -Wno-int-in-bool-context -Wno-unused-but-set-variable -Wno-unknown-warning-option
 
@@ -28,11 +19,11 @@ CXX = g++
 OMP_FLAG= -DUSE_OMP -fopenmp
 GPU_FLAG= -DUSE_GPU
 CUDA_9 = -DCUDA_9
-CXXFLAGS = -O3 -g -Wall -std=c++11  -I. -I${EIGEN} -I${GSL} ${ERRS} ${OMP_FLAG} ${GPU_FLAG} -I${CUDA}/include 
+CXXFLAGS = -O3 -g -Wall -std=c++11  -I. -I${EIGEN} ${ERRS} ${OMP_FLAG} ${GPU_FLAG} -I${CUDA}/include 
 
 #-maxrregcount=38
 NVCC = ${CUDA}/bin/nvcc 
-NVCCFLAGS = -O3 -std=c++11  -I. -I${EIGEN} -I${GSL} -I${CUDA}/include ${GPU_FLAG} -arch compute_60
+NVCCFLAGS = -O3 -std=c++11  -I. -I${EIGEN} -I${CUDA}/include ${GPU_FLAG} -arch compute_60
 
 #============================================================
 
@@ -44,23 +35,14 @@ ${TARGET}: ${OBJS}
 main.o: main.cpp $(INCLUDES) 
 	${CXX} ${CXXFLAGS} -c main.cpp
 
-graph.o: graph.cpp $(INCLUDES) 
-	${CXX} ${CXXFLAGS} -c graph.cpp
-
 util.o: util.cpp $(INCLUDES) 
 	${CXX} ${CXXFLAGS} -c util.cpp
-
-hyp_util.o: hyp_util.cpp $(INCLUDES) 
-	${CXX} ${CXXFLAGS} -c hyp_util.cpp
 
 data_io.o: data_io.cpp $(INCLUDES) 
 	${CXX} ${CXXFLAGS} -c data_io.cpp
 
 data_proc.o: data_proc.cpp $(INCLUDES) 
 	${CXX} ${CXXFLAGS} -c data_proc.cpp
-
-cg.o: cg.cpp $(INCLUDES) 
-	${CXX} ${CXXFLAGS} -c cg.cpp
 
 ising2D.o: ising2D.cpp $(INCLUDES) 
 	${CXX} ${CXXFLAGS} -c ising2D.cpp
@@ -73,9 +55,6 @@ mcPhiFourth2D.o: mcPhiFourth2D.cpp $(INCLUDES)
 
 phiFourth2D.o: phiFourth2D.cpp $(INCLUDES) 
 	${CXX} ${CXXFLAGS} -c phiFourth2D.cpp
-
-monte_carlo_ads_local.o: monte_carlo_ads_local.cpp $(INCLUDES) 
-	${CXX} ${CXXFLAGS} -c monte_carlo_ads_local.cpp 
 
 gpuMC.o: gpuMC.cu $(INCLUDES) 
 	${NVCC} ${NVCCFLAGS} -c gpuMC.cu
