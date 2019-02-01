@@ -9,7 +9,6 @@
 #include <unistd.h>
 
 #include "util.h"
-#include "hyp_util.h"
 #include "data_proc.h"
 
 using namespace std;

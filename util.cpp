@@ -8,7 +8,6 @@
 #include <unistd.h>
 
 #include "util.h"
-#include "hyp_util.h"
 
 using namespace std;
 
@@ -21,7 +20,6 @@ void Param::usage(char **argv) {
 
   // The user is advised to study these parameters and set them accordingly.
   //-----------------------------------------------------------------------
-  //printf("--latType <2D, AdS>              A 2D lattice is a periodic, Euclidean lattice. Use the --Lt <n> and --S1 <m> options to set the extents.\n");
   printf("--theory <phi4, ising>           Perform calculations for either the Ising model, or phi4.\n");  
   printf("--couplingType <SR, POW, RAD>    Set the coupling between the lattice sites. For SR the coupling is nearest neighbour.\n");
   printf("                                 For POW the coupling is of the form |x - y|^{-(d+sigma)}. For RAD the coupling is of the form (cosh(dt) - cos(dtheta))^{-(d+sigma)/2}\n");
