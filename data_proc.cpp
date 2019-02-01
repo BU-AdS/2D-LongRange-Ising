@@ -8,7 +8,6 @@
 #include <unistd.h>
 
 #include "util.h"
-#include "hyp_util.h"
 #include "data_proc.h"
 #include "data_io.h"
 #include "mcPhiFourth2D.h"

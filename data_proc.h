@@ -6,15 +6,7 @@
 //-------------------------------------
 
 void correlators(double **ind_corr, int meas, double *run_corr, bool dir,
-		 std::vector<Vertex> NodeList, 
-		 double avePhi, Param p);
-
-void correlators(double **ind_corr, int meas, double *run_corr, bool dir,
 		 double *phi, double avePhi, Param p);
-
-void correlatorsImp(double **ind_corr, int meas, double *run_corr, 
-		    bool dir, std::vector<Vertex> NodeList, 
-		    double avePhi, int *s, Param p);
 
 void correlatorsImp(double **ind_corr, int meas, double *run_corr, 
 		    bool dir, double *phi, double avePhi, int *s, Param p);
