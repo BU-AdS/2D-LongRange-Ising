@@ -9,6 +9,7 @@ execute = False
 J0 = 0.4406867935
 
 Jlist = np.linspace(0.9, 1.1, 11)*J0
+Jlist = np.linspace(1, 1, 1)*J0
 
 print(Jlist)
 
@@ -18,9 +19,9 @@ for J in Jlist:
     if not os.path.exists(dname):
         os.makedirs(dname)
 
-    execname = "{}/adsrun".format(dname)
-    copyfile("adsrun", execname)
-    os.chmod(execname, 0o755)
+    execname = "long_range"
+    copyfile(execname, "{}/{}".format(dname,execname))
+    os.chmod("{}/{}".format(dname,execname), 0o755)
 
     fname = "{}/template_ising.sh".format(dname)
     sys.stdout = open(fname,'wt')
@@ -29,7 +30,6 @@ for J in Jlist:
     "#!/bin/bash\n"\
     "export OMP_NUM_THREADS=4\n"\
     "VERBOSITY='q'\n"
-    "LATTICE='2D'\n"\
     "THEORY='ISING'\n"\
     "CLUSTER='WOLFF'\n"\
     "CLUSTER_ARCH='CPU'\n"\
@@ -44,7 +44,8 @@ for J in Jlist:
     "N_SKIP=50\n"\
     "N_JKBLK=100\n"\
     "N_WRITE=100\n"\
-    "COMMAND=\"./adsrun --verbosity ${VERBOSITY} --theory ${THEORY} --latType ${LATTICE} --couplingType ${COUPLING_TYPE} --J ${J} --h ${H} --Lt ${TIMESLICES} --S1 ${CIRCUMFERENCE} --nTherm ${N_THERM} --nMeas ${N_MEAS} --nWrite ${N_WRITE} --nJkBlock ${N_JKBLK} --nSkip ${N_SKIP} --sigma ${SIGMA} --clusterAlg ${CLUSTER} --clusterArch ${CLUSTER_ARCH} \"\n"\
+    "COMMAND=\"./"+execname+\
+    " --verbosity ${VERBOSITY} --theory ${THEORY} --couplingType ${COUPLING_TYPE} --J ${J} --h ${H} --Lt ${TIMESLICES} --S1 ${CIRCUMFERENCE} --nTherm ${N_THERM} --nMeas ${N_MEAS} --nWrite ${N_WRITE} --nJkBlock ${N_JKBLK} --nSkip ${N_SKIP} --sigma ${SIGMA} --clusterAlg ${CLUSTER} --clusterArch ${CLUSTER_ARCH} \"\n"\
     "echo \"\"\n"\
     "echo \"Command given:\"\n"\
     "echo ${COMMAND}\n"\

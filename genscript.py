@@ -1,4 +1,6 @@
 import sys
+import numpy as np
+import os
 
 maxhours = 120
 maxmem = 125
@@ -7,35 +9,30 @@ maxmem = 125
 J0 = 0.4406867935
 
 Jlist = np.linspace(0.9, 1.1, 11)*J0
+Jlist = np.linspace(1, 1, 1)*J0
 
 for J in Jlist:
     dname = "J={}".format(J)
-    fname = "{}/template_ising.sh".format(dname)
-    sys.stdout = open(fname,'wt')
+    fname = "template_ising.sh"
 
- 
+    scriptname = "{}/script.sh".format(dname)
+    f = open(scriptname,'wt')
 
-fname = "script.sh"
+    jobname = "J={}".format(J)
 
+    f.write("#!/bin/bash -l\n\n")
+    f.write("#$ -l h_rt={}:00:00\n".format(maxhours))
+    f.write("#$ -l mem_total={}G\n".format(maxmem))
+    f.write("#$ -m a\n")
+    f.write("#$ -j y\n")
+    #f.write("#$ -pe omp 2\n")
+    f.write("#$ -N {}\n\n".format(jobname))
 
-jobname = "k={},L={},ET={}".format(k,L,ET)
+    f.write("module load gsl\n")
 
-f = open(fname, "w")
+    # f.write("{}/{}\n\n".format(dname,fname))
+    f.write("./{}\n\n".format(fname))
+    f.close()
 
-f.write("#!/bin/bash -l\n\n")
-f.write("#$ -l h_rt={}:00:00\n".format(maxhours))
-f.write("#$ -l mem_total={}G\n".format(maxmem))
-f.write("#$ -m a\n")
-f.write("#$ -j y\n")
-#f.write("#$ -pe omp 2\n")
-f.write("#$ -N {}\n\n".format(jobname))
-
-f.write("module load anaconda3\n")
-f.write("source activate py3\n\n")
-
-f.write("python Phi4/eigsvsG.py {} {} {}\n\n".format(k, L, ET))
-
-f.close()
-
-
+    os.chmod(scriptname, 0o755)
 
