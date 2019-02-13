@@ -35,10 +35,11 @@ for J in Jlist:
     f.write("module load gcc/7.2.0\n")
 
     # f.write("{}/{}\n\n".format(dname,fname))
-    f.write("./{}\n\n".format(fname))
+    f.write("./{} 1>/dev/null\n\n".format(fname))
     f.close()
 
     os.chmod(scriptname, 0o755)
 
     if execute:
-	    subprocess.run(["qsub", scriptname])
+	    os.chdir(dname)
+	    subprocess.run(["qsub", "script.sh"])
