@@ -1,6 +1,9 @@
 import sys
 import numpy as np
 import os
+import subprocess
+
+execute = True
 
 maxhours = 120
 maxmem = 125
@@ -29,6 +32,7 @@ for J in Jlist:
     f.write("#$ -N {}\n\n".format(jobname))
 
     f.write("module load gsl\n")
+    f.write("module load gcc/7.2.0\n")
 
     # f.write("{}/{}\n\n".format(dname,fname))
     f.write("./{}\n\n".format(fname))
@@ -36,3 +40,5 @@ for J in Jlist:
 
     os.chmod(scriptname, 0o755)
 
+    if execute:
+	    subprocess.run(["qsub", scriptname])

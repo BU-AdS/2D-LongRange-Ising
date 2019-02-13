@@ -5,6 +5,8 @@ from shutil import copyfile
 
 execute = False
 
+nthreads = 1
+
 # Critical temperature for infinite volume system
 J0 = 0.4406867935
 
@@ -28,7 +30,7 @@ for J in Jlist:
 
     print(
     "#!/bin/bash\n"\
-    "export OMP_NUM_THREADS=4\n"\
+    "export OMP_NUM_THREADS="+str(nthreads)+"\n"\
     "VERBOSITY='q'\n"
     "THEORY='ISING'\n"\
     "CLUSTER='WOLFF'\n"\
