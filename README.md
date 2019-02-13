@@ -74,6 +74,8 @@ script to run the executable, as we have shown in the example file
 ## Dependencies
 
 For running on the BU cluster, load the following modules
+module load gsl
+module load gcc/7.2.0
 
 ## Contributing
 
