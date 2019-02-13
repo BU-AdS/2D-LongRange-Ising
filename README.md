@@ -71,6 +71,10 @@ the command line to pass arguments, we suggest you make use of a shell
 script to run the executable, as we have shown in the example file 
 `example.sh`.
 
+## Dependencies
+
+For running on the BU cluster, load the following modules
+
 ## Contributing
 
 Please create a separate git branch for your contribution, and it will be
