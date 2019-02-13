@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export OMP_NUM_THREADS=8
+export OMP_NUM_THREADS=4
 
 #Options are listed as comments above the variable.
 
@@ -20,7 +20,8 @@ CLUSTER_ARCH='CPU'
 #SR = Short range
 #POW = 1/|x-y|^{2+sigma} type
 #RAD = 1/(cosh(dt) - cos(dtheta))^{1+sigma/2}
-COUPLING_TYPE='RAD'
+#COUPLING_TYPE='RAD'
+COUPLING_TYPE='SR'
 
 #Ising J
 J=0.4406867935
@@ -30,8 +31,9 @@ H=0.0
 
 SIGMA=1.5
 
-CIRCUMFERENCE=16
+CIRCUMFERENCE=64
 TIMESLICES=64
+
 N_THERM=500
 N_MEAS=10000
 N_SKIP=50
