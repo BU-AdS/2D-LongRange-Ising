@@ -37,9 +37,11 @@ void writeObservables(double **ind_corr, double *run_corr, int *norm_corr,
     jackknife(ind_corr, run_corr, jk_err, p.n_jkblock, idx, Lt/2+1, dth, p);
     
     sprintf(fname, "correlators_dth%d.dat", dth);    
+// XXX Does this overwrite the file?
     FILE *fp = fopen(fname, "w"); 
     for(int i=0; i<Lt/2+1; i++) {
       
+// XXX What is norm?
       fprintf(fp, "%d %.15e %.15e\n", i, run_corr[dth + i*x_len]*norm/(norm_corr[dth + i*x_len]),
 	      jk_err[i]*norm/(norm_corr[dth + i*x_len]));
       
@@ -114,7 +116,7 @@ void writeObservables(double **ind_corr, double *run_corr, int *norm_corr,
 	  obs.Binder[idx-1], jkErrBinder);
   fclose(fp);
 
-  /*
+  
   //Dump raw observable data for any further offline analysis
   ofstream file_obs;
   file_obs.open("observables.dat", ios_base::app);
@@ -125,13 +127,16 @@ void writeObservables(double **ind_corr, double *run_corr, int *norm_corr,
     std::cout<<std::scientific;
     
     meas = idx - 10 + i;
-    file_obs<<meas<<" "<<p.sigma<<" "<<p.J<<" "<<obs.E_arr[meas]<<" ";
-    file_obs<<obs.E2_arr[meas]<<" "<<obs.PhiAb_arr[meas]<<" "<<obs.Phi_arr[meas]<<" ";
-    file_obs<<obs.Phi2_arr[meas]<<" "<<obs.Phi4_arr[meas]<<" "<<obs.Suscep[meas]<<" ";
-    file_obs<<obs.SpecHeat[meas]<<" "<<obs.Binder[meas]<<endl;
+    //file_obs<<meas<<" "<<p.sigma<<" "<<p.J<<" "<<obs.E_arr[meas]<<" ";
+    //file_obs<<obs.E2_arr[meas]<<" "<<obs.PhiAb_arr[meas]<<" "<<obs.Phi_arr[meas]<<" ";
+    //file_obs<<obs.Phi2_arr[meas]<<" "<<obs.Phi4_arr[meas]<<" "<<obs.Suscep[meas]<<" ";
+    //file_obs<<obs.SpecHeat[meas]<<" "<<obs.Binder[meas]<<endl;
+    //
+// Save only the phi measurements
+    file_obs<<meas<<" "<<obs.Phi_arr[meas]<<endl;
   }
   file_obs.close();  
-  */
+  
 }
 
 void writePhi3(double **ind_corr_phi_phi3, double *run_corr_phi_phi3,

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export OMP_NUM_THREADS=8
+export OMP_NUM_THREADS=4
 
 #Options are listed as comments above the variable.
 
@@ -35,8 +35,9 @@ H=0.0
 
 SIGMA=1.5
 
-CIRCUMFERENCE=16
+CIRCUMFERENCE=64
 TIMESLICES=64
+
 N_THERM=500
 N_MEAS=10000
 N_SKIP=50
