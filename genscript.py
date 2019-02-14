@@ -12,7 +12,7 @@ maxmem = 125
 J0 = 0.4406867935
 
 Jlist = np.linspace(0.9, 1.1, 11)*J0
-Jlist = np.linspace(1, 1, 1)*J0
+# Jlist = np.linspace(1, 1, 1)*J0
 
 for J in Jlist:
     dname = "J={}".format(J)
@@ -43,3 +43,4 @@ for J in Jlist:
     if execute:
 	    os.chdir(dname)
 	    subprocess.run(["qsub", "script.sh"])
+	    os.chdir('..')
