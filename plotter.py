@@ -3,44 +3,28 @@ import numpy as np
 from numpy import array, log, pi, exp, sqrt, e
 from scipy.optimize import curve_fit
 from sys import exit
+from util import *
+import os
 
 def fitfun(x, a, b, c):
     return a*x**(-b)+c
 
 fname = "correlators_dth0.dat"
 
-with open(fname, 'r') as f:
-    corr = array([float(x.split()[1]) for x in f.readlines()])
+for J in Jlist[::2]:
+    dname = "J={:.8f}".format(J)
+    os.chdir(dname)
 
-print(corr)
-n = 10
+    with open(fname, 'r') as f:
+        corr = array([float(x.split()[1]) for x in f.readlines()])
+        x = range(len(corr))
 
-x = range(1,len(corr)+1)
-plt.loglog(x, corr, linestyle='--', marker='o')
+        plt.loglog(x, corr, linestyle='--', marker='o', label=dname)
 
+    os.chdir('..')
 
-plt.xlabel("log r")
-plt.ylabel("log <s(r) s(0)>")
+plt.xlabel("r")
+plt.ylabel("<s(r) s(0)>")
+plt.xlim(min(x)-0.1,max(x)+0.1)
+plt.legend(loc=3)
 plt.savefig("corr.pdf")
-
-exit(0)
-
-xlog = log(range(1,corr.size+1))
-ylog = log(corr)
-m,b = np.polyfit(xlog[:n], ylog[:n], 1)
-
-
-popt, _ = curve_fit(fitfun, x, corr)
-print(popt)
-
-plt.loglog(x, corr-popt[2], linestyle='--', marker='o')
-
-xs = np.linspace(min(x), max(x), 100)
-plt.loglog(xs, fitfun(xs, *popt)-popt[2])
-
-# plt.loglog(corr, basex=e, basey=e, linestyle='--', marker='o')
-
-# plt.plot(x, y)
-# plt.plot(xs, m*xs+b, label='fit')
-
-
