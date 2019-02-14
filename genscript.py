@@ -2,6 +2,7 @@ import sys
 import numpy as np
 import os
 import subprocess
+from util import *
 
 execute = True
 

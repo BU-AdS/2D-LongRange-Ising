@@ -10,5 +10,5 @@ sideList = [8,16,32,64,128]
 
 # Directory name based on value of J and Box size
 def dirname(J, side):
-    return "J={:.8f}_C={}".format(J,circ)
+    return "J={:.8f}_C={}".format(J,side)
 
