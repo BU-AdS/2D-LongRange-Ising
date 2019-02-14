@@ -13,6 +13,7 @@
 
 using namespace std;
 
+// XXX Does idx represent the number of samples before the current one?
 void writeObservables(double **ind_corr, double *run_corr, int *norm_corr,
 		      double **ind_ft_corr, double *run_ft_corr,
 		      int idx, observables obs, Param p){
@@ -104,12 +105,18 @@ void writeObservables(double **ind_corr, double *run_corr, int *norm_corr,
   sprintf(fname, "JKobservables.dat");
   FILE *fp = fopen(fname, "a"); 
 
+  // Normalize Monte Carlo average by number of samples
+  // XXX Check
+  norm = 1.0/idx;
+
   fprintf(fp, "%d %.15e ", idx, p.sigma);
   if(p.theory_type == ISING) fprintf(fp, "%.15e ", p.J);
   if(p.theory_type == PHI4) fprintf(fp, "%.15e %.15e ", p.musqr, p.lambda);
   fprintf(fp, "%.15e %.15e %.15e %.15e %.15e %.15e\n",
 	  obs.SpecHeat[idx-1], jkErrSpecHeat,
 	  obs.Suscep[idx-1], jkErrSuscep, 
+// Include estimate for the average magnetization XXX Check
+      obs.avePhi*norm,
 	  obs.Binder[idx-1], jkErrBinder);
   fclose(fp);
 
