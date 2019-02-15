@@ -2,20 +2,46 @@ from matplotlib import pyplot as plt
 import numpy as np
 from numpy import array, log, pi, exp, sqrt, e
 from scipy.optimize import curve_fit
-from sys import exit
+from sys import exit, argv
+from paramplots import *
+from util import *
+import sys, os
 
-fname = "observables.dat"
+form = "png"
 
-with open(fname, 'r') as f:
-    mag = array([list(map(float, x.split())) for x in f.readlines()])
+fname = "JKobservables.dat"
+miny = 1
 
-t = mag[:,0]
-avemag = np.cumsum(mag[:,1]) / np.array(range(1,t.size+1))
+if len(sys.argv)<2:
+    print("{} <C>".format(argv[0]))
+    exit(0)
 
-print("Average magnetization: {}".format(avemag[-1]))
+C = int(argv[1])
 
-plt.plot(t, avemag, linestyle='--', marker='o')
+for J in Jlist[1::2]:
+    dname = "J={:.8f}_C={}_v2".format(J,C)
+    os.chdir(dname)
 
-plt.xlabel("t")
-plt.ylabel("<s>")
-plt.savefig("mag.pdf")
+    with open(fname, 'r') as f:
+        t = array([int(line.split()[0]) for line in f.readlines()])
+
+    print(t)
+
+    with open(fname, 'r') as f:
+        # FIXME
+        mag = array([float(line.split()[-2]) for line in f.readlines()])
+
+    print(mag)
+
+    os.chdir('..')
+
+    avemag = np.cumsum(mag) / np.array(range(1,len(mag)+1))
+
+    print("J={}, Average magnetization: {}".format(J, avemag[-1]))
+
+    plt.plot(t, avemag, linestyle='--', marker='o')
+
+    plt.xlabel(r"$t$")
+    plt.ylabel(r"$\langle s\rangle$")
+    plt.savefig("mag_J={}_C={}.png".format(J,C))
+    plt.clf()

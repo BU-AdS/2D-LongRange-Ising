@@ -112,7 +112,7 @@ void writeObservables(double **ind_corr, double *run_corr, int *norm_corr,
   fprintf(fp, "%d %.15e ", idx, p.sigma);
   if(p.theory_type == ISING) fprintf(fp, "%.15e ", p.J);
   if(p.theory_type == PHI4) fprintf(fp, "%.15e %.15e ", p.musqr, p.lambda);
-  fprintf(fp, "%.15e %.15e %.15e %.15e %.15e %.15e\n",
+  fprintf(fp, "%.15e %.15e %.15e %.15e %.15e %.15e %.15e\n",
 	  obs.SpecHeat[idx-1], jkErrSpecHeat,
 	  obs.Suscep[idx-1], jkErrSuscep, 
 // Include estimate for the average magnetization XXX Check

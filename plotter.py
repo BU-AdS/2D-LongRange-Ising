@@ -36,7 +36,8 @@ for J in Jlist[1::2]:
             pass
         last = line
         # Magnetization is third to last object according to data_io.cpp
-        mag = float(last.split()[-3])
+        # FIXME
+        mag = float(last.split()[-2])
 
     y = corr-mag**2
 
