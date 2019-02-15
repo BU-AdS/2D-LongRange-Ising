@@ -6,6 +6,7 @@ from sys import exit, argv
 from util import *
 import os
 import sys
+from paramplots import *
 
 form = "png"
 
@@ -20,7 +21,7 @@ if len(sys.argv)<2:
 C = int(argv[1])
 
 
-for J in Jlist[::2]:
+for J in Jlist[1::2]:
     dname = "J={:.8f}_C={}_v2".format(J,C)
     os.chdir(dname)
 
@@ -38,18 +39,24 @@ for J in Jlist[::2]:
         mag = float(last.split()[-3])
 
     y = corr-mag**2
-    plt.loglog(x, y, linestyle='--', marker='o', label=dname)
-    plt.loglog(x, corr)
+
+    print("J={}".format(J))
+    print("corr={}".format(corr))
+    print("y={}".format(y))
+
+    c = next(color_cycle)
+    plt.loglog(x, y, linestyle='', marker='o', label=r'J={:.8f}'.format(J), c=c)
+    plt.loglog(x, corr, c=c)
     miny = min(miny, min(y))
 
     os.chdir('..')
 
 
-plt.xlabel("r")
-plt.ylabel("<s(r) s(0)>-<s>^2")
+plt.xlabel(r"r")
+plt.ylabel(r"$\langle s(r) s(0)\rangle -\langle s\rangle^2$")
 plt.xlim(min(x)-0.1,max(x)+0.1)
-# plt.ylim(miny-0.1, 1+0.1)
-plt.ylim(0.1, 1+0.1)
+plt.ylim(miny-0.1, 1+0.1)
+# plt.ylim(0.1, 1+0.1)
 plt.legend(loc=3)
 plt.title("C={}".format(C))
 plt.savefig("corr_C={}.{}".format(C,form))
