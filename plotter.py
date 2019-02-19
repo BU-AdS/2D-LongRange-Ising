@@ -46,9 +46,11 @@ for J in Jlist[1::2]:
     print("y={}".format(y))
 
     c = next(color_cycle)
-    plt.loglog(x, y, linestyle='', marker='o', label=r'J={:.8f}'.format(J), c=c)
-    plt.loglog(x, corr, c=c)
-    miny = min(miny, min(y))
+    # plt.loglog(x, y, linestyle='', marker='o', label=r'J={:.8f}'.format(J), c=c)
+    # plt.loglog(x, corr, c=c)
+    plt.plot(x, log(y), linestyle='', marker='o', label=r'J={:.8f}'.format(J), c=c)
+    # miny = min(miny, min(y))
+    miny = min(miny, min(log(y)))
 
     os.chdir('..')
 

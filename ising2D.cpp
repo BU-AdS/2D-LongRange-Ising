@@ -43,6 +43,14 @@ Ising2D::Ising2D(Param p) {
   int x_len = S1/2 + 1;
   int t_len = Lt/2 + 1;
   int arr_len = x_len*t_len;
+
+  // Initialize csv file for observables
+  char fname[256];
+  sprintf(fname, "JKobservables.csv");
+  FILE *fp = fopen(fname, "w"); 
+  fprintf(fp, "idx,sigma,J,SpecHeat,jkErrSpecHeat,Suscep,jkErrSuscep,avePhi,avePhi2,avePhiAb,Binder,jkErrBinder\n");
+  fclose(fp);
+
   
   //Long Range coupling array
   LR_couplings = (double*)malloc(arr_len*sizeof(double));

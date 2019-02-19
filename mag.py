@@ -6,10 +6,11 @@ from sys import exit, argv
 from paramplots import *
 from util import *
 import sys, os
+import pandas as pd
 
 form = "png"
 
-fname = "JKobservables.dat"
+fname = "JKobservables.csv"
 miny = 1
 
 if len(sys.argv)<2:
@@ -17,6 +18,14 @@ if len(sys.argv)<2:
     exit(0)
 
 C = int(argv[1])
+
+
+data = pd.read_csv(fname)
+print(data)
+
+print(data.columns)
+
+exit(0)
 
 for J in Jlist[1::2]:
     dname = "J={:.8f}_C={}_v2".format(J,C)
