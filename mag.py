@@ -20,26 +20,21 @@ if len(sys.argv)<2:
 C = int(argv[1])
 
 
-data = pd.read_csv(fname)
-print(data)
-
-print(data.columns)
-
-exit(0)
-
 for J in Jlist[1::2]:
-    dname = "J={:.8f}_C={}_v2".format(J,C)
+    dname = "J={:.8f}_C={}_v3".format(J,C)
     os.chdir(dname)
 
-    with open(fname, 'r') as f:
-        t = array([int(line.split()[0]) for line in f.readlines()])
+    data = pd.read_csv(fname)
+
+    # with open(fname, 'r') as f:
+        # t = array([int(line.split()[0]) for line in f.readlines()])
+    # with open(fname, 'r') as f:
+        # mag = array([float(line.split()[-2]) for line in f.readlines()])
+
+    t = data['idx'].tolist()
+    mag = data['avePhi'].tolist()
 
     print(t)
-
-    with open(fname, 'r') as f:
-        # FIXME
-        mag = array([float(line.split()[-2]) for line in f.readlines()])
-
     print(mag)
 
     os.chdir('..')

@@ -461,9 +461,12 @@ void Ising2D::measureI(observables &obs, int &idx, Param p) {
   for(int i=0; i<vol; i++) {
     obs.MagPhi += s[i];
   }  
+  // MagPhi represents the average magnetization at time t, MagPhi(t) = 1/V \sum_i s_i(t)
   obs.MagPhi *= rhoVol;
 
   obs.avePhiAb += abs(obs.MagPhi);
+  // avePhi is the integrated magnetization over all earlier times. To obtain statistical average, we should divide by
+  // number of samples
   obs.avePhi   += obs.MagPhi;
   obs.avePhi2  += obs.MagPhi*obs.MagPhi;
   obs.avePhi4  += obs.MagPhi*obs.MagPhi*obs.MagPhi*obs.MagPhi;

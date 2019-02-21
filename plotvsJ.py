@@ -11,6 +11,7 @@ import pandas as pd
 import copy
 
 
+form = "png"
 fname = "JKobservables.csv"
 
 color_cycle2 = copy.deepcopy(color_cycle)
@@ -29,14 +30,16 @@ for C in Clist:
 
         binder.append(data["Binder"].tolist()[-1])
 
-        # Time series of the total magnetization
-        magTS = data["avePhi"]
-        magSqTS= magTS**2
-        magAbsTS = abs(magTS)
+        suscep.append(data["Suscep"].tolist()[-1])
 
-        T = len(magTS)
-        # print("T = {}".format(T))
-        suscep.append(1/T*sum(magSqTS)-(1/T*sum(magAbsTS))**2)
+#         # Time series of the total magnetization
+        # magTS = data["avePhi"]
+        # magSqTS= magTS**2
+        # magAbsTS = abs(magTS)
+
+        # T = len(magTS)
+        # # print("T = {}".format(T))
+        # suscep.append(1/T*sum(magSqTS)-(1/T*sum(magAbsTS))**2)
 
 
 #         # Read Binder cumulant
@@ -72,11 +75,11 @@ plt.axvline(J0)
 plt.xlabel("J")
 plt.ylabel("Binder")
 plt.legend()
-plt.savefig("Binder.pdf")
+plt.savefig("Binder.{}".format(form))
 
 plt.figure(2)
 plt.axvline(J0)
 plt.xlabel("J")
 plt.ylabel("Suscep")
 plt.legend()
-plt.savefig("Suscep.pdf")
+plt.savefig("Suscep.{}".format(form))
