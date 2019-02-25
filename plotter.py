@@ -17,7 +17,8 @@ miny = 1
 
 # Index of J at which we perform the fit
 # ifit = 1
-Jfit = {64:0.436279925565, 256:0.44068}
+Jfit = {64:0.436279925565, 128:0.44068, 256:0.44068}
+Jrange = {64:[0.43, 0.441], 128:[0.435,0.448], 256:[0.435,0.448]}
 
 if len(sys.argv)<2:
     print("{} <C>".format(argv[0]))
@@ -26,7 +27,7 @@ if len(sys.argv)<2:
 C = int(argv[1])
 
 
-for i,J in enumerate(Jlist[8:11]):
+for J in [x for x in Jlist if x>Jrange[C][0] and x<Jrange[C][1]]:
     dname = dirname(J,C)
     os.chdir(dname)
 
