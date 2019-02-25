@@ -3,7 +3,6 @@ import numpy as np
 # Critical temperature for infinite volume system
 J0 = 0.4406867935
 
-Clist = [8,16,32,64,128]
 
 # Jlist = np.linspace(0.8, 1.2, 11)*J0
 Jlist = np.linspace(0.9, 1.1, 21)*J0

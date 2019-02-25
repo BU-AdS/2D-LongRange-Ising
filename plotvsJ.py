@@ -16,7 +16,7 @@ fname = "JKobservables.csv"
 
 color_cycle2 = copy.deepcopy(color_cycle)
 
-for C in Clist:
+for C in sideList:
 
     binder = []
 # The susceptibility here is defined as <M^2> - <|M|>^2
