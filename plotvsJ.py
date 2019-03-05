@@ -64,6 +64,7 @@ for C in sideList:
             label="C={}".format(C))
 
 
+
     plt.figure(2)
     c2 = next(color_cycle2)
     plt.plot(Jlist, suscep, linestyle='--', marker='o', c=c2,
@@ -72,6 +73,10 @@ for C in sideList:
 
 
 plt.figure(1)
+
+
+plt.axhline(0.6105, label="Critical B")
+
 plt.ylim(0.55,0.7)
 plt.xlim(0.42,0.46)
 plt.axvline(J0)
