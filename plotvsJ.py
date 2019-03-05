@@ -63,6 +63,7 @@ for C in sideList:
     plt.plot(Jlist, binder, linestyle='--', marker='o', c=c,
             label="C={}".format(C))
 
+
     plt.figure(2)
     c2 = next(color_cycle2)
     plt.plot(Jlist, suscep, linestyle='--', marker='o', c=c2,
@@ -71,6 +72,8 @@ for C in sideList:
 
 
 plt.figure(1)
+plt.ylim(0.55,0.7)
+plt.xlim(0.42,0.46)
 plt.axvline(J0)
 plt.xlabel("J")
 plt.ylabel("Binder")

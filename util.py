@@ -20,5 +20,6 @@ JcritDict = {L: array([0.95, 1.00, 1.05])*Jcrit(L) for L in sideList}
 
 # Directory name based on value of J and Box size
 def dirname(J, C):
-    return "J={:.8f}_C={}_v5".format(J,C)
+    return "J={:.8f}_C={}_v4".format(J,C)
+    # return "J={:.8f}_C={}_v5".format(J,C)
 
